@@ -160,6 +160,8 @@ S3 버킷               ECS Fargate
 
 | 환경 | 브랜치 | 용도 |
 |---|---|---|
+| Development | `feature/*`, `fix/*` 등 작업 브랜치 | 로컬 개발 및 PR CI 검증 |
+| Staging | `staging` | 배포 전 통합 테스트 및 QA |
 | Production | `main` | 실 서비스 |
 
 ---
@@ -384,10 +386,16 @@ cart_items       장바구니 상품
 - [ ] GitHub Actions CD 파이프라인 구성
   - [ ] Backend: ECR Push → ECS Fargate Rolling Deploy
   - [ ] Frontend: Next.js Build → S3 Upload → CloudFront Invalidation
+- [ ] Staging 환경 구성 및 CD 파이프라인 연결 (`staging` 브랜치 → Staging 자동 배포)
 - [ ] 도메인 연결 및 SSL 인증서 설정 (ACM)
 - [ ] CloudFront WAF 설정
 - [ ] CloudWatch + Sentry 모니터링 연동
 - [ ] Prisma 마이그레이션 자동 실행 설정
+- [ ] DB 백업 & 복구 전략 설정
+  - [ ] RDS 자동 백업 활성화 (보관 기간 7일 이상)
+  - [ ] RDS 스냅샷 정책 수립 (주간 수동 스냅샷)
+  - [ ] 스냅샷 S3 장기 보관 설정
+  - [ ] 복구 절차 문서화 및 복구 테스트 실시
 - [ ] 론칭 전 최종 체크리스트 검수
 
 ---
@@ -396,13 +404,24 @@ cart_items       장바구니 상품
 
 ```
 main (production)
- └── claude/<작업명>  작업 브랜치
+ ├── staging                   배포 전 통합 테스트 및 QA
+ ├── feature/<작업명>          신규 기능 개발
+ ├── fix/<작업명>              버그 수정
+ └── refactor/<작업명>         리팩터링
         └── PR 생성 → CI 자동 실행 → Approve → Merge → CD 자동 배포
 ```
+
+| 접두사 | 용도 | 예시 |
+|---|---|---|
+| `feature/` | 신규 기능 개발 | `feature/user-auth` |
+| `fix/` | 버그 수정 | `fix/cart-sync-error` |
+| `refactor/` | 코드 리팩터링 | `refactor/product-service` |
+| `chore/` | 설정, 문서, 의존성 등 | `chore/update-dependencies` |
 
 - 모든 작업은 `main`에서 분기
 - PR Merge 조건: CI 통과 + 관리자 Approve
 - 직접 `main` 푸시 금지
+- `staging` 브랜치는 `main` 병합 전 QA 검증용
 
 ---
 
