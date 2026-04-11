@@ -21,14 +21,14 @@
 
 ## 1. 서비스 개요
 
-| 항목 | 내용 |
-|---|---|
-| 서비스명 | 유이룸 (Yu-ee Room) |
-| 카테고리 | 유아/아동복 및 악세사리 온라인 쇼핑몰 |
-| 운영 방식 | 완전 비공개 (회원제) |
-| 회원가입 | 신청 후 관리자 승인 필수 |
+| 항목      | 내용                                       |
+| --------- | ------------------------------------------ |
+| 서비스명  | 유이룸 (Yu-ee Room)                        |
+| 카테고리  | 유아/아동복 및 악세사리 온라인 쇼핑몰      |
+| 운영 방식 | 완전 비공개 (회원제)                       |
+| 회원가입  | 신청 후 관리자 승인 필수                   |
 | 상품 열람 | 승인된 회원만 가능 (비회원 접근 전면 차단) |
-| 타겟 시장 | 한국 |
+| 타겟 시장 | 한국                                       |
 
 ### 회원 상태 구조
 
@@ -46,59 +46,59 @@
 
 ### 프론트엔드
 
-| 항목 | 기술 |
-|---|---|
-| 프레임워크 | Next.js 14+ (App Router) |
-| 언어 | TypeScript |
-| 스타일링 | Tailwind CSS v4 + shadcn/ui |
-| 클라이언트 상태 | Zustand |
-| 서버 상태 | TanStack Query |
+| 항목             | 기술                           |
+| ---------------- | ------------------------------ |
+| 프레임워크       | Next.js 14+ (App Router)       |
+| 언어             | TypeScript                     |
+| 스타일링         | Tailwind CSS v4 + shadcn/ui    |
+| 클라이언트 상태  | Zustand                        |
+| 서버 상태        | TanStack Query                 |
 | 단위/통합 테스트 | Vitest + React Testing Library |
-| E2E 테스트 | Playwright |
+| E2E 테스트       | Playwright                     |
 
 ### 백엔드
 
-| 항목 | 기술 |
-|---|---|
-| 프레임워크 | NestJS 10+ |
-| 언어 | TypeScript |
-| ORM | Prisma |
-| 인증 | Passport.js + JWT + bcrypt |
-| 단위/통합 테스트 | Jest + Supertest |
+| 항목             | 기술                       |
+| ---------------- | -------------------------- |
+| 프레임워크       | NestJS 10+                 |
+| 언어             | TypeScript                 |
+| ORM              | Prisma                     |
+| 인증             | Passport.js + JWT + bcrypt |
+| 단위/통합 테스트 | Jest + Supertest           |
 
 ### 데이터베이스
 
-| 항목 | 기술 |
-|---|---|
-| 메인 DB | AWS RDS PostgreSQL 15+ |
-| 캐시 | AWS ElastiCache Redis 7+ |
+| 항목    | 기술                     |
+| ------- | ------------------------ |
+| 메인 DB | AWS RDS PostgreSQL 15+   |
+| 캐시    | AWS ElastiCache Redis 7+ |
 
 ### 결제
 
-| 항목 | 기술 |
-|---|---|
-| 글로벌 | Stripe |
-| 국내 | Naver Pay + KakaoPay |
+| 항목   | 기술                 |
+| ------ | -------------------- |
+| 글로벌 | Stripe               |
+| 국내   | Naver Pay + KakaoPay |
 
 ### AWS 인프라
 
-| 역할 | 서비스 |
-|---|---|
-| 프론트엔드 배포 | S3 + CloudFront |
-| 백엔드 배포 | ECS Fargate (Docker) |
-| Docker 이미지 저장소 | ECR |
-| 데이터베이스 | RDS PostgreSQL |
-| 캐시 | ElastiCache Redis |
-| 파일 스토리지 | S3 |
-| 이메일 발송 | SES (가입 승인 알림) |
-| SSL 인증서 | ACM |
-| 모니터링 | CloudWatch + Sentry |
-| 권한 관리 | IAM (최소 권한 원칙) |
+| 역할                 | 서비스               |
+| -------------------- | -------------------- |
+| 프론트엔드 배포      | S3 + CloudFront      |
+| 백엔드 배포          | ECS Fargate (Docker) |
+| Docker 이미지 저장소 | ECR                  |
+| 데이터베이스         | RDS PostgreSQL       |
+| 캐시                 | ElastiCache Redis    |
+| 파일 스토리지        | S3                   |
+| 이메일 발송          | SES (가입 승인 알림) |
+| SSL 인증서           | ACM                  |
+| 모니터링             | CloudWatch + Sentry  |
+| 권한 관리            | IAM (최소 권한 원칙) |
 
 ### CI/CD
 
-| 항목 | 기술 |
-|---|---|
+| 항목   | 기술           |
+| ------ | -------------- |
 | 플랫폼 | GitHub Actions |
 
 ---
@@ -158,11 +158,11 @@ S3 버킷               ECS Fargate
 
 ### 환경 분리
 
-| 환경 | 브랜치 | 용도 |
-|---|---|---|
-| Development | `feature/*`, `fix/*` 등 작업 브랜치 | 로컬 개발 및 PR CI 검증 |
-| Staging | `staging` | 배포 전 통합 테스트 및 QA |
-| Production | `main` | 실 서비스 |
+| 환경        | 브랜치                              | 용도                      |
+| ----------- | ----------------------------------- | ------------------------- |
+| Development | `feature/*`, `fix/*` 등 작업 브랜치 | 로컬 개발 및 PR CI 검증   |
+| Staging     | `staging`                           | 배포 전 통합 테스트 및 QA |
+| Production  | `main`                              | 실 서비스                 |
 
 ---
 
@@ -252,6 +252,7 @@ CloudFront 캐시 Invalidation
 **목표:** 핵심 데이터 구조 확립, 비공개 서비스에 맞는 회원 인증 시스템 구축
 
 **DB 스키마:**
+
 ```
 users            회원 (상태: PENDING / APPROVED / REJECTED / SUSPENDED)
 addresses        배송지
@@ -271,6 +272,7 @@ cart_items       장바구니 상품
 ```
 
 **구현 항목:**
+
 - [ ] Prisma 스키마 설계 및 초기 마이그레이션
 - [ ] 이메일 회원가입 신청 API (PENDING 상태로 생성)
 - [ ] 관리자 승인/거절 API
@@ -305,11 +307,13 @@ cart_items       장바구니 상품
 **목표:** 로그인/가입신청 외 모든 페이지 인증 필수 구조로 구현
 
 **공개 페이지 (비회원 접근 가능):**
+
 - [ ] 로그인 페이지
 - [ ] 회원가입 신청 페이지
 - [ ] 승인 대기 안내 페이지
 
 **인증 페이지 (APPROVED 회원만 접근):**
+
 - [ ] 공통 레이아웃 (헤더, 푸터, 모바일 네비게이션)
 - [ ] 홈페이지 (배너, 신상품, 카테고리 퀵링크)
 - [ ] 상품 목록 페이지 (필터링, 정렬, 페이지네이션)
@@ -411,12 +415,12 @@ main (production)
         └── PR 생성 → CI 자동 실행 → Approve → Merge → CD 자동 배포
 ```
 
-| 접두사 | 용도 | 예시 |
-|---|---|---|
-| `feature/` | 신규 기능 개발 | `feature/user-auth` |
-| `fix/` | 버그 수정 | `fix/cart-sync-error` |
-| `refactor/` | 코드 리팩터링 | `refactor/product-service` |
-| `chore/` | 설정, 문서, 의존성 등 | `chore/update-dependencies` |
+| 접두사      | 용도                  | 예시                        |
+| ----------- | --------------------- | --------------------------- |
+| `feature/`  | 신규 기능 개발        | `feature/user-auth`         |
+| `fix/`      | 버그 수정             | `fix/cart-sync-error`       |
+| `refactor/` | 코드 리팩터링         | `refactor/product-service`  |
+| `chore/`    | 설정, 문서, 의존성 등 | `chore/update-dependencies` |
 
 - 모든 작업은 `main`에서 분기
 - PR Merge 조건: CI 통과 + 관리자 Approve
@@ -427,13 +431,13 @@ main (production)
 
 ## 8. 보안 정책
 
-| 항목 | 정책 |
-|---|---|
-| 카드 정보 저장 | 직접 저장 금지, 토큰화 필수 |
-| API 통신 | TLS 1.2 이상 필수 |
-| 비밀번호 | bcrypt 해싱 |
-| 관리자 계정 | MFA 필수 |
-| IAM | 최소 권한 원칙 |
-| 환경변수 | `.env` Git 커밋 금지 |
-| 미인증 접근 | 로그인/가입신청 외 전체 차단 |
-| 개인정보 | 한국 개인정보보호법(PIPA) 준수 |
+| 항목           | 정책                           |
+| -------------- | ------------------------------ |
+| 카드 정보 저장 | 직접 저장 금지, 토큰화 필수    |
+| API 통신       | TLS 1.2 이상 필수              |
+| 비밀번호       | bcrypt 해싱                    |
+| 관리자 계정    | MFA 필수                       |
+| IAM            | 최소 권한 원칙                 |
+| 환경변수       | `.env` Git 커밋 금지           |
+| 미인증 접근    | 로그인/가입신청 외 전체 차단   |
+| 개인정보       | 한국 개인정보보호법(PIPA) 준수 |
