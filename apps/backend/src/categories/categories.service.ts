@@ -8,12 +8,12 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // [리뷰 수정] 2depth만 조회 (Root > Child)
   async findAll() {
     return this.prisma.category.findMany({
       where: { parentId: null },
       include: {
         children: {
-          include: { children: true },
           orderBy: { displayOrder: 'asc' },
         },
       },
@@ -38,8 +38,16 @@ export class CategoriesService {
     });
   }
 
+  // [리뷰 수정] slug 변경 시 중복 체크 추가
   async update(id: string, dto: UpdateCategoryDto): Promise<Category> {
     await this.findOneOrFail(id);
+
+    if (dto.slug) {
+      const existing = await this.prisma.category.findUnique({ where: { slug: dto.slug } });
+      if (existing && existing.id !== id) {
+        throw new BadRequestException(`이미 사용 중인 slug입니다: ${dto.slug}`);
+      }
+    }
 
     return this.prisma.category.update({
       where: { id },
@@ -47,14 +55,21 @@ export class CategoriesService {
     });
   }
 
+  // [리뷰 수정] 하위 카테고리 존재 여부도 함께 확인 (_count 단일 쿼리)
   async remove(id: string): Promise<void> {
-    await this.findOneOrFail(id);
-
-    const productCount = await this.prisma.category.count({
-      where: { id, products: { some: {} } },
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { products: true, children: true } },
+      },
     });
-    if (productCount > 0) {
-      throw new BadRequestException('하위 상품이 있는 카테고리는 삭제할 수 없습니다.');
+
+    if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${id}`);
+
+    if (category._count.products > 0 || category._count.children > 0) {
+      throw new BadRequestException(
+        '하위 상품 또는 하위 카테고리가 있는 카테고리는 삭제할 수 없습니다.',
+      );
     }
 
     await this.prisma.category.delete({ where: { id } });

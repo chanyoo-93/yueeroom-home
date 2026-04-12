@@ -29,6 +29,11 @@ const mockSubCategory = {
   children: [],
 };
 
+const mockCategoryWithCount = (products: number, children: number) => ({
+  ...mockRootCategory,
+  _count: { products, children },
+});
+
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockPrisma = {
@@ -59,7 +64,7 @@ describe('CategoriesService', () => {
   // ── findAll ──────────────────────────────────────────────────────────────────
 
   describe('findAll', () => {
-    it('최상위 카테고리를 children 포함 트리 구조로 반환한다', async () => {
+    it('최상위 카테고리를 children 포함 2depth 트리 구조로 반환한다', async () => {
       const tree = [{ ...mockRootCategory, children: [mockSubCategory] }];
       mockPrisma.category.findMany.mockResolvedValue(tree);
 
@@ -126,14 +131,34 @@ describe('CategoriesService', () => {
         NotFoundException,
       );
     });
+
+    it('수정 시 이미 다른 카테고리가 사용 중인 slug면 BadRequestException을 던진다', async () => {
+      // findOneOrFail 호출 → 대상 카테고리 반환
+      // slug 중복 체크 → 다른 카테고리(cat-99)가 해당 slug 사용 중
+      mockPrisma.category.findUnique
+        .mockResolvedValueOnce(mockRootCategory) // findOneOrFail
+        .mockResolvedValueOnce({ ...mockSubCategory, id: 'cat-99', slug: 'used-slug' }); // slug check
+
+      await expect(service.update('cat-1', { slug: 'used-slug' })).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('자신의 slug로 수정 시 BadRequestException을 던지지 않는다', async () => {
+      mockPrisma.category.findUnique
+        .mockResolvedValueOnce(mockRootCategory) // findOneOrFail
+        .mockResolvedValueOnce(mockRootCategory); // slug check (same id)
+      mockPrisma.category.update.mockResolvedValue(mockRootCategory);
+
+      await expect(service.update('cat-1', { slug: 'tops' })).resolves.not.toThrow();
+    });
   });
 
   // ── remove ───────────────────────────────────────────────────────────────────
 
   describe('remove', () => {
-    it('상품이 없는 카테고리를 삭제한다', async () => {
-      mockPrisma.category.findUnique.mockResolvedValue(mockRootCategory);
-      mockPrisma.category.count.mockResolvedValue(0);
+    it('상품과 하위 카테고리가 없는 카테고리를 삭제한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue(mockCategoryWithCount(0, 0));
       mockPrisma.category.delete.mockResolvedValue(mockRootCategory);
 
       await service.remove('cat-1');
@@ -148,8 +173,13 @@ describe('CategoriesService', () => {
     });
 
     it('연결된 상품이 있는 카테고리 삭제 시 BadRequestException을 던진다', async () => {
-      mockPrisma.category.findUnique.mockResolvedValue(mockRootCategory);
-      mockPrisma.category.count.mockResolvedValue(3);
+      mockPrisma.category.findUnique.mockResolvedValue(mockCategoryWithCount(3, 0));
+
+      await expect(service.remove('cat-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('하위 카테고리가 있는 카테고리 삭제 시 BadRequestException을 던진다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue(mockCategoryWithCount(0, 2));
 
       await expect(service.remove('cat-1')).rejects.toThrow(BadRequestException);
     });
