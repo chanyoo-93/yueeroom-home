@@ -101,6 +101,91 @@ describe('ProductsService', () => {
         expect.objectContaining({ where: { isActive: false } }),
       );
     });
+
+    it('categoryId 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ categoryId: 'cat-1' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ categoryId: 'cat-1' }) }),
+      );
+    });
+
+    it('minPrice, maxPrice 가격 범위 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ minPrice: 10000, maxPrice: 50000 });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            basePrice: { gte: 10000, lte: 50000 },
+          }),
+        }),
+      );
+    });
+
+    it('size 필터 — 해당 사이즈 변형을 보유한 상품만 조회한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ size: 'M' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            variants: { some: { size: 'M' } },
+          }),
+        }),
+      );
+    });
+
+    it('sort=price_asc이면 basePrice 오름차순으로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ sort: 'price_asc' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { basePrice: 'asc' } }),
+      );
+    });
+
+    it('sort=price_desc이면 basePrice 내림차순으로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ sort: 'price_desc' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { basePrice: 'desc' } }),
+      );
+    });
+
+    it('sort 미지정이면 최신순(createdAt desc)으로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({});
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { createdAt: 'desc' } }),
+      );
+    });
+
+    it('cursor를 제공하면 cursor 기반 페이지네이션을 사용한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+
+      const result = await service.findAll({ cursor: 'prod-0', limit: 10 });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ cursor: { id: 'prod-0' }, skip: 1, take: 10 }),
+      );
+      expect(result).toHaveProperty('nextCursor');
+    });
   });
 
   // ── findOne ──────────────────────────────────────────────────────────────────

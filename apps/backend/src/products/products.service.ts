@@ -3,7 +3,7 @@ import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { ProductQueryDto } from './dto/product-query.dto';
+import { ProductQueryDto, SortOrder } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
@@ -14,11 +14,40 @@ export class ProductsService {
   ) {}
 
   async findAll(query: ProductQueryDto) {
-    const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const orderBy = this.resolveOrderBy(query.sort);
 
-    const where = { isActive: query.isActive ?? true };
+    const where: Prisma.ProductWhereInput = {
+      isActive: query.isActive ?? true,
+      ...(query.categoryId && { categoryId: query.categoryId }),
+      ...(query.minPrice !== undefined || query.maxPrice !== undefined
+        ? {
+            basePrice: {
+              ...(query.minPrice !== undefined && { gte: query.minPrice }),
+              ...(query.maxPrice !== undefined && { lte: query.maxPrice }),
+            },
+          }
+        : {}),
+      ...(query.size && { variants: { some: { size: query.size } } }),
+    };
+
+    // cursor 기반 페이지네이션
+    if (query.cursor) {
+      const data = await this.prisma.product.findMany({
+        take: limit,
+        skip: 1,
+        cursor: { id: query.cursor },
+        where,
+        include: { category: { select: { id: true, name: true, slug: true } } },
+        orderBy,
+      });
+      const nextCursor = data.length === limit ? (data[data.length - 1]?.id ?? null) : null;
+      return { data, limit, nextCursor };
+    }
+
+    // offset 기반 페이지네이션 (기본)
+    const page = query.page ?? 1;
+    const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
@@ -26,12 +55,23 @@ export class ProductsService {
         take: limit,
         where,
         include: { category: { select: { id: true, name: true, slug: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       this.prisma.product.count({ where }),
     ]);
 
     return { data, total, page, limit };
+  }
+
+  private resolveOrderBy(sort?: SortOrder): Prisma.ProductOrderByWithRelationInput {
+    switch (sort) {
+      case 'price_asc':
+        return { basePrice: 'asc' };
+      case 'price_desc':
+        return { basePrice: 'desc' };
+      default:
+        return { createdAt: 'desc' };
+    }
   }
 
   async findOne(id: string) {
