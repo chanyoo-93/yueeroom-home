@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
 import { FilesService } from '../files/files.service';
@@ -86,8 +86,9 @@ describe('ProductsService', () => {
 
       await service.findAll({});
 
+      // limit+1 조회로 hasNext 판단하므로 take=21
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ skip: 0, take: 20 }),
+        expect.objectContaining({ skip: 0, take: 21 }),
       );
     });
 
@@ -100,6 +101,108 @@ describe('ProductsService', () => {
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { isActive: false } }),
       );
+    });
+
+    it('categoryId 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ categoryId: 'cat-1' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ categoryId: 'cat-1' }) }),
+      );
+    });
+
+    it('minPrice, maxPrice 가격 범위 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ minPrice: 10000, maxPrice: 50000 });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            basePrice: { gte: 10000, lte: 50000 },
+          }),
+        }),
+      );
+    });
+
+    it('size 필터 — 해당 사이즈 변형을 보유한 상품만 조회한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ size: 'M' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            variants: { some: { size: 'M' } },
+          }),
+        }),
+      );
+    });
+
+    it('sort=price_asc이면 [basePrice asc, id desc] 배열로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ sort: 'price_asc' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ basePrice: 'asc' }, { id: 'desc' }] }),
+      );
+    });
+
+    it('sort=price_desc이면 [basePrice desc, id desc] 배열로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({ sort: 'price_desc' });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ basePrice: 'desc' }, { id: 'desc' }] }),
+      );
+    });
+
+    it('sort 미지정이면 [createdAt desc, id desc] 배열로 정렬한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      await service.findAll({});
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }),
+      );
+    });
+
+    it('cursor를 제공하면 cursor 기반 페이지네이션을 사용하고 nextCursor를 반환한다', async () => {
+      // limit=1, take=limit+1=2 조회했는데 1개만 오면 nextCursor=null
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+
+      const result = await service.findAll({ cursor: 'prod-0', limit: 1 });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ cursor: { id: 'prod-0' }, skip: 1, take: 2 }),
+      );
+      expect(result).toHaveProperty('nextCursor');
+    });
+
+    it('offset 모드에서도 nextCursor를 반환한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrisma.product.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ page: 1, limit: 10 });
+
+      expect(result).toHaveProperty('nextCursor');
+    });
+
+    it('minPrice가 maxPrice보다 크면 BadRequestException을 던진다', async () => {
+      await expect(service.findAll({ minPrice: 50000, maxPrice: 10000 })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.product.findMany).not.toHaveBeenCalled();
     });
   });
 

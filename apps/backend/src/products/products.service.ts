@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { ProductQueryDto } from './dto/product-query.dto';
+import { ProductQueryDto, SortOrder } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
@@ -14,24 +14,78 @@ export class ProductsService {
   ) {}
 
   async findAll(query: ProductQueryDto) {
-    const page = query.page ?? 1;
+    if (
+      query.minPrice !== undefined &&
+      query.maxPrice !== undefined &&
+      query.minPrice > query.maxPrice
+    ) {
+      throw new BadRequestException('minPrice는 maxPrice보다 클 수 없습니다.');
+    }
+
     const limit = query.limit ?? 20;
-    const skip = (page - 1) * limit;
+    const orderBy = this.resolveOrderBy(query.sort);
 
-    const where = { isActive: query.isActive ?? true };
+    const where: Prisma.ProductWhereInput = {
+      isActive: query.isActive ?? true,
+      ...(query.categoryId && { categoryId: query.categoryId }),
+      ...(query.minPrice !== undefined || query.maxPrice !== undefined
+        ? {
+            basePrice: {
+              ...(query.minPrice !== undefined && { gte: query.minPrice }),
+              ...(query.maxPrice !== undefined && { lte: query.maxPrice }),
+            },
+          }
+        : {}),
+      ...(query.size && { variants: { some: { size: query.size } } }),
+    };
 
-    const [data, total] = await Promise.all([
-      this.prisma.product.findMany({
-        skip,
-        take: limit,
+    // cursor 기반 페이지네이션
+    if (query.cursor) {
+      const rows = await this.prisma.product.findMany({
+        take: limit + 1,
+        skip: 1,
+        cursor: { id: query.cursor },
         where,
         include: { category: { select: { id: true, name: true, slug: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
+      });
+      const hasNext = rows.length > limit;
+      const data = hasNext ? rows.slice(0, limit) : rows;
+      const nextCursor = hasNext ? (data[data.length - 1]?.id ?? null) : null;
+      return { data, limit, nextCursor };
+    }
+
+    // offset 기반 페이지네이션 (기본) — nextCursor도 함께 반환
+    const page = query.page ?? 1;
+    const skip = (page - 1) * limit;
+
+    const [rows, total] = await Promise.all([
+      this.prisma.product.findMany({
+        take: limit + 1,
+        skip,
+        where,
+        include: { category: { select: { id: true, name: true, slug: true } } },
+        orderBy,
       }),
       this.prisma.product.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    const hasNext = rows.length > limit;
+    const data = hasNext ? rows.slice(0, limit) : rows;
+    const nextCursor = hasNext ? (data[data.length - 1]?.id ?? null) : null;
+    return { data, total, page, limit, nextCursor };
+  }
+
+  private resolveOrderBy(sort?: SortOrder): Prisma.ProductOrderByWithRelationInput[] {
+    const secondary: Prisma.ProductOrderByWithRelationInput = { id: 'desc' };
+    switch (sort) {
+      case 'price_asc':
+        return [{ basePrice: 'asc' }, secondary];
+      case 'price_desc':
+        return [{ basePrice: 'desc' }, secondary];
+      default:
+        return [{ createdAt: 'desc' }, secondary];
+    }
   }
 
   async findOne(id: string) {
