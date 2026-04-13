@@ -4,5 +4,5 @@ export class SearchProductDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  q: string;
+  q!: string;
 }
