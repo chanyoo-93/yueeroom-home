@@ -41,13 +41,41 @@ describe('RegisterPage', () => {
     expect(screen.getByText('비밀번호 확인을 입력해주세요.')).toBeInTheDocument();
   });
 
-  it('비밀번호 확인이 일치하지 않으면 오류 메시지를 표시한다', async () => {
+  it('이름이 2자 미만이면 오류 메시지를 표시한다', async () => {
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText('이름'), '홍');
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByRole('button', { name: '가입 신청' }));
+
+    expect(await screen.findByText('이름은 최소 2자 이상이어야 합니다.')).toBeInTheDocument();
+  });
+
+  it('비밀번호가 복잡성 규칙을 충족하지 않으면 오류 메시지를 표시한다', async () => {
     const user = userEvent.setup();
     render(<RegisterPage />);
 
     await user.type(screen.getByLabelText('이름'), '홍길동');
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123');
+    await user.click(screen.getByRole('button', { name: '가입 신청' }));
+
+    expect(
+      await screen.findByText('비밀번호는 영문 대/소문자, 숫자, 특수문자를 포함해야 합니다.'),
+    ).toBeInTheDocument();
+  });
+
+  it('비밀번호 확인이 일치하지 않으면 오류 메시지를 표시한다', async () => {
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText('이름'), '홍길동');
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'different123');
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
@@ -63,15 +91,15 @@ describe('RegisterPage', () => {
 
     await user.type(screen.getByLabelText('이름'), '홍길동');
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
-    await user.type(screen.getByLabelText('비밀번호'), 'password123');
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/auth/register', {
         name: '홍길동',
         email: 'test@example.com',
-        password: 'password123',
+        password: 'Password1!',
       });
     });
   });
@@ -85,8 +113,8 @@ describe('RegisterPage', () => {
 
     await user.type(screen.getByLabelText('이름'), '홍길동');
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
-    await user.type(screen.getByLabelText('비밀번호'), 'password123');
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
@@ -104,8 +132,8 @@ describe('RegisterPage', () => {
 
     await user.type(screen.getByLabelText('이름'), '홍길동');
     await user.type(screen.getByLabelText('이메일'), 'duplicate@example.com');
-    await user.type(screen.getByLabelText('비밀번호'), 'password123');
-    await user.type(screen.getByLabelText('비밀번호 확인'), 'password123');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     expect(await screen.findByText('이미 사용 중인 이메일입니다.')).toBeInTheDocument();

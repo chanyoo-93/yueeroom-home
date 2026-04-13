@@ -53,7 +53,11 @@ export default function RegisterPage() {
               id="name"
               type="text"
               className="mt-1 w-full rounded border px-3 py-2"
-              {...register('name', { required: '이름을 입력해주세요.' })}
+              {...register('name', {
+                required: '이름을 입력해주세요.',
+                minLength: { value: 2, message: '이름은 최소 2자 이상이어야 합니다.' },
+                maxLength: { value: 50, message: '이름은 50자 이내로 입력해주세요.' },
+              })}
             />
             {errors.name && (
               <p role="alert" className="mt-1 text-sm text-red-600">
@@ -93,7 +97,15 @@ export default function RegisterPage() {
               id="password"
               type="password"
               className="mt-1 w-full rounded border px-3 py-2"
-              {...register('password', { required: '비밀번호를 입력해주세요.' })}
+              {...register('password', {
+                required: '비밀번호를 입력해주세요.',
+                minLength: { value: 8, message: '비밀번호는 최소 8자 이상이어야 합니다.' },
+                maxLength: { value: 100, message: '비밀번호는 100자 이내로 입력해주세요.' },
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/,
+                  message: '비밀번호는 영문 대/소문자, 숫자, 특수문자를 포함해야 합니다.',
+                },
+              })}
             />
             {errors.password && (
               <p role="alert" className="mt-1 text-sm text-red-600">
