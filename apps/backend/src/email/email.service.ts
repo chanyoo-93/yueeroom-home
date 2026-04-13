@@ -27,6 +27,15 @@ export class EmailService {
     await this.send(to, '[유이룸] 회원가입 신청 결과 안내', this.rejectionTemplate(name));
   }
 
+  async sendLowStockEmail(data: {
+    sku: string;
+    quantity: number;
+    threshold: number;
+  }): Promise<void> {
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL') ?? 'admin@yueeroom.com';
+    await this.send(adminEmail, '[유이룸] 재고 부족 알림', this.lowStockTemplate(data));
+  }
+
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const resetUrl = `${this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'}/reset-password?token=${token}`;
     await this.send(to, '[유이룸] 비밀번호 재설정 안내', this.passwordResetTemplate(resetUrl));
@@ -63,6 +72,15 @@ export class EmailService {
       <h2>안녕하세요, ${name}님.</h2>
       <p>유이룸 회원가입 신청이 <strong>거절</strong>되었습니다.</p>
       <p>문의사항이 있으시면 관리자에게 연락해주세요.</p>
+    `;
+  }
+
+  private lowStockTemplate(data: { sku: string; quantity: number; threshold: number }): string {
+    return `
+      <h2>재고 부족 알림</h2>
+      <p>상품 변형 <strong>${data.sku}</strong>의 재고가 임계값 이하로 떨어졌습니다.</p>
+      <p>현재 수량: <strong>${data.quantity}개</strong> (임계값: ${data.threshold}개)</p>
+      <p>재고를 보충해 주세요.</p>
     `;
   }
 
