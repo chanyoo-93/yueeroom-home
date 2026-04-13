@@ -62,7 +62,13 @@ export default function LoginPage() {
               id="email"
               type="email"
               className="mt-1 w-full rounded border px-3 py-2"
-              {...register('email', { required: '이메일을 입력해주세요.' })}
+              {...register('email', {
+                required: '이메일을 입력해주세요.',
+                pattern: {
+                  value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+                  message: '올바른 이메일 형식이 아닙니다.',
+                },
+              })}
             />
             {errors.email && (
               <p role="alert" className="mt-1 text-sm text-red-600">

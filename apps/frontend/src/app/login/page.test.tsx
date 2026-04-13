@@ -44,6 +44,17 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /카카오/ })).toBeInTheDocument();
   });
 
+  it('잘못된 이메일 형식 입력 시 형식 오류 메시지를 표시한다', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText('이메일'), 'invalid-email');
+    await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    expect(await screen.findByText('올바른 이메일 형식이 아닙니다.')).toBeInTheDocument();
+  });
+
   it('빈 폼 제출 시 유효성 오류 메시지를 표시한다', async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
