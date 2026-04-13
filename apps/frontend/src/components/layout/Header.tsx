@@ -10,14 +10,15 @@ export default function Header() {
         </Link>
 
         {/* 검색창 */}
-        <div className="flex flex-1 items-center">
+        <form className="flex flex-1 items-center" action="/search" method="GET">
           <input
             type="search"
+            name="q"
             placeholder="상품 검색"
             aria-label="상품 검색"
             className="w-full rounded-full border border-gray-300 px-4 py-1.5 text-sm outline-none focus:border-blue-500"
           />
-        </div>
+        </form>
 
         {/* 우측 아이콘/링크 */}
         <nav className="flex shrink-0 items-center gap-4">

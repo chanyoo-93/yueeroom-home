@@ -4,13 +4,11 @@ import MobileNav from '@/components/layout/MobileNav';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="mx-auto min-h-screen max-w-screen-xl px-4 py-4 pb-20 md:pb-4">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-screen-xl flex-1 px-4 py-4">{children}</main>
       <Footer />
       <MobileNav />
-    </>
+    </div>
   );
 }
