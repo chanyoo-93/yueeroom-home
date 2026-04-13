@@ -1,0 +1,80 @@
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const TIMEOUT_MS = 10_000;
+
+export const apiClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: TIMEOUT_MS,
+  withCredentials: true, // JWT 쿠키 전송
+});
+
+// ── 요청 인터셉터: Access Token 헤더 자동 추가 ────────────────────────────────
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // 쿠키 기반 인증 사용 시 withCredentials로 처리되므로 별도 헤더 불필요
+    // Bearer 토큰 방식 병행 사용 시 여기에 추가
+    return config;
+  },
+  (error: unknown) => Promise.reject(error),
+);
+
+// ── 응답 인터셉터: 401 시 토큰 재발급 후 재시도 ──────────────────────────────
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
+}> = [];
+
+function processQueue(error: unknown): void {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(undefined);
+    }
+  });
+  failedQueue = [];
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url !== '/auth/refresh'
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => apiClient(originalRequest))
+          .catch((err: unknown) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await apiClient.post('/auth/refresh');
+        processQueue(null);
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+export default apiClient;
