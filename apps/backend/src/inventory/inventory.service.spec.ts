@@ -120,5 +120,15 @@ describe('InventoryService', () => {
 
       expect(mockEmailService.sendLowStockEmail).not.toHaveBeenCalled();
     });
+
+    it('이미 임계값 이하인 상태에서 더 낮춰도 저재고 이메일을 발송하지 않는다', async () => {
+      const alreadyLow = { ...mockInventory, quantity: 3 };
+      mockPrisma.inventory.findUnique.mockResolvedValue(alreadyLow);
+      mockPrisma.inventory.update.mockResolvedValue({ ...alreadyLow, quantity: 2 });
+
+      await service.updateQuantity('var-1', { quantity: 2 });
+
+      expect(mockEmailService.sendLowStockEmail).not.toHaveBeenCalled();
+    });
   });
 });

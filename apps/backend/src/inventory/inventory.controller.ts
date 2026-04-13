@@ -6,6 +6,8 @@ import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { InventoryService } from './inventory.service';
 
 @Controller('inventory')
+@UseGuards(RolesGuard)
+@Roles(UserRole.ADMIN)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
@@ -15,8 +17,6 @@ export class InventoryController {
   }
 
   @Patch(':variantId')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
   updateQuantity(@Param('variantId') variantId: string, @Body() dto: UpdateInventoryDto) {
     return this.inventoryService.updateQuantity(variantId, dto);
   }
