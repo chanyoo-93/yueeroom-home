@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { CategoriesModule } from './categories/categories.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { UserStatusGuard } from './common/guards/user-status.guard';
 import { EmailModule } from './email/email.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     AdminModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [
