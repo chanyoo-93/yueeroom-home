@@ -125,6 +125,7 @@ export default function RegisterPage() {
               {...register('passwordConfirm', {
                 required: '비밀번호 확인을 입력해주세요.',
                 validate: (value) => value === watch('password') || '비밀번호가 일치하지 않습니다.',
+                deps: ['password'],
               })}
             />
             {errors.passwordConfirm && (
