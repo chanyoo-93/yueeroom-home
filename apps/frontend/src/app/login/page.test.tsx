@@ -87,7 +87,10 @@ describe('LoginPage', () => {
 
   it('로그인 실패(401) 시 오류 메시지를 표시한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockRejectedValueOnce({ response: { status: 401 } });
+    vi.mocked(apiClient.post).mockRejectedValueOnce({
+      response: { status: 401 },
+      isAxiosError: true,
+    });
     render(<LoginPage />);
 
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');

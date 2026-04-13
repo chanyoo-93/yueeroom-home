@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
-import type { AxiosError } from 'axios';
+import axios from 'axios';
 import { apiClient } from '@/lib/api/client';
 
 interface LoginForm {
@@ -24,7 +24,7 @@ export default function LoginPage() {
 
   // 이미 로그인 상태이면 홈으로 리다이렉트
   useEffect(() => {
-    if (document.cookie.includes('access_token')) {
+    if (document.cookie.split(';').some((item) => item.trim().startsWith('access_token='))) {
       router.replace('/');
     }
   }, [router]);
@@ -32,11 +32,11 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       const res = await apiClient.post<{ accessToken: string }>('/auth/login', data);
-      document.cookie = `access_token=${res.data.accessToken}; path=/; SameSite=Strict`;
+      const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+      document.cookie = `access_token=${res.data.accessToken}; path=/; SameSite=Strict${secure}`;
       router.push('/');
     } catch (error) {
-      const status = (error as AxiosError).response?.status;
-      if (status === 401) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
         setError('root', { message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       } else {
         setError('root', { message: '로그인 중 오류가 발생했습니다.' });
