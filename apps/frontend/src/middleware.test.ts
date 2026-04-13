@@ -61,9 +61,26 @@ describe('middleware', () => {
     });
   });
 
+  describe('보호 경로 - REJECTED/SUSPENDED 사용자', () => {
+    it.each(['REJECTED', 'SUSPENDED'])('%s 상태이면 /login으로 리다이렉트한다', (status) => {
+      const token = makeJwt({ sub: 'user-1', status });
+      const req = createRequest('/', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toContain('/login');
+    });
+  });
+
   describe('보호 경로 - 잘못된 토큰', () => {
     it('토큰을 디코딩할 수 없으면 /login으로 리다이렉트한다', () => {
       const req = createRequest('/', { access_token: 'invalid.token' });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toContain('/login');
+    });
+  });
+
+  describe('공개 경로 - 정확한 매칭', () => {
+    it('/login-error는 공개 경로가 아니다', () => {
+      const req = createRequest('/login-error');
       const res = middleware(req);
       expect(res.headers.get('location')).toContain('/login');
     });

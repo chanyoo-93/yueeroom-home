@@ -4,18 +4,27 @@ const PUBLIC_PATHS = ['/login', '/register', '/pending'];
 
 /**
  * JWT payload를 서명 검증 없이 디코딩한다.
- * Edge Runtime 호환을 위해 atob 사용.
+ * TextDecoder를 사용해 Edge Runtime에서 UTF-8 멀티바이트 문자(한글 등)를 올바르게 처리한다.
  */
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
+    const payloadPart = parts[1];
+    if (!payloadPart) return null;
+
     // base64url → base64 변환 후 패딩 추가
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const decoded = atob(padded);
-    return JSON.parse(decoded) as Record<string, unknown>;
+
+    // TextDecoder로 UTF-8 멀티바이트 문자 안전하게 처리
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -24,8 +33,11 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 공개 경로는 인증 없이 통과
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+  // 공개 경로는 인증 없이 통과 (정확한 경로 또는 하위 경로만 허용)
+  const isPublicPath = PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(path + '/'),
+  );
+  if (isPublicPath) {
     return NextResponse.next();
   }
 
@@ -46,6 +58,11 @@ export function middleware(request: NextRequest) {
   // PENDING 상태 사용자 → 대기 안내 페이지로 리다이렉트
   if (payload.status === 'PENDING') {
     return NextResponse.redirect(new URL('/pending', request.url));
+  }
+
+  // APPROVED가 아닌 상태(REJECTED, SUSPENDED 등) → 로그인 페이지로 리다이렉트
+  if (payload.status !== 'APPROVED') {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();
