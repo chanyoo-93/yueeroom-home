@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +14,14 @@ export class ProductsService {
   ) {}
 
   async findAll(query: ProductQueryDto) {
+    if (
+      query.minPrice !== undefined &&
+      query.maxPrice !== undefined &&
+      query.minPrice > query.maxPrice
+    ) {
+      throw new BadRequestException('minPrice는 maxPrice보다 클 수 없습니다.');
+    }
+
     const limit = query.limit ?? 20;
     const orderBy = this.resolveOrderBy(query.sort);
 
@@ -33,26 +41,28 @@ export class ProductsService {
 
     // cursor 기반 페이지네이션
     if (query.cursor) {
-      const data = await this.prisma.product.findMany({
-        take: limit,
+      const rows = await this.prisma.product.findMany({
+        take: limit + 1,
         skip: 1,
         cursor: { id: query.cursor },
         where,
         include: { category: { select: { id: true, name: true, slug: true } } },
         orderBy,
       });
-      const nextCursor = data.length === limit ? (data[data.length - 1]?.id ?? null) : null;
+      const hasNext = rows.length > limit;
+      const data = hasNext ? rows.slice(0, limit) : rows;
+      const nextCursor = hasNext ? (data[data.length - 1]?.id ?? null) : null;
       return { data, limit, nextCursor };
     }
 
-    // offset 기반 페이지네이션 (기본)
+    // offset 기반 페이지네이션 (기본) — nextCursor도 함께 반환
     const page = query.page ?? 1;
     const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.product.findMany({
+        take: limit + 1,
         skip,
-        take: limit,
         where,
         include: { category: { select: { id: true, name: true, slug: true } } },
         orderBy,
@@ -60,17 +70,21 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    const hasNext = rows.length > limit;
+    const data = hasNext ? rows.slice(0, limit) : rows;
+    const nextCursor = hasNext ? (data[data.length - 1]?.id ?? null) : null;
+    return { data, total, page, limit, nextCursor };
   }
 
-  private resolveOrderBy(sort?: SortOrder): Prisma.ProductOrderByWithRelationInput {
+  private resolveOrderBy(sort?: SortOrder): Prisma.ProductOrderByWithRelationInput[] {
+    const secondary: Prisma.ProductOrderByWithRelationInput = { id: 'desc' };
     switch (sort) {
       case 'price_asc':
-        return { basePrice: 'asc' };
+        return [{ basePrice: 'asc' }, secondary];
       case 'price_desc':
-        return { basePrice: 'desc' };
+        return [{ basePrice: 'desc' }, secondary];
       default:
-        return { createdAt: 'desc' };
+        return [{ createdAt: 'desc' }, secondary];
     }
   }
 
