@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
 
 export class ProductQueryDto {
   @IsInt()
@@ -13,4 +13,9 @@ export class ProductQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => value === 'true' || value === true)
+  isActive?: boolean;
 }

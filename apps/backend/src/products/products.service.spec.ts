@@ -77,6 +77,17 @@ describe('ProductsService', () => {
         expect.objectContaining({ skip: 0, take: 20 }),
       );
     });
+
+    it('isActive 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockPrisma.product.count.mockResolvedValue(0);
+
+      await service.findAll({ isActive: false });
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: false } }),
+      );
+    });
   });
 
   // ── findOne ──────────────────────────────────────────────────────────────────
@@ -142,6 +153,15 @@ describe('ProductsService', () => {
       mockPrisma.product.findUnique.mockResolvedValue(null);
 
       await expect(service.update('nonexistent', { name: '변경' })).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('존재하지 않는 categoryId로 수정 시 NotFoundException을 던진다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrisma.category.findUnique.mockResolvedValue(null);
+
+      await expect(service.update('prod-1', { categoryId: 'invalid' })).rejects.toThrow(
         NotFoundException,
       );
     });

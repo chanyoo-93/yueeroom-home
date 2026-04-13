@@ -14,15 +14,17 @@ export class ProductsService {
     const limit = query.limit ?? 20;
     const skip = (page - 1) * limit;
 
+    const where = { isActive: query.isActive ?? true };
+
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
         skip,
         take: limit,
-        where: { isActive: true },
+        where,
         include: { category: { select: { id: true, name: true, slug: true } } },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.product.count({ where: { isActive: true } }),
+      this.prisma.product.count({ where }),
     ]);
 
     return { data, total, page, limit };
@@ -57,6 +59,12 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
     await this.findOneOrFail(id);
+
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
+      if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
+    }
+
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
