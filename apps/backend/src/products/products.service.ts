@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Product } from '@prisma/client';
+import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -70,6 +70,34 @@ export class ProductsService {
     }
 
     return this.prisma.product.update({ where: { id }, data: dto });
+  }
+
+  async search(q: string): Promise<Product[]> {
+    if (!q || q.trim().length === 0) return [];
+
+    return this.prisma.$queryRaw<Product[]>(
+      Prisma.sql`
+        SELECT id,
+               category_id   AS "categoryId",
+               name,
+               description,
+               base_price    AS "basePrice",
+               is_active     AS "isActive",
+               created_at    AS "createdAt",
+               updated_at    AS "updatedAt"
+        FROM   products
+        WHERE  (
+                 to_tsvector('simple', name || ' ' || COALESCE(description, '')) @@
+                 plainto_tsquery('simple', ${q})
+               )
+               AND is_active = true
+        ORDER BY ts_rank(
+                   to_tsvector('simple', name || ' ' || COALESCE(description, '')),
+                   plainto_tsquery('simple', ${q})
+                 ) DESC
+        LIMIT  20
+      `,
+    );
   }
 
   async remove(id: string): Promise<void> {
