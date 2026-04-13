@@ -40,6 +40,7 @@ const mockPrisma = {
   productImage: {
     findMany: jest.fn(),
   },
+  $queryRaw: jest.fn(),
 };
 
 const mockFilesService = {
@@ -211,6 +212,42 @@ describe('ProductsService', () => {
       mockPrisma.product.findUnique.mockResolvedValue(null);
 
       await expect(service.remove('nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── search ───────────────────────────────────────────────────────────────────
+
+  describe('search', () => {
+    it('키워드로 상품을 검색하여 { data, total } 형태로 반환한다', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([mockProduct]);
+
+      const result = await service.search('티셔츠');
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it('일치하는 상품이 없으면 { data: [], total: 0 }을 반환한다', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      const result = await service.search('존재하지않는상품');
+
+      expect(result).toEqual({ data: [], total: 0 });
+    });
+
+    it('빈 검색어는 DB 조회 없이 { data: [], total: 0 }을 반환한다', async () => {
+      const result = await service.search('');
+
+      expect(result).toEqual({ data: [], total: 0 });
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('공백만 있는 검색어는 DB 조회 없이 { data: [], total: 0 }을 반환한다', async () => {
+      const result = await service.search('   ');
+
+      expect(result).toEqual({ data: [], total: 0 });
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
     });
   });
 });

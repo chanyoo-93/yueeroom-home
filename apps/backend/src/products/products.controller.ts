@@ -15,6 +15,7 @@ import { UserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { ProductQueryDto } from './dto/product-query.dto';
+import { SearchProductDto } from './dto/search-product.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
@@ -26,6 +27,11 @@ export class ProductsController {
   @Get()
   findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll(query);
+  }
+
+  @Get('search')
+  search(@Query() dto: SearchProductDto) {
+    return this.productsService.search(dto.q);
   }
 
   @Get(':id')
