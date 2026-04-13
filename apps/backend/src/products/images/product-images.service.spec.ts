@@ -97,6 +97,18 @@ describe('ProductImagesService', () => {
       );
       expect(mockFilesService.uploadImage).not.toHaveBeenCalled();
     });
+
+    it('DB 저장 실패 시 S3에 업로드된 파일을 롤백한다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockFilesService.uploadImage.mockResolvedValue({
+        url: 'https://cdn.yueeroom.com/products/abc-123.jpg',
+        key: 'products/abc-123.jpg',
+      });
+      mockPrisma.productImage.create.mockRejectedValue(new Error('DB 오류'));
+
+      await expect(service.uploadImage('prod-1', makeFile())).rejects.toThrow('DB 오류');
+      expect(mockFilesService.deleteFile).toHaveBeenCalledWith('products/abc-123.jpg');
+    });
   });
 
   describe('deleteImage', () => {

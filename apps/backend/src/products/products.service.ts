@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Product } from '@prisma/client';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
@@ -7,7 +8,10 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
+  ) {}
 
   async findAll(query: ProductQueryDto) {
     const page = query.page ?? 1;
@@ -70,6 +74,10 @@ export class ProductsService {
 
   async remove(id: string): Promise<void> {
     await this.findOneOrFail(id);
+
+    const images = await this.prisma.productImage.findMany({ where: { productId: id } });
+    await Promise.allSettled(images.map((img) => this.filesService.deleteFile(img.key)));
+
     await this.prisma.product.delete({ where: { id } });
   }
 

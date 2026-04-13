@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -36,6 +37,13 @@ const mockPrisma = {
   category: {
     findUnique: jest.fn(),
   },
+  productImage: {
+    findMany: jest.fn(),
+  },
+};
+
+const mockFilesService = {
+  deleteFile: jest.fn().mockResolvedValue(undefined),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -45,7 +53,11 @@ describe('ProductsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ProductsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        ProductsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: FilesService, useValue: mockFilesService },
+      ],
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
@@ -170,13 +182,29 @@ describe('ProductsService', () => {
   // ── remove ───────────────────────────────────────────────────────────────────
 
   describe('remove', () => {
-    it('상품을 삭제한다', async () => {
+    it('상품을 삭제하고 연결된 이미지를 S3에서 정리한다', async () => {
       mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrisma.productImage.findMany.mockResolvedValue([
+        { key: 'products/img-1.jpg' },
+        { key: 'products/img-2.jpg' },
+      ]);
       mockPrisma.product.delete.mockResolvedValue(mockProduct);
 
       await service.remove('prod-1');
 
+      expect(mockFilesService.deleteFile).toHaveBeenCalledTimes(2);
       expect(mockPrisma.product.delete).toHaveBeenCalledWith({ where: { id: 'prod-1' } });
+    });
+
+    it('이미지가 없는 상품도 정상 삭제된다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrisma.productImage.findMany.mockResolvedValue([]);
+      mockPrisma.product.delete.mockResolvedValue(mockProduct);
+
+      await service.remove('prod-1');
+
+      expect(mockFilesService.deleteFile).not.toHaveBeenCalled();
+      expect(mockPrisma.product.delete).toHaveBeenCalled();
     });
 
     it('존재하지 않는 상품 삭제 시 NotFoundException을 던진다', async () => {

@@ -22,7 +22,7 @@ export class ProductImagesController {
   constructor(private readonly productImagesService: ProductImagesService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   uploadImage(@Param('productId') productId: string, @UploadedFile() file: Express.Multer.File) {
     return this.productImagesService.uploadImage(productId, file);
   }
