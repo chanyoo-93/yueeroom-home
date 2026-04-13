@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -19,6 +19,8 @@ import { apiClient } from '@/lib/api/client';
 describe('PendingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 기본값: PENDING (마운트 직후 checkStatus 호출 시 타이머 예약만 하고 리다이렉트 없음)
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'PENDING' } });
   });
 
   it('승인 대기 안내 메시지와 로그아웃 버튼이 렌더링된다', () => {
@@ -45,32 +47,42 @@ describe('PendingPage', () => {
     });
   });
 
-  describe('상태 폴링', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
+  it('마운트 직후 APPROVED 상태이면 토큰 갱신 후 홈으로 리다이렉트한다', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'APPROVED' } });
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { accessToken: 'new-approved-token' } });
+    render(<PendingPage />);
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('폴링 시 APPROVED 상태이면 홈으로 리다이렉트한다', async () => {
-      vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'APPROVED' } });
-      render(<PendingPage />);
-
-      await vi.advanceTimersByTimeAsync(30_000);
-
-      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/refresh');
       expect(mockReplace).toHaveBeenCalledWith('/');
     });
+  });
 
-    it('폴링 시 PENDING 상태이면 리다이렉트하지 않는다', async () => {
-      vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'PENDING' } });
-      render(<PendingPage />);
+  it('PENDING 상태이면 리다이렉트하지 않는다', async () => {
+    render(<PendingPage />);
 
-      await vi.advanceTimersByTimeAsync(30_000);
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 
-      expect(mockReplace).not.toHaveBeenCalled();
+  it('REJECTED 상태이면 /login으로 리다이렉트한다', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'REJECTED' } });
+    render(<PendingPage />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/login');
+    });
+  });
+
+  it('SUSPENDED 상태이면 /login으로 리다이렉트한다', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { status: 'SUSPENDED' } });
+    render(<PendingPage />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/login');
     });
   });
 });
