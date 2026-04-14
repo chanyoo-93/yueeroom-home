@@ -70,21 +70,31 @@ export default function ProductDetailContent({ productId }: Props) {
 
   const handleColorChange = (color: string) => {
     setSelectedColor(color);
-    // 색상 변경 시 선택된 사이즈가 새 색상에서 재고 없으면 초기화
     if (selectedSize) {
-      const compatible = variants.find(
-        (v) => v.color === color && v.size === selectedSize && (v.inventory?.quantity ?? 0) > 0,
-      );
-      if (!compatible) setSelectedSize(null);
+      const variant = variants.find((v) => v.color === color && v.size === selectedSize);
+      const stock = variant?.inventory?.quantity ?? 0;
+      if (stock <= 0) {
+        setSelectedSize(null);
+        setQuantity(1);
+      } else {
+        setQuantity((q) => Math.min(q, stock));
+      }
     }
   };
 
   const handleSizeChange = (size: string) => {
     setSelectedSize(size);
+    if (selectedColor) {
+      const variant = variants.find((v) => v.color === selectedColor && v.size === size);
+      const stock = variant?.inventory?.quantity ?? 0;
+      if (stock > 0) {
+        setQuantity((q) => Math.min(q, stock));
+      }
+    }
   };
 
   const decreaseQuantity = () => setQuantity((q) => Math.max(1, q - 1));
-  const increaseQuantity = () => setQuantity((q) => Math.min(selectedVariantStock || 99, q + 1));
+  const increaseQuantity = () => setQuantity((q) => Math.min(selectedVariantStock, q + 1));
 
   return (
     <>
@@ -172,7 +182,11 @@ export default function ProductDetailContent({ productId }: Props) {
                   : 'cursor-not-allowed bg-gray-100 text-gray-400'
               }`}
             >
-              {isCartEnabled ? '장바구니 담기' : '옵션을 선택해 주세요'}
+              {selectedVariant && selectedVariantStock === 0
+                ? '품절된 옵션입니다'
+                : isCartEnabled
+                  ? '장바구니 담기'
+                  : '옵션을 선택해 주세요'}
             </button>
 
             <button

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+
 interface SizeRow {
   size: string;
   age: string;
@@ -25,6 +27,15 @@ interface Props {
 }
 
 export default function SizeGuideModal({ isOpen, onClose }: Props) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
