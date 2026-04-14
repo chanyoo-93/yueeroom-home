@@ -10,6 +10,24 @@ export interface ProductCategory {
   slug: string;
 }
 
+export interface InventoryInfo {
+  id: string;
+  variantId: string;
+  quantity: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  size: string;
+  color: string;
+  sku: string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+  inventory: InventoryInfo | null;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
@@ -21,6 +39,11 @@ export interface Product {
   updatedAt: string;
   category: ProductCategory;
   images?: ProductImage[];
+}
+
+export interface ProductDetail extends Omit<Product, 'images'> {
+  images: ProductImage[];
+  variants: ProductVariant[];
 }
 
 export interface ProductsListResponse {
