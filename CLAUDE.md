@@ -123,27 +123,27 @@ apps/backend/src/
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type UserRole = 'CUSTOMER' | 'ADMIN';
 export interface User {
-  id;
-  email;
-  name;
-  status;
-  role;
-  createdAt;
-  updatedAt;
+  id: string;
+  email: string;
+  name: string;
+  status: UserStatus;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // packages/shared/src/types/common.ts
 export interface ApiResponse<T> {
-  success;
-  data;
-  message?;
+  success: boolean;
+  data: T;
+  message?: string;
 }
 export interface PaginatedResponse<T> {
-  items;
-  total;
-  page;
-  limit;
-  totalPages;
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 ```
 
