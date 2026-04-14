@@ -36,7 +36,7 @@ vi.mock('@/lib/hooks/useCategories');
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useProducts } from '@/lib/hooks/useProducts';
 import { useCategories } from '@/lib/hooks/useCategories';
-import ProductsPage from './page';
+import ProductsContent from '@/components/products/ProductsContent';
 
 function mockSearchParams(params: Record<string, string> = {}) {
   return {
@@ -73,7 +73,7 @@ function mockCategory(id: string, name: string, slug: string) {
   };
 }
 
-describe('ProductsPage', () => {
+describe('ProductsContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useSearchParams).mockReturnValue(
@@ -102,12 +102,12 @@ describe('ProductsPage', () => {
   });
 
   it('페이지 제목을 렌더링한다', () => {
-    render(<ProductsPage />);
+    render(<ProductsContent />);
     expect(screen.getByRole('heading', { name: '상품 목록' })).toBeInTheDocument();
   });
 
   it('상품 목록을 렌더링한다', () => {
-    render(<ProductsPage />);
+    render(<ProductsContent />);
     expect(screen.getByText('롬퍼')).toBeInTheDocument();
     expect(screen.getByText('청바지')).toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ describe('ProductsPage', () => {
       mockSearchParams({ categoryId: 'cat-1' }) as unknown as ReturnType<typeof useSearchParams>,
     );
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(vi.mocked(useProducts)).toHaveBeenCalledWith(
       expect.objectContaining({ categoryId: 'cat-1' }),
@@ -129,7 +129,7 @@ describe('ProductsPage', () => {
       mockSearchParams({ sort: 'price_asc' }) as unknown as ReturnType<typeof useSearchParams>,
     );
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(vi.mocked(useProducts)).toHaveBeenCalledWith(
       expect.objectContaining({ sort: 'price_asc' }),
@@ -143,7 +143,7 @@ describe('ProductsPage', () => {
       >,
     );
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(vi.mocked(useProducts)).toHaveBeenCalledWith(
       expect.objectContaining({ minPrice: 10000, maxPrice: 50000 }),
@@ -155,7 +155,7 @@ describe('ProductsPage', () => {
       mockSearchParams({ size: '100' }) as unknown as ReturnType<typeof useSearchParams>,
     );
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(vi.mocked(useProducts)).toHaveBeenCalledWith(expect.objectContaining({ size: '100' }));
   });
@@ -166,7 +166,7 @@ describe('ProductsPage', () => {
       push: mockPush,
     } as unknown as ReturnType<typeof useRouter>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     await userEvent.click(screen.getByRole('button', { name: '하의' }));
 
@@ -179,7 +179,7 @@ describe('ProductsPage', () => {
       push: mockPush,
     } as unknown as ReturnType<typeof useRouter>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: '정렬 기준' }),
@@ -196,7 +196,7 @@ describe('ProductsPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
   });
@@ -208,7 +208,7 @@ describe('ProductsPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(screen.getByText('조건에 맞는 상품이 없습니다.')).toBeInTheDocument();
   });
@@ -220,7 +220,7 @@ describe('ProductsPage', () => {
       isError: true,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(screen.getByText('상품을 불러오는 데 실패했습니다.')).toBeInTheDocument();
   });
@@ -232,7 +232,7 @@ describe('ProductsPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     expect(screen.getByText('총 42개')).toBeInTheDocument();
   });
@@ -250,7 +250,7 @@ describe('ProductsPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '2페이지' })).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe('ProductsPage', () => {
       isError: false,
     } as unknown as ReturnType<typeof useProducts>);
 
-    render(<ProductsPage />);
+    render(<ProductsContent />);
 
     await userEvent.click(screen.getByRole('button', { name: '2페이지' }));
 
