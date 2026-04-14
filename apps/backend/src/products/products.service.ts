@@ -93,7 +93,11 @@ export class ProductsService {
       where: { id },
       include: {
         category: { select: { id: true, name: true, slug: true } },
-        variants: true,
+        images: { orderBy: { order: 'asc' } },
+        variants: {
+          include: { inventory: true },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!product) throw new NotFoundException(`상품을 찾을 수 없습니다: ${id}`);

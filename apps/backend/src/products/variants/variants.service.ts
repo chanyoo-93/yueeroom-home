@@ -8,10 +8,11 @@ import { UpdateVariantDto } from './dto/update-variant.dto';
 export class VariantsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(productId: string): Promise<ProductVariant[]> {
+  async findAll(productId: string) {
     await this.findProductOrFail(productId);
     return this.prisma.productVariant.findMany({
       where: { productId },
+      include: { inventory: true },
       orderBy: { createdAt: 'asc' },
     });
   }
