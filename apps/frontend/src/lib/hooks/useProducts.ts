@@ -5,7 +5,7 @@ import { queryKeys } from '../api/query-keys';
 
 export function useProducts(params: ProductListParams = {}) {
   return useQuery({
-    queryKey: queryKeys.products.list(params),
+    queryKey: queryKeys.products.list(params as Record<string, unknown>),
     queryFn: () => getProducts(params),
   });
 }

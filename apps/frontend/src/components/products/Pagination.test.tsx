@@ -65,4 +65,19 @@ describe('Pagination', () => {
 
     expect(handleChange).toHaveBeenCalledWith(3);
   });
+
+  it('totalPages가 7 초과이면 줄임표(...)로 중간 페이지를 생략한다', () => {
+    render(<Pagination page={5} totalPages={10} onChange={vi.fn()} />);
+
+    // 첫/마지막 페이지는 항상 표시
+    expect(screen.getByRole('button', { name: '1페이지' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '10페이지' })).toBeInTheDocument();
+    // 줄임표 2개 (앞/뒤)
+    expect(screen.getAllByText('...')).toHaveLength(2);
+    // 2페이지는 줄임표로 숨겨짐
+    expect(screen.queryByRole('button', { name: '2페이지' })).toBeNull();
+    // 현재 페이지 주변은 표시
+    expect(screen.getByRole('button', { name: '5페이지' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '6페이지' })).toBeInTheDocument();
+  });
 });

@@ -61,17 +61,17 @@ describe('SidebarFilter', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '전체' }));
 
-    const called = onChange.mock.calls[0][0] as ProductListParams;
+    const called = onChange.mock.calls[0]![0] as ProductListParams;
     expect(called.categoryId).toBeUndefined();
     expect(called.page).toBe(1);
   });
 
-  it('최소 가격 입력 시 onChange를 호출한다', () => {
+  it('최소 가격 입력 후 포커스 이탈 시 onChange를 호출한다', () => {
     render(<SidebarFilter categories={[]} filters={{}} onChange={onChange} />);
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: '최소 가격' }), {
-      target: { value: '10000' },
-    });
+    const input = screen.getByRole('spinbutton', { name: '최소 가격' });
+    fireEvent.change(input, { target: { value: '10000' } });
+    fireEvent.blur(input);
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minPrice: 10000, page: 1 }));
   });
@@ -90,7 +90,7 @@ describe('SidebarFilter', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '100' }));
 
-    const called = onChange.mock.calls[0][0] as ProductListParams;
+    const called = onChange.mock.calls[0]![0] as ProductListParams;
     expect(called.size).toBeUndefined();
   });
 

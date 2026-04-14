@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type { Category } from '@/lib/types/category';
 import type { ProductListParams } from '@/lib/api/products';
 
@@ -13,6 +14,19 @@ interface Props {
 
 export default function SidebarFilter({ categories, filters, onChange }: Props) {
   const activeCategories = categories.filter((c) => c.isActive);
+
+  // 가격 입력은 로컬 state로 관리 → onBlur 시 부모에 전달하여 불필요한 API 호출 방지
+  const [localMin, setLocalMin] = useState<string>(filters.minPrice?.toString() ?? '');
+  const [localMax, setLocalMax] = useState<string>(filters.maxPrice?.toString() ?? '');
+
+  // 외부(예: 필터 초기화)에서 minPrice/maxPrice가 변경되면 로컬 state 동기화
+  useEffect(() => {
+    setLocalMin(filters.minPrice?.toString() ?? '');
+  }, [filters.minPrice]);
+
+  useEffect(() => {
+    setLocalMax(filters.maxPrice?.toString() ?? '');
+  }, [filters.maxPrice]);
 
   return (
     <aside className="space-y-6" aria-label="상품 필터">
@@ -60,11 +74,12 @@ export default function SidebarFilter({ categories, filters, onChange }: Props) 
             aria-label="최소 가격"
             placeholder="최소"
             min={0}
-            value={filters.minPrice ?? ''}
-            onChange={(e) =>
+            value={localMin}
+            onChange={(e) => setLocalMin(e.target.value)}
+            onBlur={() =>
               onChange({
                 ...filters,
-                minPrice: e.target.value ? Number(e.target.value) : undefined,
+                minPrice: localMin ? Number(localMin) : undefined,
                 page: 1,
               })
             }
@@ -76,11 +91,12 @@ export default function SidebarFilter({ categories, filters, onChange }: Props) 
             aria-label="최대 가격"
             placeholder="최대"
             min={0}
-            value={filters.maxPrice ?? ''}
-            onChange={(e) =>
+            value={localMax}
+            onChange={(e) => setLocalMax(e.target.value)}
+            onBlur={() =>
               onChange({
                 ...filters,
-                maxPrice: e.target.value ? Number(e.target.value) : undefined,
+                maxPrice: localMax ? Number(localMax) : undefined,
                 page: 1,
               })
             }

@@ -24,8 +24,9 @@ vi.mock('next/image', () => ({
 }));
 
 import ProductCard from './ProductCard';
+import type { Product } from '@/lib/types/product';
 
-function mockProduct(overrides: Partial<Parameters<typeof mockProduct>[0]> = {}) {
+function mockProduct(overrides: Partial<Product> = {}): Product {
   return {
     id: 'prod-1',
     categoryId: 'cat-1',

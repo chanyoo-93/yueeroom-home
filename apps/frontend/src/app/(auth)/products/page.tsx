@@ -37,13 +37,20 @@ export default function ProductsPage() {
   const { data: categories = [] } = useCategories();
 
   const handleFilterChange = (newFilters: ProductListParams) => {
-    const params = new URLSearchParams();
+    // 기존 URL 파라미터를 기반으로 시작하여 필터 외 파라미터(예: 마케팅 추적 파라미터)를 보존
+    const params = new URLSearchParams(searchParams.toString());
+
+    // 필터 관련 파라미터 초기화 후 새 값 적용
+    ['categoryId', 'minPrice', 'maxPrice', 'size', 'sort', 'page'].forEach((key) =>
+      params.delete(key),
+    );
     if (newFilters.categoryId) params.set('categoryId', newFilters.categoryId);
     if (newFilters.minPrice !== undefined) params.set('minPrice', String(newFilters.minPrice));
     if (newFilters.maxPrice !== undefined) params.set('maxPrice', String(newFilters.maxPrice));
     if (newFilters.size) params.set('size', newFilters.size);
     if (newFilters.sort) params.set('sort', newFilters.sort);
     if (newFilters.page && newFilters.page > 1) params.set('page', String(newFilters.page));
+
     const qs = params.toString();
     router.push(`${pathname}${qs ? `?${qs}` : ''}`);
   };
