@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useNewArrivals } from '@/lib/hooks/useNewArrivals';
 
@@ -46,12 +47,14 @@ export default function NewArrivals() {
             const thumbnail = product.images?.[0]?.url;
             return (
               <Link key={product.id} href={`/products/${product.id}`} className="group space-y-2">
-                <div className="aspect-square overflow-hidden rounded-xl bg-gray-100">
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
                   {thumbnail ? (
-                    <img
+                    <Image
                       src={thumbnail}
                       alt={product.name}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 640px) 50vw, 25vw"
+                      className="object-cover transition-transform group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-4xl text-gray-300">

@@ -46,7 +46,7 @@ describe('CategoryQuickLinks', () => {
       data: undefined,
       isLoading: true,
       isError: false,
-    } as ReturnType<typeof useCategories>);
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<CategoryQuickLinks />);
 
@@ -62,7 +62,7 @@ describe('CategoryQuickLinks', () => {
       ],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCategories>);
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<CategoryQuickLinks />);
 
@@ -76,7 +76,7 @@ describe('CategoryQuickLinks', () => {
       data: [mockCategory('cat-1', '상의', 'top')],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCategories>);
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<CategoryQuickLinks />);
 
@@ -89,7 +89,7 @@ describe('CategoryQuickLinks', () => {
       data: [],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCategories>);
+    } as unknown as ReturnType<typeof useCategories>);
 
     const { container } = render(<CategoryQuickLinks />);
 
@@ -102,7 +102,7 @@ describe('CategoryQuickLinks', () => {
       data: [mockCategory('1', '상의', 'top')],
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useCategories>);
+    } as unknown as ReturnType<typeof useCategories>);
 
     render(<CategoryQuickLinks />);
 

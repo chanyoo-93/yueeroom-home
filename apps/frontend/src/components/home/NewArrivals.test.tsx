@@ -31,7 +31,7 @@ describe('NewArrivals', () => {
       data: undefined,
       isLoading: true,
       isError: false,
-    } as ReturnType<typeof useNewArrivals>);
+    } as unknown as ReturnType<typeof useNewArrivals>);
 
     render(<NewArrivals />);
 
@@ -52,7 +52,7 @@ describe('NewArrivals', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useNewArrivals>);
+    } as unknown as ReturnType<typeof useNewArrivals>);
 
     render(<NewArrivals />);
 
@@ -67,7 +67,7 @@ describe('NewArrivals', () => {
       data: { data: [], total: 0, page: 1, limit: 8, nextCursor: null },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useNewArrivals>);
+    } as unknown as ReturnType<typeof useNewArrivals>);
 
     render(<NewArrivals />);
 
@@ -79,7 +79,7 @@ describe('NewArrivals', () => {
       data: undefined,
       isLoading: false,
       isError: true,
-    } as ReturnType<typeof useNewArrivals>);
+    } as unknown as ReturnType<typeof useNewArrivals>);
 
     render(<NewArrivals />);
 
@@ -91,7 +91,7 @@ describe('NewArrivals', () => {
       data: { data: [], total: 0, page: 1, limit: 8, nextCursor: null },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof useNewArrivals>);
+    } as unknown as ReturnType<typeof useNewArrivals>);
 
     render(<NewArrivals />);
 
