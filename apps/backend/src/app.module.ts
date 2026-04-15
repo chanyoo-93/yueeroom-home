@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { CartModule } from './cart/cart.module';
 import { CategoriesModule } from './categories/categories.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ProductsModule } from './products/products.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     CategoriesModule,
     InventoryModule,
     ProductsModule,
+    CartModule,
   ],
   controllers: [AppController],
   providers: [
