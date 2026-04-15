@@ -12,6 +12,11 @@ export const queryKeys = {
   auth: {
     me: ['auth', 'me'] as const,
   },
+  users: {
+    me: ['users', 'me'] as const,
+    children: ['users', 'me', 'children'] as const,
+    addresses: ['users', 'me', 'addresses'] as const,
+  },
   inventory: {
     detail: (variantId: string) => ['inventory', variantId] as const,
   },
