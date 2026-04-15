@@ -28,7 +28,7 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: '내 프로필 조회' })
   getMe(@CurrentUser() user: JwtPayload) {
-    return this.usersService.findById(user.sub);
+    return this.usersService.getProfile(user.sub);
   }
 
   @Patch('me')

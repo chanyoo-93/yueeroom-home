@@ -13,14 +13,41 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateChildProfileDto, UpdateChildProfileDto } from './dto/child-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+// 클라이언트에 노출해도 안전한 사용자 타입 (password, mfaSecret, providerId 제외)
+export type SafeUser = Omit<User, 'password' | 'mfaSecret' | 'providerId'>;
+
+const USER_SAFE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  phone: true,
+  status: true,
+  role: true,
+  provider: true,
+  mfaEnabled: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── 프로필 조회 ────────────────────────────────────────────────────────────
 
+  /** 내부 전용 — password 등 민감 필드 포함 */
   async findById(id: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    return user;
+  }
+
+  /** API 응답용 — 민감 필드(password, mfaSecret, providerId) 제외 */
+  async getProfile(userId: string): Promise<SafeUser> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: USER_SAFE_SELECT,
+    });
     if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
     return user;
   }
@@ -31,12 +58,13 @@ export class UsersService {
 
   // ── 프로필 수정 ────────────────────────────────────────────────────────────
 
-  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<Omit<User, 'password'>> {
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<SafeUser> {
     await this.findById(userId);
-    const updated = await this.prisma.user.update({ where: { id: userId }, data: dto });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _, ...rest } = updated;
-    return rest;
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dto,
+      select: USER_SAFE_SELECT,
+    });
   }
 
   // ── 비밀번호 변경 ──────────────────────────────────────────────────────────
@@ -111,48 +139,54 @@ export class UsersService {
   }
 
   async addAddress(userId: string, dto: CreateAddressDto): Promise<Address> {
-    // 첫 배송지는 자동으로 기본 배송지
-    const count = await this.prisma.address.count({ where: { userId } });
-    const isDefault = dto.isDefault ?? count === 0;
+    return this.prisma.$transaction(async (tx) => {
+      // 첫 배송지는 자동으로 기본 배송지
+      const count = await tx.address.count({ where: { userId } });
+      const isDefault = dto.isDefault ?? count === 0;
 
-    if (isDefault) {
-      await this.prisma.address.updateMany({
-        where: { userId, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+      if (isDefault) {
+        await tx.address.updateMany({
+          where: { userId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    return this.prisma.address.create({ data: { ...dto, isDefault, userId } });
+      return tx.address.create({ data: { ...dto, isDefault, userId } });
+    });
   }
 
   async updateAddress(userId: string, addressId: string, dto: UpdateAddressDto): Promise<Address> {
     await this.findAddressOrFail(userId, addressId);
 
-    if (dto.isDefault) {
-      await this.prisma.address.updateMany({
-        where: { userId, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault) {
+        await tx.address.updateMany({
+          where: { userId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
 
-    return this.prisma.address.update({ where: { id: addressId }, data: dto });
+      return tx.address.update({ where: { id: addressId }, data: dto });
+    });
   }
 
   async removeAddress(userId: string, addressId: string): Promise<void> {
     const address = await this.findAddressOrFail(userId, addressId);
 
-    await this.prisma.address.delete({ where: { id: addressId } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.address.delete({ where: { id: addressId } });
 
-    // 기본 배송지를 삭제했을 경우 남은 최신 배송지를 기본으로 승격
-    if (address.isDefault) {
-      const next = await this.prisma.address.findFirst({
-        where: { userId },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (next) {
-        await this.prisma.address.update({ where: { id: next.id }, data: { isDefault: true } });
+      // 기본 배송지를 삭제했을 경우 남은 최신 배송지를 기본으로 승격
+      if (address.isDefault) {
+        const next = await tx.address.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (next) {
+          await tx.address.update({ where: { id: next.id }, data: { isDefault: true } });
+        }
       }
-    }
+    });
   }
 
   private async findAddressOrFail(userId: string, addressId: string): Promise<Address> {

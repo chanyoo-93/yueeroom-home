@@ -84,6 +84,10 @@ export default function ChangePasswordForm() {
           {...register('newPassword', {
             required: '새 비밀번호를 입력해주세요.',
             minLength: { value: 8, message: '비밀번호는 최소 8자 이상이어야 합니다.' },
+            pattern: {
+              value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/,
+              message: '비밀번호는 영문 대/소문자, 숫자, 특수문자를 포함해야 합니다.',
+            },
           })}
         />
         {errors.newPassword && (

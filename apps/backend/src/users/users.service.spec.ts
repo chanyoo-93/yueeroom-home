@@ -35,6 +35,20 @@ const mockUser = {
   updatedAt: now,
 };
 
+// 민감 필드(password, mfaSecret, providerId)가 제외된 안전한 사용자 픽스처
+const mockSafeUser = {
+  id: 'user-1',
+  email: 'test@example.com',
+  name: '홍길동',
+  phone: null,
+  status: 'APPROVED',
+  role: 'CUSTOMER',
+  provider: 'LOCAL',
+  mfaEnabled: false,
+  createdAt: now,
+  updatedAt: now,
+};
+
 const mockChild = {
   id: 'child-1',
   userId: 'user-1',
@@ -85,6 +99,10 @@ const mockPrisma = {
     delete: jest.fn(),
     count: jest.fn(),
   },
+  // $transaction에 동일한 mock 객체를 전달하여 트랜잭션 내부 호출을 그대로 가로챔
+  $transaction: jest
+    .fn()
+    .mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) => fn(mockPrisma)),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -99,6 +117,10 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
     jest.clearAllMocks();
+    // clearAllMocks가 $transaction 구현을 지우므로 재설정
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) =>
+      fn(mockPrisma),
+    );
   });
 
   // ── findById ─────────────────────────────────────────────────────────────────
@@ -116,13 +138,31 @@ describe('UsersService', () => {
     });
   });
 
+  // ── getProfile ────────────────────────────────────────────────────────────────
+
+  describe('getProfile', () => {
+    it('민감 필드 없이 사용자 프로필을 반환한다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockSafeUser);
+      const result = await service.getProfile('user-1');
+      expect(result).not.toHaveProperty('password');
+      expect(result).not.toHaveProperty('mfaSecret');
+      expect(result).not.toHaveProperty('providerId');
+      expect(result.email).toBe('test@example.com');
+    });
+
+    it('존재하지 않는 사용자 조회 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.getProfile('not-exist')).rejects.toThrow(NotFoundException);
+    });
+  });
+
   // ── updateProfile ─────────────────────────────────────────────────────────────
 
   describe('updateProfile', () => {
-    it('이름과 전화번호를 수정하고 password를 제외한 사용자를 반환한다', async () => {
-      const updated = { ...mockUser, name: '김철수', phone: '010-9999-8888' };
+    it('이름과 전화번호를 수정하고 민감 필드를 제외한 사용자를 반환한다', async () => {
+      const updatedSafe = { ...mockSafeUser, name: '김철수', phone: '010-9999-8888' };
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      mockPrisma.user.update.mockResolvedValue(updated);
+      mockPrisma.user.update.mockResolvedValue(updatedSafe);
 
       const result = await service.updateProfile('user-1', {
         name: '김철수',
@@ -130,6 +170,7 @@ describe('UsersService', () => {
       });
 
       expect(result).not.toHaveProperty('password');
+      expect(result).not.toHaveProperty('mfaSecret');
       expect(result.name).toBe('김철수');
     });
   });
