@@ -25,6 +25,7 @@ export default function ProductCard({ product }: Props) {
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault(); // Link 클릭 방지
+    e.stopPropagation(); // 이벤트 버블링 방지
     if (isWishlisted) {
       removeWishlistMutation.mutate(product.id);
     } else {

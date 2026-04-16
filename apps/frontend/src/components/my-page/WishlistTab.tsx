@@ -3,17 +3,22 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRemoveWishlistItem, useWishlist } from '@/lib/hooks/useWishlist';
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ko-KR').format(price) + '원';
-}
+import { formatPrice } from '@/lib/utils/format';
 
 export default function WishlistTab() {
-  const { data: items = [], isLoading } = useWishlist();
+  const { data: items = [], isLoading, isError } = useWishlist();
   const removeWishlistMutation = useRemoveWishlistItem();
 
   if (isLoading) {
     return <div className="h-24 animate-pulse rounded bg-gray-200" />;
+  }
+
+  if (isError) {
+    return (
+      <div className="py-16 text-center text-sm text-red-500">
+        <p>위시리스트를 불러오는 데 실패했습니다.</p>
+      </div>
+    );
   }
 
   if (items.length === 0) {
