@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
+import { OrdersModule } from './orders/orders.module';
 import { CategoriesModule } from './categories/categories.module';
 import { WishlistsModule } from './wishlists/wishlists.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
     InventoryModule,
     ProductsModule,
     CartModule,
+    OrdersModule,
     WishlistsModule,
   ],
   controllers: [AppController],
