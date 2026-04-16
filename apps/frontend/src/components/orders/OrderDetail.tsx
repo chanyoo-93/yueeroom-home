@@ -4,25 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useOrderDetail } from '@/lib/hooks/useOrders';
 import { formatPrice } from '@/lib/utils/format';
-import type { OrderStatus, PaymentStatus } from '@/lib/types/order';
-
-const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  PENDING: '주문 접수',
-  PAID: '결제 완료',
-  SHIPPING: '배송 중',
-  DELIVERED: '배송 완료',
-  CANCELLED: '취소됨',
-  REFUNDED: '환불됨',
-};
-
-const ORDER_STATUS_COLOR: Record<OrderStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-700',
-  PAID: 'bg-blue-100 text-blue-700',
-  SHIPPING: 'bg-indigo-100 text-indigo-700',
-  DELIVERED: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-gray-100 text-gray-600',
-  REFUNDED: 'bg-red-100 text-red-600',
-};
+import { type PaymentStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from '@/lib/types/order';
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: '결제 대기',

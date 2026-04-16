@@ -133,8 +133,6 @@ export class OrdersService {
           },
         },
       },
-      address: true,
-      payment: true,
     } as const;
 
     const [items, total] = await Promise.all([

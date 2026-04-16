@@ -7,6 +7,7 @@ export function useOrders(page = 1, limit = 10) {
   return useQuery({
     queryKey: [...queryKeys.orders.list(), page, limit],
     queryFn: () => getOrders(page, limit),
+    placeholderData: (previousData) => previousData,
   });
 }
 
