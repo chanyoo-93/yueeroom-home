@@ -4,6 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
+import {
+  useAddWishlistItem,
+  useRemoveWishlistItem,
+  useWishlistStatus,
+} from '@/lib/hooks/useWishlist';
 import { formatPrice } from '@/lib/utils/format';
 import ImageGallery from './ImageGallery';
 import VariantSelector from './VariantSelector';
@@ -19,11 +24,21 @@ export default function ProductDetailContent({ productId }: Props) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
 
   const addCartItemMutation = useAddCartItem();
+  const isWishlisted = useWishlistStatus(productId);
+  const addWishlistMutation = useAddWishlistItem();
+  const removeWishlistMutation = useRemoveWishlistItem();
+
+  const handleToggleWishlist = () => {
+    if (isWishlisted) {
+      removeWishlistMutation.mutate(productId);
+    } else {
+      addWishlistMutation.mutate(productId);
+    }
+  };
 
   // 로딩
   if (isLoading) {
@@ -211,10 +226,11 @@ export default function ProductDetailContent({ productId }: Props) {
             </button>
 
             <button
-              onClick={() => setIsWishlisted((w) => !w)}
+              onClick={handleToggleWishlist}
+              disabled={addWishlistMutation.isPending || removeWishlistMutation.isPending}
               aria-label={isWishlisted ? '위시리스트에서 제거' : '위시리스트에 추가'}
               aria-pressed={isWishlisted}
-              className={`rounded-xl border px-4 py-3 transition-colors ${
+              className={`rounded-xl border px-4 py-3 transition-colors disabled:opacity-50 ${
                 isWishlisted
                   ? 'border-red-200 bg-red-50 text-red-500'
                   : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400'

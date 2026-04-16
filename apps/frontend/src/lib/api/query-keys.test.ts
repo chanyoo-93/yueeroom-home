@@ -26,4 +26,8 @@ describe('queryKeys', () => {
   it('auth.me는 고정 키를 반환한다', () => {
     expect(queryKeys.auth.me).toEqual(['auth', 'me']);
   });
+
+  it('wishlist.all은 고정 키를 반환한다', () => {
+    expect(queryKeys.wishlist.all).toEqual(['wishlist']);
+  });
 });

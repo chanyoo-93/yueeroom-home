@@ -31,8 +31,19 @@ vi.mock('@/lib/hooks/useCart', () => ({
   useAddCartItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
+vi.mock('@/lib/hooks/useWishlist', () => ({
+  useWishlistStatus: vi.fn(() => false),
+  useAddWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRemoveWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
 import ProductDetailContent from './ProductDetailContent';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
+import {
+  useWishlistStatus,
+  useAddWishlistItem,
+  useRemoveWishlistItem,
+} from '@/lib/hooks/useWishlist';
 import type { ProductDetail } from '@/lib/types/product';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -89,6 +100,9 @@ function mockProductDetail(overrides: Partial<ProductDetail> = {}): ProductDetai
 }
 
 const mockUseProductDetail = vi.mocked(useProductDetail);
+const mockUseWishlistStatus = vi.mocked(useWishlistStatus);
+const mockUseAddWishlistItem = vi.mocked(useAddWishlistItem);
+const mockUseRemoveWishlistItem = vi.mocked(useRemoveWishlistItem);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -250,20 +264,49 @@ describe('ProductDetailContent', () => {
       } as ReturnType<typeof useProductDetail>);
     });
 
-    it('위시리스트 버튼이 렌더링된다', () => {
+    it('위시리스트에 없는 상품은 추가 버튼이 렌더링된다', () => {
+      mockUseWishlistStatus.mockReturnValue(false);
       render(<ProductDetailContent productId="prod-1" />);
 
       expect(screen.getByRole('button', { name: '위시리스트에 추가' })).toBeInTheDocument();
     });
 
-    it('위시리스트 버튼 클릭 시 토글된다', async () => {
+    it('위시리스트에 있는 상품은 제거 버튼이 렌더링된다', () => {
+      mockUseWishlistStatus.mockReturnValue(true);
+      render(<ProductDetailContent productId="prod-1" />);
+
+      expect(screen.getByRole('button', { name: '위시리스트에서 제거' })).toBeInTheDocument();
+    });
+
+    it('위시리스트 미등록 상품 클릭 시 addWishlistItem을 호출한다', async () => {
+      const mutate = vi.fn();
+      mockUseWishlistStatus.mockReturnValue(false);
+      mockUseAddWishlistItem.mockReturnValue({ mutate, isPending: false } as unknown as ReturnType<
+        typeof useAddWishlistItem
+      >);
+
       const user = userEvent.setup();
       render(<ProductDetailContent productId="prod-1" />);
 
-      const wishlistButton = screen.getByRole('button', { name: '위시리스트에 추가' });
-      await user.click(wishlistButton);
+      await user.click(screen.getByRole('button', { name: '위시리스트에 추가' }));
 
-      expect(screen.getByRole('button', { name: '위시리스트에서 제거' })).toBeInTheDocument();
+      expect(mutate).toHaveBeenCalledWith('prod-1');
+    });
+
+    it('위시리스트 등록 상품 클릭 시 removeWishlistItem을 호출한다', async () => {
+      const mutate = vi.fn();
+      mockUseWishlistStatus.mockReturnValue(true);
+      mockUseRemoveWishlistItem.mockReturnValue({
+        mutate,
+        isPending: false,
+      } as unknown as ReturnType<typeof useRemoveWishlistItem>);
+
+      const user = userEvent.setup();
+      render(<ProductDetailContent productId="prod-1" />);
+
+      await user.click(screen.getByRole('button', { name: '위시리스트에서 제거' }));
+
+      expect(mutate).toHaveBeenCalledWith('prod-1');
     });
   });
 
