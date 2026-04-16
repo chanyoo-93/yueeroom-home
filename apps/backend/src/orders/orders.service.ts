@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -99,32 +104,56 @@ export class OrdersService {
       },
     });
 
-    if (!order || order.userId !== userId) {
+    if (!order) {
       throw new NotFoundException('주문을 찾을 수 없습니다.');
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
     return order;
   }
 
-  async getOrders(userId: string) {
-    return this.prisma.order.findMany({
-      where: { userId },
-      include: {
-        items: {
-          include: {
-            variant: {
-              include: {
-                product: {
-                  select: { id: true, name: true, images: { take: 1, orderBy: { order: 'asc' } } },
+  async getOrders(userId: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    const include = {
+      items: {
+        include: {
+          variant: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  images: { take: 1, orderBy: { order: 'asc' as const } },
                 },
               },
             },
           },
         },
-        address: true,
-        payment: true,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      address: true,
+      payment: true,
+    } as const;
+
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { userId },
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where: { userId } }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }

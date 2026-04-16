@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,6 +63,7 @@ const mockPrisma = {
   order: {
     findUnique: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
   },
   productVariant: {
@@ -222,33 +223,69 @@ describe('OrdersService', () => {
       await expect(service.getOrder('user-1', 'nonexistent')).rejects.toThrow(NotFoundException);
     });
 
-    it('다른 사용자의 주문 → NotFoundException', async () => {
+    it('다른 사용자의 주문 → ForbiddenException (403)', async () => {
       mockPrisma.order.findUnique.mockResolvedValue({ ...mockOrder, userId: 'other-user' });
 
-      await expect(service.getOrder('user-1', 'order-1')).rejects.toThrow(NotFoundException);
+      await expect(service.getOrder('user-1', 'order-1')).rejects.toThrow(ForbiddenException);
     });
   });
 
   // ── getOrders ─────────────────────────────────────────────────────────────────
 
   describe('getOrders', () => {
-    it('사용자의 주문 목록을 반환한다', async () => {
+    it('사용자의 주문 목록을 페이지네이션하여 반환한다', async () => {
       mockPrisma.order.findMany.mockResolvedValue([mockOrder]);
+      mockPrisma.order.count.mockResolvedValue(1);
 
       const result = await service.getOrders('user-1');
 
-      expect(result).toHaveLength(1);
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
+      expect(result.totalPages).toBe(1);
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'user-1' } }),
+        expect.objectContaining({ where: { userId: 'user-1' }, skip: 0, take: 10 }),
       );
     });
 
-    it('주문이 없으면 빈 배열을 반환한다', async () => {
+    it('주문이 없으면 빈 items를 반환한다', async () => {
       mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.count.mockResolvedValue(0);
 
       const result = await service.getOrders('user-1');
 
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('page/limit 파라미터에 따라 올바른 skip을 계산한다', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([]);
+      mockPrisma.order.count.mockResolvedValue(25);
+
+      const result = await service.getOrders('user-1', 3, 5);
+
+      expect(result.page).toBe(3);
+      expect(result.limit).toBe(5);
+      expect(result.totalPages).toBe(5); // ceil(25/5)
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 5 }),
+      );
+    });
+
+    it('본인 주문만 조회된다 (where 조건 확인)', async () => {
+      mockPrisma.order.findMany.mockResolvedValue([mockOrder]);
+      mockPrisma.order.count.mockResolvedValue(1);
+
+      await service.getOrders('user-1');
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
+      expect(mockPrisma.order.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
     });
   });
 });

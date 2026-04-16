@@ -4,6 +4,26 @@ export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPING' | 'DELIVERED' | 'CANCE
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
 export type PaymentMethod = 'kakaopay' | 'naverpay' | 'card';
 
+export interface Payment {
+  id: string;
+  orderId: string;
+  status: PaymentStatus;
+  amount: number;
+  paymentMethod: string;
+  paymentKey: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedOrdersResponse {
+  items: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface OrderItem {
   id: string;
   orderId: string;
@@ -35,6 +55,7 @@ export interface Order {
   updatedAt: string;
   items: OrderItem[];
   address?: Address;
+  payment?: Payment;
 }
 
 export interface CreateOrderItemDto {
