@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
+import { useAddCartItem } from '@/lib/hooks/useCart';
 import ImageGallery from './ImageGallery';
 import VariantSelector from './VariantSelector';
 import SizeGuideModal from './SizeGuideModal';
@@ -23,6 +24,9 @@ export default function ProductDetailContent({ productId }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
+
+  const addCartItemMutation = useAddCartItem();
 
   // 로딩
   if (isLoading) {
@@ -95,6 +99,19 @@ export default function ProductDetailContent({ productId }: Props) {
 
   const decreaseQuantity = () => setQuantity((q) => Math.max(1, q - 1));
   const increaseQuantity = () => setQuantity((q) => Math.min(selectedVariantStock, q + 1));
+
+  const handleAddToCart = () => {
+    if (!selectedVariant) return;
+    addCartItemMutation.mutate(
+      { variantId: selectedVariant.id, quantity },
+      {
+        onSuccess: () => {
+          setAddedToCart(true);
+          setTimeout(() => setAddedToCart(false), 2000);
+        },
+      },
+    );
+  };
 
   return (
     <>
@@ -175,18 +192,25 @@ export default function ProductDetailContent({ productId }: Props) {
           <div className="flex gap-3 pt-2">
             <button
               aria-label="장바구니 담기"
-              disabled={!isCartEnabled}
+              onClick={handleAddToCart}
+              disabled={!isCartEnabled || addCartItemMutation.isPending}
               className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors ${
-                isCartEnabled
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                isCartEnabled && !addCartItemMutation.isPending
+                  ? addedToCart
+                    ? 'bg-green-500 text-white'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
                   : 'cursor-not-allowed bg-gray-100 text-gray-400'
               }`}
             >
               {selectedVariant && selectedVariantStock === 0
                 ? '품절된 옵션입니다'
-                : isCartEnabled
-                  ? '장바구니 담기'
-                  : '옵션을 선택해 주세요'}
+                : addCartItemMutation.isPending
+                  ? '담는 중...'
+                  : addedToCart
+                    ? '장바구니에 담겼어요 ✓'
+                    : isCartEnabled
+                      ? '장바구니 담기'
+                      : '옵션을 선택해 주세요'}
             </button>
 
             <button

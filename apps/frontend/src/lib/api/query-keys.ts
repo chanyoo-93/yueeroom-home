@@ -20,4 +20,8 @@ export const queryKeys = {
   inventory: {
     detail: (variantId: string) => ['inventory', variantId] as const,
   },
+  cart: {
+    all: ['cart'] as const,
+    detail: () => ['cart', 'detail'] as const,
+  },
 } as const;
