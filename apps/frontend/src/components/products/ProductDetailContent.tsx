@@ -4,13 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
+import { formatPrice } from '@/lib/utils/format';
 import ImageGallery from './ImageGallery';
 import VariantSelector from './VariantSelector';
 import SizeGuideModal from './SizeGuideModal';
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ko-KR').format(price) + '원';
-}
 
 interface Props {
   productId: string;

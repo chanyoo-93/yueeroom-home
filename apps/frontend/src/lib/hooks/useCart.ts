@@ -44,27 +44,14 @@ export function useCart() {
 /** 장바구니에 상품 추가 */
 export function useAddCartItem() {
   const queryClient = useQueryClient();
-  const addItem = useCartStore((s) => s.addItem);
 
   return useMutation({
     mutationFn: ({ variantId, quantity }: { variantId: string; quantity: number }) =>
       addCartItem(variantId, quantity),
-    onSuccess: (newItem, { variantId, quantity }) => {
-      // 낙관적 업데이트가 없으므로 서버 응답 후 쿼리 무효화
+    onSuccess: () => {
+      // 서버 응답 후 쿼리 무효화 → useCart의 syncFromServer가 완전한 데이터로 스토어 갱신
+      // (POST /cart/items 응답은 variant 정보를 포함하지 않아 addItem 직접 호출 불가)
       void queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
-      // Zustand 스토어에도 반영 (서버 ID 사용)
-      addItem({
-        id: newItem.id,
-        variantId,
-        productId: '',
-        productName: '',
-        productImageUrl: null,
-        color: '',
-        size: '',
-        price: 0,
-        quantity,
-        stock: 0,
-      });
     },
   });
 }
@@ -72,11 +59,14 @@ export function useAddCartItem() {
 /** 장바구니 항목 수량 수정 */
 export function useUpdateCartItem() {
   const queryClient = useQueryClient();
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
 
   return useMutation({
     mutationFn: ({ itemId, quantity }: { itemId: string; quantity: number }) =>
       updateCartItem(itemId, quantity),
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
+      // 스토어 즉시 반영 → 네트워크 지연 없이 UI 수량 표시
+      updateQuantity(updatedItem.variantId, updatedItem.quantity);
       void queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
     },
   });

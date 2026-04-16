@@ -4,10 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCart, useUpdateCartItem, useRemoveCartItem, useClearCart } from '@/lib/hooks/useCart';
 import { useCartStore } from '@/lib/stores/cart';
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ko-KR').format(price) + '원';
-}
+import { formatPrice } from '@/lib/utils/format';
 
 export default function CartContent() {
   const items = useCartStore((s) => s.items);

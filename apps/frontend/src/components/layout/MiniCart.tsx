@@ -4,19 +4,25 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCartStore } from '@/lib/stores/cart';
-import { useRemoveCartItem } from '@/lib/hooks/useCart';
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ko-KR').format(price) + '원';
-}
+import { useCart, useRemoveCartItem } from '@/lib/hooks/useCart';
+import { formatPrice } from '@/lib/utils/format';
 
 export default function MiniCart() {
   const [isOpen, setIsOpen] = useState(false);
+  // 하이드레이션 완료 후에만 localStorage 기반 스토어 값을 렌더링
+  const [isMounted, setIsMounted] = useState(false);
   const items = useCartStore((s) => s.items);
   const removeMutation = useRemoveCartItem();
   const ref = useRef<HTMLDivElement>(null);
 
-  const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  // 전역 서버 동기화 — 인증된 모든 페이지(헤더 포함)에서 장바구니를 최신 상태로 유지
+  useCart();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const totalCount = isMounted ? items.reduce((sum, item) => sum + item.quantity, 0) : 0;
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // 드롭다운 외부 클릭 시 닫기
