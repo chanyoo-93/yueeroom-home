@@ -23,6 +23,12 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+vi.mock('@/lib/hooks/useWishlist', () => ({
+  useWishlistStatus: vi.fn(() => false),
+  useAddWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRemoveWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
 import ProductCard from './ProductCard';
 import type { Product } from '@/lib/types/product';
 

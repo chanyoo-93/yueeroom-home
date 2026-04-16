@@ -32,6 +32,11 @@ vi.mock('next/image', () => ({
 
 vi.mock('@/lib/hooks/useProducts');
 vi.mock('@/lib/hooks/useCategories');
+vi.mock('@/lib/hooks/useWishlist', () => ({
+  useWishlistStatus: vi.fn(() => false),
+  useAddWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useRemoveWishlistItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useProducts } from '@/lib/hooks/useProducts';

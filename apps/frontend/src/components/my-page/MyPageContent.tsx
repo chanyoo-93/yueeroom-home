@@ -12,9 +12,10 @@ import ProfileForm from './ProfileForm';
 import ChangePasswordForm from './ChangePasswordForm';
 import ChildProfileList from './ChildProfileList';
 import AddressList from './AddressList';
+import WishlistTab from './WishlistTab';
 import type { CreateChildProfileDto, CreateAddressDto } from '@/lib/types/user';
 
-type Tab = 'profile' | 'children' | 'addresses';
+type Tab = 'profile' | 'children' | 'addresses' | 'wishlist';
 
 export default function MyPageContent() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
@@ -70,6 +71,7 @@ export default function MyPageContent() {
     { key: 'profile', label: '프로필' },
     { key: 'children', label: '자녀 정보' },
     { key: 'addresses', label: '배송지 관리' },
+    { key: 'wishlist', label: '위시리스트' },
   ];
 
   return (
@@ -140,6 +142,13 @@ export default function MyPageContent() {
                 onSetDefault={handleSetDefaultAddress}
               />
             )}
+          </div>
+        )}
+
+        {activeTab === 'wishlist' && (
+          <div>
+            <h2 className="mb-4 text-lg font-semibold text-gray-800">위시리스트</h2>
+            <WishlistTab />
           </div>
         )}
       </div>
