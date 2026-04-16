@@ -38,12 +38,12 @@ const mockPrisma = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
-    delete: jest.fn(),
     deleteMany: jest.fn(),
   },
   productVariant: {
     findUnique: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -58,6 +58,10 @@ describe('CartService', () => {
 
     service = module.get<CartService>(CartService);
     jest.clearAllMocks();
+    // $transaction 콜백을 mockPrisma를 tx로 전달하여 즉시 실행
+    mockPrisma.$transaction.mockImplementation(
+      (callback: (tx: typeof mockPrisma) => Promise<unknown>) => callback(mockPrisma),
+    );
   });
 
   // ── getCart ──────────────────────────────────────────────────────────────────
@@ -95,6 +99,7 @@ describe('CartService', () => {
 
       const result = await service.addItem('user-1', { variantId: 'var-1', quantity: 2 });
 
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.cartItem.create).toHaveBeenCalled();
       expect(result).toEqual(mockCartItem);
     });
@@ -190,17 +195,18 @@ describe('CartService', () => {
   // ── removeItem ───────────────────────────────────────────────────────────────
 
   describe('removeItem', () => {
-    it('항목을 삭제한다', async () => {
-      mockPrisma.cartItem.findFirst.mockResolvedValue(mockCartItem);
-      mockPrisma.cartItem.delete.mockResolvedValue(mockCartItem);
+    it('deleteMany로 소유권 확인과 삭제를 단일 쿼리로 처리한다', async () => {
+      mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 1 });
 
       await service.removeItem('user-1', 'item-1');
 
-      expect(mockPrisma.cartItem.delete).toHaveBeenCalledWith({ where: { id: 'item-1' } });
+      expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'item-1', cart: { userId: 'user-1' } },
+      });
     });
 
-    it('존재하지 않는 항목 삭제 시 NotFoundException을 던진다', async () => {
-      mockPrisma.cartItem.findFirst.mockResolvedValue(null);
+    it('존재하지 않거나 다른 회원의 항목 삭제 시 NotFoundException을 던진다', async () => {
+      mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 0 });
 
       await expect(service.removeItem('user-1', 'nonexistent')).rejects.toThrow(NotFoundException);
     });
@@ -209,23 +215,20 @@ describe('CartService', () => {
   // ── clearCart ─────────────────────────────────────────────────────────────────
 
   describe('clearCart', () => {
-    it('장바구니의 모든 항목을 삭제한다', async () => {
-      mockPrisma.cart.findUnique.mockResolvedValue(mockCart);
+    it('관계 필터로 모든 항목을 단일 쿼리로 삭제한다', async () => {
       mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 3 });
 
       await service.clearCart('user-1');
 
       expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({
-        where: { cartId: 'cart-1' },
+        where: { cart: { userId: 'user-1' } },
       });
     });
 
-    it('장바구니가 없으면 아무것도 하지 않는다', async () => {
-      mockPrisma.cart.findUnique.mockResolvedValue(null);
+    it('장바구니가 없어도 오류 없이 완료된다', async () => {
+      mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 0 });
 
-      await service.clearCart('user-1');
-
-      expect(mockPrisma.cartItem.deleteMany).not.toHaveBeenCalled();
+      await expect(service.clearCart('user-1')).resolves.toBeUndefined();
     });
   });
 });

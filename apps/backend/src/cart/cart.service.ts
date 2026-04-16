@@ -55,24 +55,27 @@ export class CartService {
       update: {},
     });
 
-    const existing = await this.prisma.cartItem.findUnique({
-      where: { cartId_variantId: { cartId: cart.id, variantId: dto.variantId } },
-    });
-
-    const totalQuantity = (existing?.quantity ?? 0) + dto.quantity;
-    if (totalQuantity > stock) {
-      throw new BadRequestException(`재고가 부족합니다. 현재 재고: ${stock}`);
-    }
-
-    if (existing) {
-      return this.prisma.cartItem.update({
-        where: { id: existing.id },
-        data: { quantity: totalQuantity },
+    // $transaction으로 read-modify-write를 원자적으로 처리해 Race Condition 방지
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.cartItem.findUnique({
+        where: { cartId_variantId: { cartId: cart.id, variantId: dto.variantId } },
       });
-    }
 
-    return this.prisma.cartItem.create({
-      data: { cartId: cart.id, variantId: dto.variantId, quantity: dto.quantity },
+      const totalQuantity = (existing?.quantity ?? 0) + dto.quantity;
+      if (totalQuantity > stock) {
+        throw new BadRequestException(`재고가 부족합니다. 현재 재고: ${stock}`);
+      }
+
+      if (existing) {
+        return tx.cartItem.update({
+          where: { id: existing.id },
+          data: { quantity: totalQuantity },
+        });
+      }
+
+      return tx.cartItem.create({
+        data: { cartId: cart.id, variantId: dto.variantId, quantity: dto.quantity },
+      });
     });
   }
 
@@ -97,20 +100,20 @@ export class CartService {
   }
 
   async removeItem(userId: string, itemId: string) {
-    const item = await this.prisma.cartItem.findFirst({
+    // deleteMany로 소유권 확인과 삭제를 단일 쿼리로 처리
+    const { count } = await this.prisma.cartItem.deleteMany({
       where: { id: itemId, cart: { userId } },
     });
-    if (!item) {
+
+    if (count === 0) {
       throw new NotFoundException(`장바구니 항목을 찾을 수 없습니다: ${itemId}`);
     }
-
-    await this.prisma.cartItem.delete({ where: { id: itemId } });
   }
 
   async clearCart(userId: string) {
-    const cart = await this.prisma.cart.findUnique({ where: { userId } });
-    if (!cart) return;
-
-    await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    // 관계 필터로 cart.findUnique 선행 조회 없이 단일 쿼리 처리
+    await this.prisma.cartItem.deleteMany({
+      where: { cart: { userId } },
+    });
   }
 }
