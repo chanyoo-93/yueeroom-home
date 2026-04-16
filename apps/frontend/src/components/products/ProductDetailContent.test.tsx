@@ -27,6 +27,10 @@ vi.mock('next/image', () => ({
 
 vi.mock('@/lib/hooks/useProductDetail');
 
+vi.mock('@/lib/hooks/useCart', () => ({
+  useAddCartItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
 import ProductDetailContent from './ProductDetailContent';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import type { ProductDetail } from '@/lib/types/product';

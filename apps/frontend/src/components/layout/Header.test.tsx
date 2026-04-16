@@ -17,6 +17,15 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+// MiniCart 는 별도 테스트에서 검증하므로 여기서는 간단히 모킹
+vi.mock('./MiniCart', () => ({
+  default: () => (
+    <a href="/cart" aria-label="장바구니">
+      🛒
+    </a>
+  ),
+}));
+
 import Header from './Header';
 
 describe('Header', () => {
