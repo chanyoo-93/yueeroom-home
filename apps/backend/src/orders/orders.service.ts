@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
@@ -6,7 +7,10 @@ import { CreateOrderDto } from './dto/create-order.dto';
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOrder(userId: string, dto: CreateOrderDto) {
+  async createOrder(
+    userId: string,
+    dto: CreateOrderDto,
+  ): Promise<Prisma.OrderGetPayload<{ include: { items: true; address: true } }>> {
     // 배송지 소유권 확인
     const address = await this.prisma.address.findUnique({
       where: { id: dto.addressId },
