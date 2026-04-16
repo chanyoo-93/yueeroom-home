@@ -2,10 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(() => ({ push: vi.fn() })),
-}));
-
 vi.mock('next/link', () => ({
   default: ({
     href,
@@ -291,7 +287,7 @@ describe('CheckoutContent', () => {
     });
 
     it('주문 생성 API를 올바른 데이터로 호출한다', async () => {
-      const mutateAsync = vi.fn().mockResolvedValue({});
+      const mutateAsync = vi.fn().mockResolvedValue({ id: 'order-1' });
       (useCreateOrder as ReturnType<typeof vi.fn>).mockReturnValue({
         mutateAsync,
         isPending: false,
@@ -309,6 +305,29 @@ describe('CheckoutContent', () => {
         addressId: 'addr-1',
         items: [{ variantId: 'var-1', quantity: 2 }],
       });
+    });
+
+    it('주문 성공 시 완료 화면을 표시한다', async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({ id: 'order-abc-123' });
+      (useCreateOrder as ReturnType<typeof vi.fn>).mockReturnValue({
+        mutateAsync,
+        isPending: false,
+      });
+      setMockItems([mockCartItem({ variantId: 'var-1', quantity: 2 })]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [mockAddress({ id: 'addr-1', isDefault: true })],
+        isLoading: false,
+      });
+
+      render(<CheckoutContent />);
+      await userEvent.click(screen.getByRole('button', { name: '결제하기' }));
+
+      expect(screen.getByText('주문이 완료되었습니다!')).toBeInTheDocument();
+      expect(screen.getByText('주문번호: order-abc-123')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '쇼핑 계속하기' })).toHaveAttribute(
+        'href',
+        '/products',
+      );
     });
 
     it('주문 중에는 버튼이 비활성화된다', () => {

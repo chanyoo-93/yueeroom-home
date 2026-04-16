@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Order } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 
@@ -7,7 +6,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOrder(userId: string, dto: CreateOrderDto): Promise<Order> {
+  async createOrder(userId: string, dto: CreateOrderDto) {
     // 배송지 소유권 확인
     const address = await this.prisma.address.findUnique({
       where: { id: dto.addressId },
@@ -17,48 +16,44 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const variantIds = dto.items.map((i) => i.variantId);
+      // dto.items에서 동일 variantId 합산 — 중복 항목 선처리
+      const itemMap = new Map<string, number>();
+      for (const item of dto.items) {
+        itemMap.set(item.variantId, (itemMap.get(item.variantId) ?? 0) + item.quantity);
+      }
 
-      // 변형 및 재고 일괄 조회 (N+1 방지)
+      const variantIds = Array.from(itemMap.keys());
+
+      // 변형 정보 일괄 조회 (N+1 방지, 재고는 DB 원자 연산으로 처리하므로 select 최소화)
       const variants = await tx.productVariant.findMany({
         where: { id: { in: variantIds } },
-        include: { inventory: true },
+        select: { id: true, price: true },
       });
-      const variantMap = new Map(variants.map((v) => [v.id, v]));
+      const variantPriceMap = new Map(variants.map((v) => [v.id, v.price]));
 
-      // 재고 검증 및 단가 계산
+      // 변형 존재 여부 확인 및 총 금액·OrderItem 데이터 계산
       let totalAmount = 0;
       const itemsToCreate: { variantId: string; quantity: number; unitPrice: number }[] = [];
 
-      for (const item of dto.items) {
-        const variant = variantMap.get(item.variantId);
-        if (!variant) {
-          throw new NotFoundException(`상품 변형을 찾을 수 없습니다: ${item.variantId}`);
+      for (const [variantId, quantity] of itemMap) {
+        const price = variantPriceMap.get(variantId);
+        if (price === undefined) {
+          throw new NotFoundException(`상품 변형을 찾을 수 없습니다: ${variantId}`);
         }
-
-        const stock = variant.inventory?.quantity ?? 0;
-        if (item.quantity > stock) {
-          throw new BadRequestException(
-            `재고가 부족합니다. 상품: ${item.variantId}, 요청: ${item.quantity}, 재고: ${stock}`,
-          );
-        }
-
-        totalAmount += variant.price * item.quantity;
-        itemsToCreate.push({
-          variantId: item.variantId,
-          quantity: item.quantity,
-          unitPrice: variant.price,
-        });
+        totalAmount += price * quantity;
+        itemsToCreate.push({ variantId, quantity, unitPrice: price });
       }
 
-      // 재고 차감 (각 variant별 업데이트)
-      for (const item of dto.items) {
-        const variant = variantMap.get(item.variantId)!;
-        const currentStock = variant.inventory?.quantity ?? 0;
-        await tx.inventory.update({
-          where: { variantId: item.variantId },
-          data: { quantity: currentStock - item.quantity },
+      // DB 레벨 원자적 재고 차감
+      // where: quantity >= requestedQty 조건을 DB가 평가하므로 Race Condition 방지
+      for (const [variantId, quantity] of itemMap) {
+        const { count } = await tx.inventory.updateMany({
+          where: { variantId, quantity: { gte: quantity } },
+          data: { quantity: { decrement: quantity } },
         });
+        if (count === 0) {
+          throw new BadRequestException(`재고가 부족합니다. 상품: ${variantId}, 요청: ${quantity}`);
+        }
       }
 
       // 주문 생성

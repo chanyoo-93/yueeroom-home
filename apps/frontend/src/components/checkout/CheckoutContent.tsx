@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
 import { formatPrice } from '@/lib/utils/format';
-import type { PaymentMethod } from '@/lib/types/order';
+import type { Order, PaymentMethod } from '@/lib/types/order';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'kakaopay', label: '카카오페이' },
@@ -17,7 +16,6 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 export default function CheckoutContent() {
-  const router = useRouter();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -28,10 +26,36 @@ export default function CheckoutContent() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('kakaopay');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
 
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // 주문 완료 화면 — 별도 페이지 이동 없이 즉시 결과 표시
+  if (completedOrderId) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-5xl">🎉</p>
+        <p className="mt-4 text-lg font-bold text-gray-900">주문이 완료되었습니다!</p>
+        <p className="mt-1 text-sm text-gray-500">주문번호: {completedOrderId}</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link
+            href="/products"
+            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            쇼핑 계속하기
+          </Link>
+          <Link
+            href="/my-page"
+            className="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-gray-400"
+          >
+            마이페이지
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -57,12 +81,12 @@ export default function CheckoutContent() {
     setErrorMessage(null);
 
     try {
-      await createOrderMutation.mutateAsync({
+      const order = await createOrderMutation.mutateAsync({
         addressId: resolvedAddressId,
         items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
       });
       clearCart();
-      router.push('/');
+      setCompletedOrderId((order as Order).id);
     } catch {
       setErrorMessage('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
     }

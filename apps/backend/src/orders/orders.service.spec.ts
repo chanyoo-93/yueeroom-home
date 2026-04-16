@@ -20,25 +20,9 @@ const mockAddress = {
   updatedAt: new Date(),
 };
 
-const mockVariantA = {
-  id: 'var-a',
-  productId: 'prod-1',
-  sku: 'PROD-A-M',
-  size: 'M',
-  color: '화이트',
-  price: 25000,
-  inventory: { quantity: 10 },
-};
-
-const mockVariantB = {
-  id: 'var-b',
-  productId: 'prod-2',
-  sku: 'PROD-B-S',
-  size: 'S',
-  color: '블랙',
-  price: 30000,
-  inventory: { quantity: 5 },
-};
+// inventory 필드 불필요 — 재고 확인은 updateMany 반환값(count)으로 처리
+const mockVariantA = { id: 'var-a', price: 25000 };
+const mockVariantB = { id: 'var-b', price: 30000 };
 
 const mockOrder = {
   id: 'order-1',
@@ -85,7 +69,7 @@ const mockPrisma = {
     findMany: jest.fn(),
   },
   inventory: {
-    update: jest.fn(),
+    updateMany: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -119,10 +103,11 @@ describe('OrdersService', () => {
       ],
     };
 
-    it('주문을 생성하고 재고를 차감한다', async () => {
+    it('주문을 생성하고 재고를 원자적으로 차감한다', async () => {
       mockPrisma.address.findUnique.mockResolvedValue(mockAddress);
       mockPrisma.productVariant.findMany.mockResolvedValue([mockVariantA, mockVariantB]);
-      mockPrisma.inventory.update.mockResolvedValue({});
+      // updateMany count: 1 → 재고 충분 (차감 성공)
+      mockPrisma.inventory.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.order.create.mockResolvedValue(mockOrder);
 
       const result = await service.createOrder('user-1', validDto);
@@ -130,14 +115,14 @@ describe('OrdersService', () => {
       expect(result).toEqual(mockOrder);
       expect(mockPrisma.$transaction).toHaveBeenCalled();
 
-      // 재고 차감 검증: var-a는 10-2=8, var-b는 5-1=4
-      expect(mockPrisma.inventory.update).toHaveBeenCalledWith({
-        where: { variantId: 'var-a' },
-        data: { quantity: 8 },
+      // DB 원자적 차감 검증: decrement + gte 조건
+      expect(mockPrisma.inventory.updateMany).toHaveBeenCalledWith({
+        where: { variantId: 'var-a', quantity: { gte: 2 } },
+        data: { quantity: { decrement: 2 } },
       });
-      expect(mockPrisma.inventory.update).toHaveBeenCalledWith({
-        where: { variantId: 'var-b' },
-        data: { quantity: 4 },
+      expect(mockPrisma.inventory.updateMany).toHaveBeenCalledWith({
+        where: { variantId: 'var-b', quantity: { gte: 1 } },
+        data: { quantity: { decrement: 1 } },
       });
 
       // 주문 생성 검증
@@ -153,31 +138,38 @@ describe('OrdersService', () => {
       );
     });
 
-    it('재고가 부족하면 BadRequestException을 던진다', async () => {
+    it('재고가 부족하면 (updateMany count=0) BadRequestException을 던진다', async () => {
       mockPrisma.address.findUnique.mockResolvedValue(mockAddress);
-      mockPrisma.productVariant.findMany.mockResolvedValue([
-        { ...mockVariantA, inventory: { quantity: 1 } }, // 재고: 1, 요청: 2
-        mockVariantB,
-      ]);
+      mockPrisma.productVariant.findMany.mockResolvedValue([mockVariantA, mockVariantB]);
+      // count: 0 → DB에서 quantity >= requestedQty 조건 불충족 = 재고 부족
+      mockPrisma.inventory.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.createOrder('user-1', validDto)).rejects.toThrow(BadRequestException);
       expect(mockPrisma.order.create).not.toHaveBeenCalled();
-      expect(mockPrisma.inventory.update).not.toHaveBeenCalled();
     });
 
-    it('재고가 정확히 요청 수량과 같으면 주문이 성공한다', async () => {
+    it('dto.items에 중복 variantId가 있으면 합산하여 단일 updateMany로 처리한다', async () => {
       mockPrisma.address.findUnique.mockResolvedValue(mockAddress);
-      mockPrisma.productVariant.findMany.mockResolvedValue([
-        { ...mockVariantA, inventory: { quantity: 2 } }, // 재고: 2, 요청: 2 (정확히 일치)
-        mockVariantB,
-      ]);
-      mockPrisma.inventory.update.mockResolvedValue({});
+      mockPrisma.productVariant.findMany.mockResolvedValue([mockVariantA]);
+      mockPrisma.inventory.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.order.create.mockResolvedValue(mockOrder);
 
-      await expect(service.createOrder('user-1', validDto)).resolves.toBeDefined();
-      expect(mockPrisma.inventory.update).toHaveBeenCalledWith({
-        where: { variantId: 'var-a' },
-        data: { quantity: 0 },
+      // var-a 가 두 번 등장: 1 + 2 = 3
+      const dto: CreateOrderDto = {
+        addressId: 'addr-1',
+        items: [
+          { variantId: 'var-a', quantity: 1 },
+          { variantId: 'var-a', quantity: 2 },
+        ],
+      };
+
+      await service.createOrder('user-1', dto);
+
+      // 합산 후 단 한 번만 호출되어야 한다
+      expect(mockPrisma.inventory.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.inventory.updateMany).toHaveBeenCalledWith({
+        where: { variantId: 'var-a', quantity: { gte: 3 } },
+        data: { quantity: { decrement: 3 } },
       });
     });
 
@@ -197,8 +189,8 @@ describe('OrdersService', () => {
 
     it('존재하지 않는 변형 → NotFoundException', async () => {
       mockPrisma.address.findUnique.mockResolvedValue(mockAddress);
-      // var-a만 반환, var-b는 없음
-      mockPrisma.productVariant.findMany.mockResolvedValue([mockVariantA]);
+      // var-nonexistent 는 DB에 없으므로 findMany 결과에 포함되지 않음
+      mockPrisma.productVariant.findMany.mockResolvedValue([]);
 
       const dto: CreateOrderDto = {
         addressId: 'addr-1',
