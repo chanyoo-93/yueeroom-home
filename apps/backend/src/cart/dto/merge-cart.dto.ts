@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsString, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsInt, IsString, Min, ValidateNested } from 'class-validator';
 
 export class MergeCartItemDto {
   @IsString()
@@ -12,6 +12,7 @@ export class MergeCartItemDto {
 
 export class MergeCartDto {
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => MergeCartItemDto)
   items!: MergeCartItemDto[];
