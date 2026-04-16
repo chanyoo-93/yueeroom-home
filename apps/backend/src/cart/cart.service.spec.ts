@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CartService } from './cart.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MergeCartDto } from './dto/merge-cart.dto';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -229,6 +230,111 @@ describe('CartService', () => {
       mockPrisma.cartItem.deleteMany.mockResolvedValue({ count: 0 });
 
       await expect(service.clearCart('user-1')).resolves.toBeUndefined();
+    });
+  });
+
+  // ── mergeCart ─────────────────────────────────────────────────────────────────
+
+  describe('mergeCart', () => {
+    const cartWithItems = { ...mockCart, items: [mockCartItem] };
+
+    it('빈 items 배열 전달 시 병합 없이 현재 장바구니를 반환한다', async () => {
+      mockPrisma.cart.findUnique.mockResolvedValue(cartWithItems);
+
+      const dto: MergeCartDto = { items: [] };
+      const result = await service.mergeCart('user-1', dto);
+
+      expect(mockPrisma.cart.upsert).not.toHaveBeenCalled();
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('서버에 없는 항목을 로컬 장바구니에서 추가한다', async () => {
+      mockPrisma.cart.upsert.mockResolvedValue(mockCart);
+      mockPrisma.productVariant.findUnique.mockResolvedValue(mockVariant); // stock: 10
+      mockPrisma.cartItem.findUnique.mockResolvedValue(null); // 서버에 없음
+      mockPrisma.cartItem.create.mockResolvedValue(mockCartItem);
+      mockPrisma.cart.findUnique.mockResolvedValue(cartWithItems);
+
+      const dto: MergeCartDto = { items: [{ variantId: 'var-1', quantity: 2 }] };
+      await service.mergeCart('user-1', dto);
+
+      expect(mockPrisma.cartItem.create).toHaveBeenCalledWith({
+        data: { cartId: 'cart-1', variantId: 'var-1', quantity: 2 },
+      });
+    });
+
+    it('동일 상품이 서버에 있으면 수량을 합산한다', async () => {
+      mockPrisma.cart.upsert.mockResolvedValue(mockCart);
+      mockPrisma.productVariant.findUnique.mockResolvedValue(mockVariant); // stock: 10
+      mockPrisma.cartItem.findUnique.mockResolvedValue({ ...mockCartItem, quantity: 3 }); // 기존 3개
+      mockPrisma.cartItem.update.mockResolvedValue({ ...mockCartItem, quantity: 5 });
+      mockPrisma.cart.findUnique.mockResolvedValue(cartWithItems);
+
+      const dto: MergeCartDto = { items: [{ variantId: 'var-1', quantity: 2 }] };
+      await service.mergeCart('user-1', dto);
+
+      // 기존 3 + 로컬 2 = 5
+      expect(mockPrisma.cartItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantity: 5 } }),
+      );
+    });
+
+    it('합산 수량이 재고를 초과하면 재고 값으로 캡 처리한다', async () => {
+      mockPrisma.cart.upsert.mockResolvedValue(mockCart);
+      mockPrisma.productVariant.findUnique.mockResolvedValue({
+        ...mockVariant,
+        inventory: { quantity: 5 }, // stock: 5
+      });
+      mockPrisma.cartItem.findUnique.mockResolvedValue({ ...mockCartItem, quantity: 4 }); // 기존 4개
+      mockPrisma.cartItem.update.mockResolvedValue({ ...mockCartItem, quantity: 5 });
+      mockPrisma.cart.findUnique.mockResolvedValue(cartWithItems);
+
+      const dto: MergeCartDto = { items: [{ variantId: 'var-1', quantity: 3 }] }; // 4+3=7 > 5
+      await service.mergeCart('user-1', dto);
+
+      // 재고(5)로 캡
+      expect(mockPrisma.cartItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantity: 5 } }),
+      );
+    });
+
+    it('존재하지 않는 variant는 스킵하고 나머지 항목을 처리한다', async () => {
+      mockPrisma.cart.upsert.mockResolvedValue(mockCart);
+      mockPrisma.productVariant.findUnique
+        .mockResolvedValueOnce(null) // var-999: 없음
+        .mockResolvedValueOnce(mockVariant); // var-1: 있음
+      mockPrisma.cartItem.findUnique.mockResolvedValue(null);
+      mockPrisma.cartItem.create.mockResolvedValue(mockCartItem);
+      mockPrisma.cart.findUnique.mockResolvedValue(cartWithItems);
+
+      const dto: MergeCartDto = {
+        items: [
+          { variantId: 'var-999', quantity: 1 },
+          { variantId: 'var-1', quantity: 2 },
+        ],
+      };
+      await service.mergeCart('user-1', dto);
+
+      // var-999는 스킵, var-1만 추가
+      expect(mockPrisma.cartItem.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.cartItem.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ variantId: 'var-1' }) }),
+      );
+    });
+
+    it('재고가 0인 항목은 스킵한다', async () => {
+      mockPrisma.cart.upsert.mockResolvedValue(mockCart);
+      mockPrisma.productVariant.findUnique.mockResolvedValue({
+        ...mockVariant,
+        inventory: { quantity: 0 },
+      });
+      mockPrisma.cart.findUnique.mockResolvedValue({ ...mockCart, items: [] });
+
+      const dto: MergeCartDto = { items: [{ variantId: 'var-1', quantity: 1 }] };
+      await service.mergeCart('user-1', dto);
+
+      expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+      expect(mockPrisma.cartItem.update).not.toHaveBeenCalled();
     });
   });
 });

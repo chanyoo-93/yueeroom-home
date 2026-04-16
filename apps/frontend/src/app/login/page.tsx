@@ -5,6 +5,8 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { apiClient } from '@/lib/api/client';
+import { mergeCart } from '@/lib/api/cart';
+import { useCartStore } from '@/lib/stores/cart';
 
 interface LoginForm {
   email: string;
@@ -34,6 +36,20 @@ export default function LoginPage() {
       const res = await apiClient.post<{ accessToken: string }>('/auth/login', data);
       const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
       document.cookie = `access_token=${res.data.accessToken}; path=/; SameSite=Strict${secure}`;
+
+      // 로컬 장바구니가 있으면 서버에 병합하고 초기화
+      const localItems = useCartStore.getState().items;
+      if (localItems.length > 0) {
+        try {
+          await mergeCart(
+            localItems.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+          );
+          useCartStore.getState().clearCart();
+        } catch {
+          // 병합 실패 시 로그인 흐름은 계속 진행
+        }
+      }
+
       router.push('/');
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {

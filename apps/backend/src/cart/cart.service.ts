@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { MergeCartDto } from './dto/merge-cart.dto';
 
 @Injectable()
 export class CartService {
@@ -115,5 +116,50 @@ export class CartService {
     await this.prisma.cartItem.deleteMany({
       where: { cart: { userId } },
     });
+  }
+
+  async mergeCart(userId: string, dto: MergeCartDto) {
+    if (dto.items.length === 0) {
+      return this.getCart(userId);
+    }
+
+    const cart = await this.prisma.cart.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of dto.items) {
+        const variant = await tx.productVariant.findUnique({
+          where: { id: item.variantId },
+          include: { inventory: true },
+        });
+        if (!variant) continue; // 유효하지 않은 variant는 스킵
+
+        const stock = variant.inventory?.quantity ?? 0;
+        if (stock === 0) continue; // 재고 없는 항목 스킵
+
+        const existing = await tx.cartItem.findUnique({
+          where: { cartId_variantId: { cartId: cart.id, variantId: item.variantId } },
+        });
+
+        // 합산 수량은 재고를 초과하지 않도록 캡 처리
+        const totalQuantity = Math.min((existing?.quantity ?? 0) + item.quantity, stock);
+
+        if (existing) {
+          await tx.cartItem.update({
+            where: { id: existing.id },
+            data: { quantity: totalQuantity },
+          });
+        } else {
+          await tx.cartItem.create({
+            data: { cartId: cart.id, variantId: item.variantId, quantity: totalQuantity },
+          });
+        }
+      }
+    });
+
+    return this.getCart(userId);
   }
 }

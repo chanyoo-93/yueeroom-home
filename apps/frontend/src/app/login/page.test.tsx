@@ -13,8 +13,22 @@ vi.mock('@/lib/api/client', () => ({
   apiClient: { post: vi.fn() },
 }));
 
+vi.mock('@/lib/api/cart', () => ({
+  mergeCart: vi.fn(),
+}));
+
+const mockClearCart = vi.fn();
+const mockGetState = vi.fn();
+
+vi.mock('@/lib/stores/cart', () => ({
+  useCartStore: {
+    getState: () => mockGetState(),
+  },
+}));
+
 import LoginPage from './page';
 import { apiClient } from '@/lib/api/client';
+import { mergeCart } from '@/lib/api/cart';
 
 function clearCookies() {
   document.cookie.split(';').forEach((cookie) => {
@@ -29,6 +43,8 @@ describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearCookies();
+    // 기본값: 로컬 장바구니 비어 있음
+    mockGetState.mockReturnValue({ items: [], clearCart: mockClearCart });
   });
 
   it('이메일/비밀번호 입력 필드와 로그인 버튼이 렌더링된다', () => {
@@ -119,6 +135,118 @@ describe('LoginPage', () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/');
+    });
+  });
+
+  it('로그인 성공 시 로컬 장바구니가 있으면 mergeCart를 호출한다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(mergeCart).mockResolvedValueOnce({ id: 'cart-1', userId: 'user-1', items: [] });
+    mockGetState.mockReturnValue({
+      items: [
+        {
+          variantId: 'var-1',
+          quantity: 2,
+          id: 'item-1',
+          productId: 'prod-1',
+          productName: '티셔츠',
+          productImageUrl: null,
+          color: '화이트',
+          size: 'M',
+          price: 25000,
+          stock: 10,
+        },
+      ],
+      clearCart: mockClearCart,
+    });
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => {
+      expect(mergeCart).toHaveBeenCalledWith([{ variantId: 'var-1', quantity: 2 }]);
+    });
+  });
+
+  it('로그인 성공 시 mergeCart 완료 후 로컬 장바구니를 초기화한다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(mergeCart).mockResolvedValueOnce({ id: 'cart-1', userId: 'user-1', items: [] });
+    mockGetState.mockReturnValue({
+      items: [
+        {
+          variantId: 'var-1',
+          quantity: 1,
+          id: 'item-1',
+          productId: 'prod-1',
+          productName: '티셔츠',
+          productImageUrl: null,
+          color: '화이트',
+          size: 'M',
+          price: 25000,
+          stock: 10,
+        },
+      ],
+      clearCart: mockClearCart,
+    });
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => {
+      expect(mockClearCart).toHaveBeenCalled();
+    });
+  });
+
+  it('로그인 성공 시 로컬 장바구니가 비어 있으면 mergeCart를 호출하지 않는다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    // mockGetState는 beforeEach에서 items: [] 로 설정됨
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/');
+    });
+    expect(mergeCart).not.toHaveBeenCalled();
+  });
+
+  it('mergeCart 실패 시에도 홈으로 리다이렉트한다', async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(mergeCart).mockRejectedValueOnce(new Error('network error'));
+    mockGetState.mockReturnValue({
+      items: [
+        {
+          variantId: 'var-1',
+          quantity: 1,
+          id: 'item-1',
+          productId: 'prod-1',
+          productName: '티셔츠',
+          productImageUrl: null,
+          color: '화이트',
+          size: 'M',
+          price: 25000,
+          stock: 10,
+        },
+      ],
+      clearCart: mockClearCart,
+    });
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'password123');
+    await user.click(screen.getByRole('button', { name: '로그인' }));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/');
     });
   });
 });

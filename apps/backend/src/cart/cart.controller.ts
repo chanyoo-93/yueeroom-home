@@ -14,6 +14,7 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { MergeCartDto } from './dto/merge-cart.dto';
 
 @Controller('cart')
 export class CartController {
@@ -27,6 +28,11 @@ export class CartController {
   @Post('items')
   addItem(@CurrentUser() user: JwtPayload, @Body() dto: AddCartItemDto) {
     return this.cartService.addItem(user.sub, dto);
+  }
+
+  @Post('merge')
+  mergeCart(@CurrentUser() user: JwtPayload, @Body() dto: MergeCartDto) {
+    return this.cartService.mergeCart(user.sub, dto);
   }
 
   @Patch('items/:id')
