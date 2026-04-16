@@ -171,12 +171,13 @@ export default function CartContent() {
           </div>
         </div>
 
-        <button
-          className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+        <Link
+          href="/checkout"
+          className="mt-5 block w-full rounded-xl bg-indigo-600 py-3 text-center text-sm font-semibold text-white hover:bg-indigo-700"
           aria-label="주문하기"
         >
           주문하기
-        </button>
+        </Link>
 
         <Link
           href="/products"

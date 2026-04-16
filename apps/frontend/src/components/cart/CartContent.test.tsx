@@ -167,10 +167,11 @@ describe('CartContent', () => {
       expect(screen.getByRole('button', { name: '수량 늘리기' })).toBeInTheDocument();
     });
 
-    it('주문하기 버튼이 렌더링된다', () => {
+    it('주문하기 링크가 /checkout으로 이동한다', () => {
       setMockItems([mockCartItem()]);
       render(<CartContent />);
-      expect(screen.getByRole('button', { name: '주문하기' })).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: '주문하기' });
+      expect(link).toHaveAttribute('href', '/checkout');
     });
   });
 
