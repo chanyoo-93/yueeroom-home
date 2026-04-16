@@ -23,3 +23,8 @@ export async function removeCartItem(itemId: string): Promise<void> {
 export async function clearCart(): Promise<void> {
   await apiClient.delete('/cart');
 }
+
+export async function mergeCart(items: { variantId: string; quantity: number }[]): Promise<Cart> {
+  const res = await apiClient.post<Cart>('/cart/merge', { items });
+  return res.data;
+}
