@@ -55,6 +55,23 @@ pnpm --filter @yueeroom/backend prisma:studio     # Prisma Studio
 
 ---
 
+## 파일 탐색 규칙
+
+- 작업 전 전체 디렉토리 구조를 탐색하지 않는다.
+- 이슈와 직접 관련된 파일만 읽는다.
+- 모르는 경로가 있을 때만 최소 범위로 탐색한다.
+
+---
+
+## 테스트 실행 규칙
+
+- **Frontend**: `cd apps/frontend && npx vitest run --reporter=dot {대상 파일 또는 디렉터리}`
+- **Backend**: `pnpm --filter @yueeroom/backend test -- --silent {대상 파일}`
+- 전체 테스트가 아닌 **수정된 파일과 관련된 테스트만** 실행한다.
+- 테스트 통과 시 결과 요약만 확인한다. 실패 시에만 전체 로그를 확인한다.
+
+---
+
 ## Architecture
 
 ### Frontend (Next.js App Router)
@@ -161,7 +178,7 @@ export interface PaginatedResponse<T> {
 
 **브랜치 전략**: `feature/phase{N}-issue{N}-{description}` → PR → `main`
 
-**TDD 순서**: 테스트 파일 작성 → 구현 → `npx vitest run` 통과 확인 → 커밋 → 푸시 → PR 생성
+**TDD 순서**: 테스트 파일 작성 → 구현 → 테스트 통과 확인 → 커밋 → 푸시 → PR 생성
 
 **커밋 후 PR**: `Closes #N` 태그를 PR 본문에 포함시켜 병합 시 이슈가 자동으로 닫히도록 한다.
 

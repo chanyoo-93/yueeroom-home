@@ -5,20 +5,24 @@
 ### 1. 이슈 파악 및 계획 수립
 
 - GitHub에서 $ARGUMENTS번 이슈 내용을 확인한다.
-- 이슈 요구사항을 분석하고 구현 계획을 단계별로 수립한다.
-- 계획 수립 후 사용자에게 계획을 제시하고 승인을 받은 뒤 구현을 시작한다.
+- 이슈 요구사항을 분석하고 구현 계획을 3줄 이내 bullet로 출력한다.
+- 승인 대기 없이 즉시 구현을 시작한다.
 
 ### 2. 브랜치 관리
 
-- `main` 브랜치를 기준으로 분기하여 작업한다.
-- 브랜치 이름은 CLAUDE.md의 컨벤션을 따른다: `feature/phase{N}-issue{N}-{description}`
-  - `{N}`은 이슈 번호, `{description}`은 이슈 내용을 요약한 영문 kebab-case
+- `main` 브랜치에서 분기한다.
+- 브랜치명 규칙: `feature/phase{phase번호}-issue{이슈번호}-{description}`
+  - `{phase번호}`: GitHub 이슈의 milestone 또는 label에서 확인한다. 없으면 사용자에게 질문한다.
+  - `{이슈번호}`: $ARGUMENTS (예: 42)
+  - `{description}`: 이슈 제목을 영문 kebab-case로 요약 (예: add-login-page)
+- 브랜치를 생성하기 전에 조립된 브랜치명을 출력하고 확인한다.
+  - 예시: `feature/phase2-issue42-add-login-page`
 
 ### 3. 구현
 
 - 계획에 따라 단계적으로 구현한다.
 - CLAUDE.md의 TDD 순서를 준수한다: 테스트 파일 작성 → 구현 → 테스트 통과 확인
-- 테스트가 있는 경우 반드시 통과 여부를 확인한다.
+- 테스트 실행은 CLAUDE.md의 테스트 실행 규칙을 따른다.
 
 ### 4. 작업 완료 후
 
