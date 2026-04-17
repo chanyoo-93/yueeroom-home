@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import NaverPayButton from '@/components/payments/NaverPayButton';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
@@ -27,6 +28,7 @@ export default function CheckoutContent() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('kakaopay');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
+  const [pendingNaverPayOrderId, setPendingNaverPayOrderId] = useState<string | null>(null);
 
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
@@ -85,6 +87,12 @@ export default function CheckoutContent() {
         addressId: resolvedAddressId,
         items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
       });
+
+      if (selectedPayment === 'naverpay') {
+        setPendingNaverPayOrderId((order as Order).id);
+        return;
+      }
+
       clearCart();
       setCompletedOrderId((order as Order).id);
     } catch {
@@ -254,14 +262,20 @@ export default function CheckoutContent() {
           </p>
         )}
 
-        <button
-          onClick={() => void handleSubmit()}
-          disabled={createOrderMutation.isPending}
-          aria-label="결제하기"
-          className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {createOrderMutation.isPending ? '처리 중...' : '결제하기'}
-        </button>
+        {pendingNaverPayOrderId ? (
+          <div className="mt-5">
+            <NaverPayButton orderId={pendingNaverPayOrderId} />
+          </div>
+        ) : (
+          <button
+            onClick={() => void handleSubmit()}
+            disabled={createOrderMutation.isPending}
+            aria-label="결제하기"
+            className="mt-5 w-full rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {createOrderMutation.isPending ? '처리 중...' : '결제하기'}
+          </button>
+        )}
 
         <Link
           href="/cart"
