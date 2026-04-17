@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useOrderDetail } from '@/lib/hooks/useOrders';
 import { formatPrice } from '@/lib/utils/format';
 import { type PaymentStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from '@/lib/types/order';
+import OrderStatusStepper from './OrderStatusStepper';
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: '결제 대기',
@@ -67,6 +68,13 @@ export default function OrderDetail({ orderId }: OrderDetailProps) {
           {ORDER_STATUS_LABEL[order.status]}
         </span>
       </div>
+
+      {/* 주문 상태 스텝퍼 */}
+      <OrderStatusStepper
+        status={order.status}
+        carrier={order.carrier}
+        trackingNumber={order.trackingNumber}
+      />
 
       {/* 주문 상품 */}
       <section>

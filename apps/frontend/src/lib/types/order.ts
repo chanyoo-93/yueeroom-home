@@ -51,6 +51,8 @@ export interface Order {
   status: OrderStatus;
   totalAmount: number;
   shippingFee: number;
+  carrier?: string | null;
+  trackingNumber?: string | null;
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
