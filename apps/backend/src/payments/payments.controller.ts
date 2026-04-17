@@ -5,8 +5,11 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { KakaoPayApproveDto } from './dto/kakao-pay-approve.dto';
+import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
 import { NaverPayPrepareDto } from './dto/naver-pay-prepare.dto';
+import { KakaoPayService } from './kakao-pay.service';
 import { NaverPayService } from './naver-pay.service';
 import { PaymentsService } from './payments.service';
 
@@ -16,6 +19,7 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly naverPayService: NaverPayService,
+    private readonly kakaoPayService: KakaoPayService,
   ) {}
 
   @Post('stripe/intent')
@@ -44,5 +48,17 @@ export class PaymentsController {
   @ApiOperation({ summary: '네이버페이 결제 승인' })
   naverPayApprove(@CurrentUser() user: JwtPayload, @Body() dto: NaverPayApproveDto) {
     return this.naverPayService.approvePayment(user.sub, dto.paymentId, dto.merchantPayKey);
+  }
+
+  @Post('kakao/ready')
+  @ApiOperation({ summary: '카카오페이 결제 준비' })
+  kakaoPayReady(@CurrentUser() user: JwtPayload, @Body() dto: KakaoPayReadyDto) {
+    return this.kakaoPayService.readyPayment(user.sub, dto.orderId);
+  }
+
+  @Post('kakao/approve')
+  @ApiOperation({ summary: '카카오페이 결제 승인' })
+  kakaoPayApprove(@CurrentUser() user: JwtPayload, @Body() dto: KakaoPayApproveDto) {
+    return this.kakaoPayService.approvePayment(user.sub, dto.orderId, dto.pgToken);
   }
 }
