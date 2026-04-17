@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { naverPayApprove } from '@/lib/api/payments';
@@ -8,7 +8,7 @@ import { useCartStore } from '@/lib/stores/cart';
 
 type PageState = 'loading' | 'success' | 'failed';
 
-export default function NaverPayResultPage() {
+function NaverPayResultContent() {
   const searchParams = useSearchParams();
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -77,5 +77,19 @@ export default function NaverPayResultPage() {
         다시 시도
       </Link>
     </div>
+  );
+}
+
+export default function NaverPayResultPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <p className="text-gray-500">결제 처리 중...</p>
+        </div>
+      }
+    >
+      <NaverPayResultContent />
+    </Suspense>
   );
 }
