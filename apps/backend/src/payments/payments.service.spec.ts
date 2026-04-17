@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,10 +34,14 @@ const mockPrisma = {
     update: jest.fn(),
   },
   payment: {
-    create: jest.fn(),
+    upsert: jest.fn(),
     update: jest.fn(),
     findUnique: jest.fn(),
   },
+};
+
+const mockConfigService = {
+  get: jest.fn().mockReturnValue(''),
 };
 
 const mockStripePaymentIntent = {
@@ -68,6 +73,7 @@ describe('PaymentsService', () => {
         PaymentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: 'STRIPE_CLIENT', useValue: mockStripe },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -81,7 +87,7 @@ describe('PaymentsService', () => {
     it('PaymentIntent를 생성하고 clientSecret과 paymentId를 반환한다', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(mockOrder);
       mockStripe.paymentIntents.create.mockResolvedValue(mockStripePaymentIntent);
-      mockPrisma.payment.create.mockResolvedValue(mockPayment);
+      mockPrisma.payment.upsert.mockResolvedValue(mockPayment);
 
       const result = await service.createPaymentIntent('user-1', 'order-1');
 
@@ -92,13 +98,18 @@ describe('PaymentsService', () => {
         metadata: { orderId: 'order-1' },
       });
 
-      // Payment 레코드가 생성되었는지 확인
-      expect(mockPrisma.payment.create).toHaveBeenCalledWith({
-        data: {
+      // Payment 레코드가 upsert로 저장되었는지 확인
+      expect(mockPrisma.payment.upsert).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        create: {
           orderId: 'order-1',
           amount: 50000,
           paymentMethod: 'stripe',
           paymentKey: 'pi_test_123',
+        },
+        update: {
+          paymentKey: 'pi_test_123',
+          status: 'PENDING',
         },
       });
 
