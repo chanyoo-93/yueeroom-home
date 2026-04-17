@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserRole, UserStatus, AuthProvider } from '@prisma/client';
+import { OrderStatus, UserRole, UserStatus, AuthProvider } from '@prisma/client';
 import { AdminService } from './admin.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +40,10 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn(),
+  },
+  order: {
+    findUnique: jest.fn(),
+    update: jest.fn(),
   },
 };
 
@@ -136,6 +140,111 @@ describe('AdminService', () => {
         .mockResolvedValueOnce(mockApprovedUser);
 
       await expect(service.rejectUser('admin-1', 'user-2')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── updateOrderStatus ─────────────────────────────────────────────────────────
+
+  describe('updateOrderStatus', () => {
+    const baseOrder = {
+      id: 'order-1',
+      userId: 'user-1',
+      addressId: 'addr-1',
+      status: OrderStatus.PAID,
+      totalAmount: 10000,
+      shippingFee: 0,
+      carrier: null,
+      trackingNumber: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('DELIVERED 상태 주문의 상태 변경 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce({
+        ...baseOrder,
+        status: OrderStatus.DELIVERED,
+      });
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'order-1', { status: OrderStatus.PAID }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('CANCELLED 상태 주문의 상태 변경 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce({
+        ...baseOrder,
+        status: OrderStatus.CANCELLED,
+      });
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'order-1', { status: OrderStatus.PAID }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('REFUNDED 상태 주문의 상태 변경 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce({
+        ...baseOrder,
+        status: OrderStatus.REFUNDED,
+      });
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'order-1', { status: OrderStatus.PAID }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('SHIPPING 전환 시 carrier 없으면 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'order-1', {
+          status: OrderStatus.SHIPPING,
+          trackingNumber: '123456',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('SHIPPING 전환 시 trackingNumber 없으면 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'order-1', {
+          status: OrderStatus.SHIPPING,
+          carrier: 'CJ대한통운',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('SHIPPING 전환 시 carrier와 trackingNumber가 있으면 성공한다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
+      const updatedOrder = {
+        ...baseOrder,
+        status: OrderStatus.SHIPPING,
+        carrier: 'CJ대한통운',
+        trackingNumber: '123456',
+      };
+      mockPrisma.order.update.mockResolvedValueOnce(updatedOrder);
+
+      const result = await service.updateOrderStatus('admin-1', 'order-1', {
+        status: OrderStatus.SHIPPING,
+        carrier: 'CJ대한통운',
+        trackingNumber: '123456',
+      });
+      expect(result.status).toBe(OrderStatus.SHIPPING);
+    });
+
+    it('존재하지 않는 주문 변경 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateOrderStatus('admin-1', 'nonexistent', { status: OrderStatus.SHIPPING }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
