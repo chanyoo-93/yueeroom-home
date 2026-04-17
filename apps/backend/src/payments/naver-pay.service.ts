@@ -56,6 +56,14 @@ export class NaverPayService {
       order.items[0]?.variant?.product?.name ??
       '유이룸 상품' + (order.items.length > 1 ? ` 외 ${order.items.length - 1}건` : '');
 
+    const chainId = this.config.get<string>('NAVER_PAY_CHAIN_ID');
+    const clientId = this.config.get<string>('NAVER_CLIENT_ID');
+    const clientSecret = this.config.get<string>('NAVER_CLIENT_SECRET');
+
+    if (!chainId || !clientId || !clientSecret) {
+      throw new InternalServerErrorException('네이버페이 서비스가 설정되지 않았습니다.');
+    }
+
     const returnUrl = `${this.config.get<string>('FRONTEND_URL', 'http://localhost:3000')}/checkout/naver-pay/result`;
 
     const params = new URLSearchParams({
@@ -72,9 +80,9 @@ export class NaverPayService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-NaverPay-Chain-Id': this.config.get<string>('NAVER_PAY_CHAIN_ID', ''),
-        'X-Naver-Client-Id': this.config.get<string>('NAVER_CLIENT_ID', ''),
-        'X-Naver-Client-Secret': this.config.get<string>('NAVER_CLIENT_SECRET', ''),
+        'X-NaverPay-Chain-Id': chainId,
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
       },
       body: params.toString(),
     });
@@ -121,15 +129,23 @@ export class NaverPayService {
       throw new BadRequestException('이미 결제된 주문입니다.');
     }
 
+    const chainId = this.config.get<string>('NAVER_PAY_CHAIN_ID');
+    const clientId = this.config.get<string>('NAVER_CLIENT_ID');
+    const clientSecret = this.config.get<string>('NAVER_CLIENT_SECRET');
+
+    if (!chainId || !clientId || !clientSecret) {
+      throw new InternalServerErrorException('네이버페이 서비스가 설정되지 않았습니다.');
+    }
+
     const params = new URLSearchParams({ paymentId, merchantPayKey });
 
     const response = await fetch(`${NAVER_PAY_API_BASE}/payments/v1/apply`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-NaverPay-Chain-Id': this.config.get<string>('NAVER_PAY_CHAIN_ID', ''),
-        'X-Naver-Client-Id': this.config.get<string>('NAVER_CLIENT_ID', ''),
-        'X-Naver-Client-Secret': this.config.get<string>('NAVER_CLIENT_SECRET', ''),
+        'X-NaverPay-Chain-Id': chainId,
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
       },
       body: params.toString(),
     });
@@ -147,14 +163,16 @@ export class NaverPayService {
       throw new BadRequestException(`네이버페이 결제 승인 실패: ${result.message}`);
     }
 
-    await this.prisma.payment.update({
-      where: { orderId: merchantPayKey },
-      data: { status: 'COMPLETED', paidAt: new Date() },
-    });
-    await this.prisma.order.update({
-      where: { id: merchantPayKey },
-      data: { status: 'PAID' },
-    });
+    await this.prisma.$transaction([
+      this.prisma.payment.update({
+        where: { orderId: merchantPayKey },
+        data: { status: 'COMPLETED', paidAt: new Date() },
+      }),
+      this.prisma.order.update({
+        where: { id: merchantPayKey },
+        data: { status: 'PAID' },
+      }),
+    ]);
 
     return { orderId: merchantPayKey, status: 'COMPLETED' };
   }

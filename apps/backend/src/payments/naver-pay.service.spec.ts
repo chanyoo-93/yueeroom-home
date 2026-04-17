@@ -72,6 +72,7 @@ const mockPrisma = {
     upsert: jest.fn(),
     update: jest.fn(),
   },
+  $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
 };
 
 const mockConfigService = {

@@ -100,12 +100,6 @@ export default function CheckoutContent() {
     }
   };
 
-  const handleNaverPaySuccess = () => {
-    clearCart();
-    setCompletedOrderId(pendingNaverPayOrderId!);
-    setPendingNaverPayOrderId(null);
-  };
-
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
       {/* 왼쪽: 주문 상품 + 배송지 + 결제 방법 */}
@@ -270,7 +264,7 @@ export default function CheckoutContent() {
 
         {pendingNaverPayOrderId ? (
           <div className="mt-5">
-            <NaverPayButton orderId={pendingNaverPayOrderId} onSuccess={handleNaverPaySuccess} />
+            <NaverPayButton orderId={pendingNaverPayOrderId} />
           </div>
         ) : (
           <button

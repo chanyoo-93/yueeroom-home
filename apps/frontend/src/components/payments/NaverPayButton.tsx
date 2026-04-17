@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { naverPayApprove, naverPayPrepare } from '@/lib/api/payments';
+import { naverPayPrepare } from '@/lib/api/payments';
 
 interface NaverPayButtonProps {
   orderId: string;
-  onSuccess: () => void;
 }
 
-export default function NaverPayButton({ orderId, onSuccess }: NaverPayButtonProps) {
+export default function NaverPayButton({ orderId }: NaverPayButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -17,33 +16,11 @@ export default function NaverPayButton({ orderId, onSuccess }: NaverPayButtonPro
     setErrorMessage(null);
 
     try {
-      const { paymentId, merchantPayKey, paymentURL } = await naverPayPrepare(orderId);
-
-      const popup = window.open(paymentURL, 'naver_pay', 'width=480,height=700');
-
-      await new Promise<void>((resolve, reject) => {
-        const timer = setInterval(() => {
-          if (!popup || popup.closed) {
-            clearInterval(timer);
-            resolve();
-          }
-        }, 500);
-
-        setTimeout(
-          () => {
-            clearInterval(timer);
-            reject(new Error('결제 시간이 초과되었습니다.'));
-          },
-          10 * 60 * 1000,
-        );
-      });
-
-      await naverPayApprove(paymentId, merchantPayKey);
-      onSuccess();
+      const { paymentURL } = await naverPayPrepare(orderId);
+      window.location.href = paymentURL;
     } catch (err) {
       const message = err instanceof Error ? err.message : '결제 처리 중 오류가 발생했습니다.';
       setErrorMessage(message);
-    } finally {
       setIsProcessing(false);
     }
   };
