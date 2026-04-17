@@ -5,16 +5,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
-
-type StripeClient = Stripe.Stripe;
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject('STRIPE_CLIENT') private readonly stripe: StripeClient,
+    @Inject('STRIPE_CLIENT') private readonly stripe: Stripe,
+    private readonly configService: ConfigService,
   ) {}
 
   async createPaymentIntent(userId: string, orderId: string) {
@@ -39,12 +39,17 @@ export class PaymentsService {
       metadata: { orderId },
     });
 
-    const payment = await this.prisma.payment.create({
-      data: {
+    const payment = await this.prisma.payment.upsert({
+      where: { orderId },
+      create: {
         orderId,
         amount: order.totalAmount,
         paymentMethod: 'stripe',
         paymentKey: paymentIntent.id,
+      },
+      update: {
+        paymentKey: paymentIntent.id,
+        status: 'PENDING',
       },
     });
 
@@ -55,11 +60,17 @@ export class PaymentsService {
   }
 
   async handleWebhookEvent(payload: Buffer, signature: string) {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
-    const event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET', '');
+    let event: Stripe.Event;
+    try {
+      event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch {
+      throw new BadRequestException('웹훅 서명 검증에 실패했습니다.');
+    }
 
     const intent = event.data.object as { id: string; metadata?: { orderId?: string } };
     const orderId = intent.metadata?.orderId;
+    if (!orderId) return;
 
     switch (event.type) {
       case 'payment_intent.succeeded':
