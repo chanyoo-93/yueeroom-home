@@ -4,9 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { User, UserRole, UserStatus } from '@prisma/client';
+import { Order, User, UserRole, UserStatus } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
 export class AdminService {
@@ -47,6 +48,26 @@ export class AdminService {
 
     await this.emailService.sendRejectionEmail(updated.email, updated.name);
     return updated;
+  }
+
+  async updateOrderStatus(
+    adminId: string,
+    orderId: string,
+    dto: UpdateOrderStatusDto,
+  ): Promise<Order> {
+    await this.assertAdmin(adminId);
+
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: dto.status,
+        ...(dto.carrier !== undefined && { carrier: dto.carrier }),
+        ...(dto.trackingNumber !== undefined && { trackingNumber: dto.trackingNumber }),
+      },
+    });
   }
 
   async listPendingUsers(): Promise<User[]> {

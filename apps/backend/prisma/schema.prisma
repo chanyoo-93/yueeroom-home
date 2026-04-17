@@ -195,14 +195,16 @@ model Inventory {
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  userId      String
-  addressId   String
-  status      OrderStatus @default(PENDING)
-  totalAmount Int
-  shippingFee Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id             String      @id @default(cuid())
+  userId         String
+  addressId      String
+  status         OrderStatus @default(PENDING)
+  totalAmount    Int
+  shippingFee    Int         @default(0)
+  carrier        String?
+  trackingNumber String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   user    User        @relation(fields: [userId], references: [id])
   address Address     @relation(fields: [addressId], references: [id])
