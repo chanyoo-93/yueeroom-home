@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { kakaoPayApprove } from '@/lib/api/payments';
@@ -14,8 +14,12 @@ function KakaoPayResultContent() {
 
   const [state, setState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const approvedRef = useRef(false);
 
   useEffect(() => {
+    if (approvedRef.current) return;
+    approvedRef.current = true;
+
     const pgToken = searchParams.get('pg_token');
     const orderId = searchParams.get('orderId');
 

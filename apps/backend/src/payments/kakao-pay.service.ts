@@ -127,6 +127,10 @@ export class KakaoPayService {
     const secretKey = this.config.get<string>('KAKAO_PAY_SECRET_KEY');
     const cid = this.config.get<string>('KAKAO_PAY_CID', 'TC0ONETIME');
 
+    if (!secretKey) {
+      throw new InternalServerErrorException('카카오페이 서비스가 설정되지 않았습니다.');
+    }
+
     const response = await fetch(`${KAKAO_PAY_API_BASE}/payment/approve`, {
       method: 'POST',
       headers: {
@@ -150,12 +154,12 @@ export class KakaoPayService {
       throw new InternalServerErrorException('카카오페이 결제 승인 요청에 실패했습니다.');
     }
 
-    (await response.json()) as KakaoPayApproveResponse;
+    const result = (await response.json()) as KakaoPayApproveResponse;
 
     await this.prisma.$transaction([
       this.prisma.payment.update({
         where: { orderId },
-        data: { status: 'COMPLETED', paidAt: new Date() },
+        data: { status: 'COMPLETED', paidAt: new Date(result.approved_at) },
       }),
       this.prisma.order.update({
         where: { id: orderId },

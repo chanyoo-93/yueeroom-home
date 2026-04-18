@@ -294,5 +294,32 @@ describe('KakaoPayService', () => {
         data: { status: 'FAILED' },
       });
     });
+
+    it('KAKAO_PAY_SECRET_KEY 미설정 → InternalServerErrorException', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({ ...mockOrder, payment: mockPayment });
+      mockConfigService.get.mockImplementation((key: string, defaultVal = '') => {
+        if (key === 'KAKAO_PAY_SECRET_KEY') return '';
+        const configs: Record<string, string> = {
+          FRONTEND_URL: 'http://localhost:3000',
+          KAKAO_PAY_CID: 'TC0ONETIME',
+        };
+        return configs[key] ?? defaultVal;
+      });
+
+      await expect(service.approvePayment('user-1', 'order-1', 'pg_token')).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      // restore
+      mockConfigService.get.mockImplementation((key: string, defaultVal = '') => {
+        const configs: Record<string, string> = {
+          FRONTEND_URL: 'http://localhost:3000',
+          KAKAO_PAY_SECRET_KEY: 'test_secret_key',
+          KAKAO_PAY_CID: 'TC0ONETIME',
+        };
+        return configs[key] ?? defaultVal;
+      });
+    });
   });
 });
