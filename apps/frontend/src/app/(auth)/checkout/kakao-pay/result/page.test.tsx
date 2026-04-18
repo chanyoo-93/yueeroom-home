@@ -44,7 +44,9 @@ describe('KakaoPayResultPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseSearchParams.mockReturnValue({ get: mockGet } as ReturnType<typeof useSearchParams>);
+    mockUseSearchParams.mockReturnValue({ get: mockGet } as unknown as ReturnType<
+      typeof useSearchParams
+    >);
     mockUseCartStore.mockReturnValue(mockClearCart);
   });
 
