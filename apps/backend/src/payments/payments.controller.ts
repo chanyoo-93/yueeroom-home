@@ -25,7 +25,7 @@ export class PaymentsController {
   @Post('stripe/intent')
   @ApiOperation({ summary: 'Stripe PaymentIntent 생성' })
   createPaymentIntent(@CurrentUser() user: JwtPayload, @Body() dto: CreatePaymentIntentDto) {
-    return this.paymentsService.createPaymentIntent(user.sub, dto.orderId);
+    return this.paymentsService.createPaymentIntent(user.sub, dto.orderId, dto.installmentMonths);
   }
 
   @Post('stripe/webhook')

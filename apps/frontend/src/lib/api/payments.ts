@@ -5,9 +5,13 @@ export interface CreatePaymentIntentResponse {
   paymentId: string;
 }
 
-export async function createPaymentIntent(orderId: string): Promise<CreatePaymentIntentResponse> {
+export async function createPaymentIntent(
+  orderId: string,
+  installmentMonths?: number,
+): Promise<CreatePaymentIntentResponse> {
   const { data } = await apiClient.post<CreatePaymentIntentResponse>('/payments/stripe/intent', {
     orderId,
+    ...(installmentMonths !== undefined && { installmentMonths }),
   });
   return data;
 }
