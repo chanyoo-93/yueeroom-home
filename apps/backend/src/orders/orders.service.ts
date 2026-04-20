@@ -6,11 +6,20 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { KakaoPayService } from '../payments/kakao-pay.service';
+import { NaverPayService } from '../payments/naver-pay.service';
+import { PaymentsService } from '../payments/payments.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { PartialRefundDto } from './dto/partial-refund.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+    private readonly naverPayService: NaverPayService,
+    private readonly kakaoPayService: KakaoPayService,
+  ) {}
 
   async createOrder(
     userId: string,
@@ -153,5 +162,156 @@ export class OrdersService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async refundOrder(userId: string, orderId: string, reason: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: true },
+    });
+
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+    if (order.userId !== userId) throw new ForbiddenException('접근 권한이 없습니다.');
+    if (order.status === 'REFUNDED') throw new BadRequestException('이미 환불된 주문입니다.');
+    if (order.status !== 'PAID' && order.status !== 'DELIVERED') {
+      throw new BadRequestException('환불 가능한 상태가 아닙니다.');
+    }
+    if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
+
+    // 환불 시도 기록을 먼저 저장하여 게이트웨이 API 성공 후 DB 실패 시 추적 가능하도록 함
+    const pendingRefund = await this.prisma.refund.create({
+      data: {
+        orderId,
+        paymentId: order.payment.id,
+        amount: order.totalAmount,
+        reason,
+        status: 'REQUESTED',
+      },
+    });
+
+    await this.processGatewayRefund(order.payment, order.totalAmount, reason);
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.inventory.update({
+          where: { variantId: item.variantId },
+          data: { quantity: { increment: item.quantity } },
+        });
+      }
+
+      await tx.refund.update({
+        where: { id: pendingRefund.id },
+        data: { status: 'COMPLETED' },
+      });
+
+      await tx.payment.update({
+        where: { id: order.payment!.id },
+        data: { status: 'REFUNDED' },
+      });
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: 'REFUNDED' },
+      });
+    });
+  }
+
+  async partialRefundOrder(userId: string, orderId: string, dto: PartialRefundDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: { include: { refundItems: true } }, refunds: true },
+    });
+
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+    if (order.userId !== userId) throw new ForbiddenException('접근 권한이 없습니다.');
+    if (order.status === 'REFUNDED') throw new BadRequestException('이미 환불된 주문입니다.');
+    if (order.status !== 'PAID' && order.status !== 'DELIVERED') {
+      throw new BadRequestException('환불 가능한 상태가 아닙니다.');
+    }
+    if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
+
+    const existingRefundTotal = order.refunds
+      .filter((r) => r.status === 'COMPLETED' || r.status === 'REQUESTED')
+      .reduce((sum, r) => sum + r.amount, 0);
+
+    let refundAmount = 0;
+    const itemsToRefund: { orderItemId: string; variantId: string; quantity: number }[] = [];
+
+    for (const refundItem of dto.items) {
+      const orderItem = order.items.find((i) => i.id === refundItem.itemId);
+      if (!orderItem) {
+        throw new NotFoundException(`주문 항목을 찾을 수 없습니다: ${refundItem.itemId}`);
+      }
+      const alreadyRefundedQty = orderItem.refundItems.reduce((sum, ri) => sum + ri.quantity, 0);
+      if (alreadyRefundedQty + refundItem.quantity > orderItem.quantity) {
+        throw new BadRequestException(
+          `이미 환불된 수량을 포함하여 환불 가능 수량을 초과합니다: ${refundItem.itemId}`,
+        );
+      }
+      refundAmount += orderItem.unitPrice * refundItem.quantity;
+      itemsToRefund.push({
+        orderItemId: orderItem.id,
+        variantId: orderItem.variantId,
+        quantity: refundItem.quantity,
+      });
+    }
+
+    if (existingRefundTotal + refundAmount > order.totalAmount) {
+      throw new BadRequestException('누적 환불 금액이 결제 총액을 초과합니다.');
+    }
+
+    // 환불 시도 기록을 먼저 저장하여 게이트웨이 API 성공 후 DB 실패 시 추적 가능하도록 함
+    const pendingRefund = await this.prisma.refund.create({
+      data: {
+        orderId,
+        paymentId: order.payment.id,
+        amount: refundAmount,
+        reason: dto.reason,
+        status: 'REQUESTED',
+        items: {
+          create: itemsToRefund.map(({ orderItemId, quantity }) => ({ orderItemId, quantity })),
+        },
+      },
+    });
+
+    await this.processGatewayRefund(order.payment, refundAmount, dto.reason);
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const { variantId, quantity } of itemsToRefund) {
+        await tx.inventory.update({
+          where: { variantId },
+          data: { quantity: { increment: quantity } },
+        });
+      }
+
+      return tx.refund.update({
+        where: { id: pendingRefund.id },
+        data: { status: 'COMPLETED' },
+      });
+    });
+  }
+
+  private async processGatewayRefund(
+    payment: { id: string; paymentKey: string | null; paymentMethod: string },
+    amount: number,
+    reason?: string,
+  ): Promise<void> {
+    if (!payment.paymentKey) {
+      throw new BadRequestException('결제 키가 없어 환불할 수 없습니다.');
+    }
+
+    switch (payment.paymentMethod) {
+      case 'stripe':
+        await this.paymentsService.refundStripePayment(payment.paymentKey, amount);
+        break;
+      case 'naverpay':
+        await this.naverPayService.refundNaverPayment(payment.paymentKey, amount, reason);
+        break;
+      case 'kakaopay':
+        await this.kakaoPayService.refundKakaoPayment(payment.paymentKey, amount);
+        break;
+      default:
+        throw new BadRequestException(`지원하지 않는 결제 수단입니다: ${payment.paymentMethod}`);
+    }
   }
 }

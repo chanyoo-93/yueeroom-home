@@ -78,6 +78,10 @@ export class PaymentsService {
     };
   }
 
+  async refundStripePayment(paymentKey: string, amount: number): Promise<void> {
+    await this.stripe.refunds.create({ payment_intent: paymentKey, amount });
+  }
+
   async handleWebhookEvent(payload: Buffer, signature: string) {
     const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET', '');
     let event: Stripe.Event;
