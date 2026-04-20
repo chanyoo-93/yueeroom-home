@@ -574,7 +574,9 @@ describe('OrdersService', () => {
         items: [
           {
             ...mockOrderItems[0], // item-1, var-a, quantity=2
-            refundItems: [{ id: 'ri-1', refundId: 'refund-old', orderItemId: 'item-1', quantity: 2 }],
+            refundItems: [
+              { id: 'ri-1', refundId: 'refund-old', orderItemId: 'item-1', quantity: 2 },
+            ],
           },
           mockOrderItems[1],
         ],
