@@ -1,11 +1,9 @@
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Get,
   Headers,
   Param,
-  ParseIntPipe,
   Post,
   Query,
   RawBodyRequest,
@@ -18,6 +16,7 @@ import { Public } from '../common/decorators/public.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
+import { GetPaymentsQueryDto } from './dto/get-payments-query.dto';
 import { KakaoPayApproveDto } from './dto/kakao-pay-approve.dto';
 import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
@@ -37,12 +36,8 @@ export class PaymentsController {
 
   @Get('me')
   @ApiOperation({ summary: '내 결제 내역 조회' })
-  getMyPayments(
-    @CurrentUser() user: JwtPayload,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ) {
-    return this.paymentsService.getUserPayments(user.sub, page, limit);
+  getMyPayments(@CurrentUser() user: JwtPayload, @Query() query: GetPaymentsQueryDto) {
+    return this.paymentsService.getUserPayments(user.sub, query.page, query.limit);
   }
 
   @Post(':paymentId/refund')

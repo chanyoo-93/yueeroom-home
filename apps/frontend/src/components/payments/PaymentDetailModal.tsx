@@ -15,8 +15,17 @@ interface Props {
   onClose: () => void;
 }
 
+const REFUND_REASONS = [
+  '단순 변심',
+  '상품 불량/하자',
+  '배송 지연',
+  '잘못된 상품 배송',
+  '기타',
+] as const;
+
 export default function PaymentDetailModal({ payment, onClose }: Props) {
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [refundReason, setRefundReason] = useState<string>(REFUND_REASONS[0]);
   const { mutate: requestRefund, isPending } = useRequestRefund();
 
   const displayDate = payment.paidAt ?? payment.createdAt;
@@ -24,7 +33,7 @@ export default function PaymentDetailModal({ payment, onClose }: Props) {
 
   const handleRefundConfirm = () => {
     requestRefund(
-      { paymentId: payment.id, reason: '고객 요청 환불' },
+      { paymentId: payment.id, reason: refundReason },
       {
         onSuccess: () => {
           setShowRefundConfirm(false);
@@ -129,9 +138,29 @@ export default function PaymentDetailModal({ payment, onClose }: Props) {
         {showRefundConfirm && (
           <div className="rounded-xl border border-red-100 bg-red-50 p-4">
             <p className="mb-3 text-sm font-semibold text-red-700">환불 신청 확인</p>
-            <p className="mb-4 text-sm text-red-600">
+            <p className="mb-3 text-sm text-red-600">
               {formatPrice(payment.amount)} 환불을 신청하시겠습니까?
             </p>
+            <div className="mb-4">
+              <label
+                htmlFor="refund-reason"
+                className="mb-1 block text-xs font-medium text-red-700"
+              >
+                환불 사유
+              </label>
+              <select
+                id="refund-reason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-red-300"
+              >
+                {REFUND_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRefundConfirm(false)}

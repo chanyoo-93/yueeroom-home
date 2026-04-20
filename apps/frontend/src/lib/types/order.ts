@@ -51,7 +51,7 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
 
 export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'kakaopay' | 'naverpay' | 'card';
+export type PaymentMethod = 'kakaopay' | 'naverpay' | 'stripe';
 
 export interface Payment {
   id: string;
