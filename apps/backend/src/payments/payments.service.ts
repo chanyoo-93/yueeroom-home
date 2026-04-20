@@ -78,6 +78,51 @@ export class PaymentsService {
     };
   }
 
+  async getUserPayments(userId: string, page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { order: { userId } },
+        include: {
+          order: {
+            include: {
+              items: {
+                include: {
+                  variant: { include: { product: { include: { images: true } } } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.payment.count({ where: { order: { userId } } }),
+    ]);
+    return { items: payments, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  async requestRefund(userId: string, paymentId: string, reason: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { order: true },
+    });
+    if (!payment) throw new NotFoundException('결제를 찾을 수 없습니다.');
+    if (payment.order.userId !== userId) throw new ForbiddenException('접근 권한이 없습니다.');
+    if (payment.status !== 'COMPLETED')
+      throw new BadRequestException('환불 가능한 결제 상태가 아닙니다.');
+
+    return this.prisma.refund.create({
+      data: {
+        orderId: payment.orderId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        reason,
+      },
+    });
+  }
+
   async refundStripePayment(paymentKey: string, amount: number): Promise<void> {
     await this.stripe.refunds.create({ payment_intent: paymentKey, amount });
   }
