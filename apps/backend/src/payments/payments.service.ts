@@ -17,7 +17,9 @@ export class PaymentsService {
     private readonly configService: ConfigService,
   ) {}
 
-  async createPaymentIntent(userId: string, orderId: string) {
+  private static readonly INSTALLMENT_THRESHOLD = 50000;
+
+  async createPaymentIntent(userId: string, orderId: string, installmentMonths?: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { payment: true },
@@ -33,11 +35,28 @@ export class PaymentsService {
       throw new BadRequestException('이미 결제된 주문입니다.');
     }
 
-    const paymentIntent = await this.stripe.paymentIntents.create({
+    const stripeParams: Stripe.PaymentIntentCreateParams = {
       amount: order.totalAmount,
       currency: 'krw',
       metadata: { orderId },
-    });
+    };
+
+    if (installmentMonths && order.totalAmount >= PaymentsService.INSTALLMENT_THRESHOLD) {
+      stripeParams.payment_method_options = {
+        card: {
+          installments: {
+            enabled: true,
+            plan: {
+              type: 'fixed_count',
+              count: installmentMonths,
+              interval: 'month',
+            },
+          },
+        },
+      };
+    }
+
+    const paymentIntent = await this.stripe.paymentIntents.create(stripeParams);
 
     const payment = await this.prisma.payment.upsert({
       where: { orderId },

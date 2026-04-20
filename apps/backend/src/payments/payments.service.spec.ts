@@ -137,6 +137,65 @@ describe('PaymentsService', () => {
       expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled();
     });
 
+    it('5만원 이상 + installmentMonths → Stripe에 할부 파라미터 포함', async () => {
+      const orderAboveThreshold = { ...mockOrder, totalAmount: 50000 };
+      mockPrisma.order.findUnique.mockResolvedValue(orderAboveThreshold);
+      mockStripe.paymentIntents.create.mockResolvedValue(mockStripePaymentIntent);
+      mockPrisma.payment.upsert.mockResolvedValue(mockPayment);
+
+      await service.createPaymentIntent('user-1', 'order-1', 3);
+
+      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
+        amount: 50000,
+        currency: 'krw',
+        metadata: { orderId: 'order-1' },
+        payment_method_options: {
+          card: {
+            installments: {
+              enabled: true,
+              plan: { type: 'fixed_count', count: 3, interval: 'month' },
+            },
+          },
+        },
+      });
+    });
+
+    it('5만원 미만 + installmentMonths → Stripe에 할부 파라미터 미포함', async () => {
+      const orderBelowThreshold = { ...mockOrder, totalAmount: 49999 };
+      mockPrisma.order.findUnique.mockResolvedValue(orderBelowThreshold);
+      mockStripe.paymentIntents.create.mockResolvedValue({
+        ...mockStripePaymentIntent,
+        amount: 49999,
+      });
+      mockPrisma.payment.upsert.mockResolvedValue({ ...mockPayment, amount: 49999 });
+
+      await service.createPaymentIntent('user-1', 'order-1', 3);
+
+      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
+        amount: 49999,
+        currency: 'krw',
+        metadata: { orderId: 'order-1' },
+      });
+    });
+
+    it('5만원 이상 + installmentMonths 없음 → Stripe에 할부 파라미터 미포함', async () => {
+      const orderAboveThreshold = { ...mockOrder, totalAmount: 80000 };
+      mockPrisma.order.findUnique.mockResolvedValue(orderAboveThreshold);
+      mockStripe.paymentIntents.create.mockResolvedValue({
+        ...mockStripePaymentIntent,
+        amount: 80000,
+      });
+      mockPrisma.payment.upsert.mockResolvedValue({ ...mockPayment, amount: 80000 });
+
+      await service.createPaymentIntent('user-1', 'order-1');
+
+      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
+        amount: 80000,
+        currency: 'krw',
+        metadata: { orderId: 'order-1' },
+      });
+    });
+
     it('이미 결제된 주문(payment 존재) → BadRequestException', async () => {
       const { BadRequestException } = await import('@nestjs/common');
       mockPrisma.order.findUnique.mockResolvedValue({

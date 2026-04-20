@@ -18,16 +18,23 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
+const INSTALLMENT_THRESHOLD = 50000;
+const INSTALLMENT_OPTIONS = [2, 3, 6, 12] as const;
+
 interface CardFormProps {
   orderId: string;
+  amount: number;
   onSuccess: () => void;
 }
 
-function CardForm({ orderId, onSuccess }: CardFormProps) {
+function CardForm({ orderId, amount, onSuccess }: CardFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [installmentMonths, setInstallmentMonths] = useState<number | undefined>(undefined);
+
+  const showInstallments = amount >= INSTALLMENT_THRESHOLD;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +44,7 @@ function CardForm({ orderId, onSuccess }: CardFormProps) {
     setErrorMessage(null);
 
     try {
-      const { clientSecret } = await createPaymentIntent(orderId);
+      const { clientSecret } = await createPaymentIntent(orderId, installmentMonths);
 
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error('카드 입력 오류');
@@ -64,6 +71,32 @@ function CardForm({ orderId, onSuccess }: CardFormProps) {
         <CardElement options={CARD_ELEMENT_OPTIONS} />
       </div>
 
+      {showInstallments && (
+        <div>
+          <label
+            htmlFor="installment-select"
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
+            할부 개월 수
+          </label>
+          <select
+            id="installment-select"
+            value={installmentMonths ?? ''}
+            onChange={(e) =>
+              setInstallmentMonths(e.target.value ? Number(e.target.value) : undefined)
+            }
+            className="w-full rounded-xl border border-gray-200 p-3 text-sm text-gray-700"
+          >
+            <option value="">일시불</option>
+            {INSTALLMENT_OPTIONS.map((months) => (
+              <option key={months} value={months}>
+                {months}개월
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {errorMessage && (
         <p role="alert" className="text-sm text-red-600">
           {errorMessage}
@@ -83,13 +116,14 @@ function CardForm({ orderId, onSuccess }: CardFormProps) {
 
 interface StripePaymentFormProps {
   orderId: string;
+  amount: number;
   onSuccess: () => void;
 }
 
-export default function StripePaymentForm({ orderId, onSuccess }: StripePaymentFormProps) {
+export default function StripePaymentForm({ orderId, amount, onSuccess }: StripePaymentFormProps) {
   return (
     <Elements stripe={stripePromise}>
-      <CardForm orderId={orderId} onSuccess={onSuccess} />
+      <CardForm orderId={orderId} amount={amount} onSuccess={onSuccess} />
     </Elements>
   );
 }
