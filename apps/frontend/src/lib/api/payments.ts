@@ -40,3 +40,31 @@ export async function naverPayApprove(
   });
   return data;
 }
+
+export interface KakaoPayReadyResponse {
+  tid: string;
+  redirectUrl: string;
+}
+
+export async function kakaoPayReady(orderId: string): Promise<KakaoPayReadyResponse> {
+  const { data } = await apiClient.post<KakaoPayReadyResponse>('/payments/kakao/ready', {
+    orderId,
+  });
+  return data;
+}
+
+export interface KakaoPayApproveResponse {
+  orderId: string;
+  status: string;
+}
+
+export async function kakaoPayApprove(
+  orderId: string,
+  pgToken: string,
+): Promise<KakaoPayApproveResponse> {
+  const { data } = await apiClient.post<KakaoPayApproveResponse>('/payments/kakao/approve', {
+    orderId,
+    pgToken,
+  });
+  return data;
+}
