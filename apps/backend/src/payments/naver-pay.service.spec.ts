@@ -305,6 +305,7 @@ describe('NaverPayService', () => {
 
       await service.handleWebhook(body, buildSignature(body));
 
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
         where: { orderId: 'order-1' },
         data: { status: 'COMPLETED', paidAt: expect.any(Date) },
@@ -349,12 +350,10 @@ describe('NaverPayService', () => {
       expect(mockPrisma.order.update).not.toHaveBeenCalled();
     });
 
-    it('잘못된 서명 → BadRequestException', async () => {
+    it('잘못된 서명 → early return (DB 미호출)', async () => {
       const body = JSON.stringify({ merchantPayKey: 'order-1', paymentStatus: 'SUCCESS' });
 
-      await expect(service.handleWebhook(body, 'invalid-signature')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.handleWebhook(body, 'invalid-signature')).resolves.toBeUndefined();
       expect(mockPrisma.payment.update).not.toHaveBeenCalled();
       expect(mockPrisma.order.update).not.toHaveBeenCalled();
     });

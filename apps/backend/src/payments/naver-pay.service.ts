@@ -186,10 +186,14 @@ export class NaverPayService {
   }
 
   async handleWebhook(rawBody: string, signature: string): Promise<void> {
-    const secret = this.config.get<string>('NAVER_CLIENT_SECRET', '');
+    const secret = this.config.get<string>('NAVER_CLIENT_SECRET');
+    if (!secret) {
+      throw new InternalServerErrorException('NAVER_CLIENT_SECRET이 설정되지 않았습니다.');
+    }
+
     const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
     if (!signature || signature !== expected) {
-      throw new BadRequestException('웹훅 서명 검증에 실패했습니다.');
+      return;
     }
 
     const payload = JSON.parse(rawBody) as NaverPayWebhookPayload;
@@ -197,14 +201,16 @@ export class NaverPayService {
     if (!orderId) return;
 
     if (payload.paymentStatus === 'SUCCESS') {
-      await this.prisma.payment.update({
-        where: { orderId },
-        data: { status: 'COMPLETED', paidAt: new Date() },
-      });
-      await this.prisma.order.update({
-        where: { id: orderId },
-        data: { status: 'PAID' },
-      });
+      await this.prisma.$transaction([
+        this.prisma.payment.update({
+          where: { orderId },
+          data: { status: 'COMPLETED', paidAt: new Date() },
+        }),
+        this.prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'PAID' },
+        }),
+      ]);
     } else if (payload.paymentStatus === 'CANCEL' || payload.paymentStatus === 'FAIL') {
       await this.prisma.payment.update({
         where: { orderId },
