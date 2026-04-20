@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -168,5 +169,32 @@ export class KakaoPayService {
     ]);
 
     return { orderId, status: 'COMPLETED' };
+  }
+
+  async refundKakaoPayment(tid: string, amount: number): Promise<void> {
+    const secretKey = this.config.get<string>('KAKAO_PAY_SECRET_KEY');
+    const cid = this.config.get<string>('KAKAO_PAY_CID', 'TC0ONETIME');
+
+    if (!secretKey) {
+      throw new InternalServerErrorException('카카오페이 서비스가 설정되지 않았습니다.');
+    }
+
+    const response = await fetch(`${KAKAO_PAY_API_BASE}/payment/cancel`, {
+      method: 'POST',
+      headers: {
+        Authorization: `SECRET_KEY ${secretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cid,
+        tid,
+        cancel_amount: amount,
+        cancel_tax_free_amount: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new InternalServerErrorException('카카오페이 환불 요청에 실패했습니다.');
+    }
   }
 }

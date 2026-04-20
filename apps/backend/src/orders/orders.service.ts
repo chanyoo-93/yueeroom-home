@@ -6,11 +6,20 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { KakaoPayService } from '../payments/kakao-pay.service';
+import { NaverPayService } from '../payments/naver-pay.service';
+import { PaymentsService } from '../payments/payments.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { PartialRefundDto } from './dto/partial-refund.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+    private readonly naverPayService: NaverPayService,
+    private readonly kakaoPayService: KakaoPayService,
+  ) {}
 
   async createOrder(
     userId: string,
@@ -153,5 +162,125 @@ export class OrdersService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async refundOrder(userId: string, orderId: string, reason: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: true },
+    });
+
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+    if (order.userId !== userId) throw new ForbiddenException('접근 권한이 없습니다.');
+    if (order.status === 'REFUNDED') throw new BadRequestException('이미 환불된 주문입니다.');
+    if (order.status !== 'PAID' && order.status !== 'DELIVERED') {
+      throw new BadRequestException('환불 가능한 상태가 아닙니다.');
+    }
+    if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
+
+    await this.processGatewayRefund(order.payment, order.totalAmount);
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.inventory.update({
+          where: { variantId: item.variantId },
+          data: { quantity: { increment: item.quantity } },
+        });
+      }
+
+      await tx.refund.create({
+        data: {
+          orderId,
+          paymentId: order.payment!.id,
+          amount: order.totalAmount,
+          reason,
+          status: 'COMPLETED',
+        },
+      });
+
+      await tx.payment.update({
+        where: { id: order.payment!.id },
+        data: { status: 'REFUNDED' },
+      });
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: 'REFUNDED' },
+      });
+    });
+  }
+
+  async partialRefundOrder(userId: string, orderId: string, dto: PartialRefundDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: true },
+    });
+
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+    if (order.userId !== userId) throw new ForbiddenException('접근 권한이 없습니다.');
+    if (order.status === 'REFUNDED') throw new BadRequestException('이미 환불된 주문입니다.');
+    if (order.status !== 'PAID' && order.status !== 'DELIVERED') {
+      throw new BadRequestException('환불 가능한 상태가 아닙니다.');
+    }
+    if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
+
+    let refundAmount = 0;
+    const itemsToRefund: { variantId: string; quantity: number }[] = [];
+
+    for (const refundItem of dto.items) {
+      const orderItem = order.items.find((i) => i.id === refundItem.itemId);
+      if (!orderItem) {
+        throw new NotFoundException(`주문 항목을 찾을 수 없습니다: ${refundItem.itemId}`);
+      }
+      if (refundItem.quantity > orderItem.quantity) {
+        throw new BadRequestException(`환불 수량이 주문 수량을 초과합니다: ${refundItem.itemId}`);
+      }
+      refundAmount += orderItem.unitPrice * refundItem.quantity;
+      itemsToRefund.push({ variantId: orderItem.variantId, quantity: refundItem.quantity });
+    }
+
+    await this.processGatewayRefund(order.payment, refundAmount);
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const { variantId, quantity } of itemsToRefund) {
+        await tx.inventory.update({
+          where: { variantId },
+          data: { quantity: { increment: quantity } },
+        });
+      }
+
+      return tx.refund.create({
+        data: {
+          orderId,
+          paymentId: order.payment!.id,
+          amount: refundAmount,
+          reason: dto.reason,
+          status: 'COMPLETED',
+        },
+      });
+    });
+  }
+
+  private async processGatewayRefund(
+    payment: { id: string; paymentKey: string | null; paymentMethod: string },
+    amount: number,
+  ): Promise<void> {
+    if (!payment.paymentKey) {
+      throw new BadRequestException('결제 키가 없어 환불할 수 없습니다.');
+    }
+
+    switch (payment.paymentMethod) {
+      case 'stripe':
+        await this.paymentsService.refundStripePayment(payment.paymentKey, amount);
+        break;
+      case 'naverpay':
+        await this.naverPayService.refundNaverPayment(payment.paymentKey, amount);
+        break;
+      case 'kakaopay':
+        await this.kakaoPayService.refundKakaoPayment(payment.paymentKey, amount);
+        break;
+      default:
+        throw new BadRequestException(`지원하지 않는 결제 수단입니다: ${payment.paymentMethod}`);
+    }
   }
 }

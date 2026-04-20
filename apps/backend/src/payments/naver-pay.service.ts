@@ -185,6 +185,44 @@ export class NaverPayService {
     return { orderId: merchantPayKey, status: 'COMPLETED' };
   }
 
+  async refundNaverPayment(paymentKey: string, amount: number): Promise<void> {
+    const chainId = this.config.get<string>('NAVER_PAY_CHAIN_ID');
+    const clientId = this.config.get<string>('NAVER_CLIENT_ID');
+    const clientSecret = this.config.get<string>('NAVER_CLIENT_SECRET');
+
+    if (!chainId || !clientId || !clientSecret) {
+      throw new InternalServerErrorException('네이버페이 서비스가 설정되지 않았습니다.');
+    }
+
+    const params = new URLSearchParams({
+      paymentId: paymentKey,
+      cancelAmount: String(amount),
+      cancelTaxScopeAmount: String(amount),
+      cancelTaxExScopeAmount: '0',
+      cancelReason: '고객 요청 환불',
+    });
+
+    const response = await fetch(`${NAVER_PAY_API_BASE}/payments/v1/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-NaverPay-Chain-Id': chainId,
+        'X-Naver-Client-Id': clientId,
+        'X-Naver-Client-Secret': clientSecret,
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      throw new InternalServerErrorException('네이버페이 환불 요청에 실패했습니다.');
+    }
+
+    const result = (await response.json()) as { code: string; message: string };
+    if (result.code !== 'Success') {
+      throw new BadRequestException(`네이버페이 환불 실패: ${result.message}`);
+    }
+  }
+
   async handleWebhook(rawBody: string, signature: string): Promise<void> {
     const secret = this.config.get<string>('NAVER_CLIENT_SECRET');
     if (!secret) {
