@@ -38,6 +38,16 @@ export class PaymentsController {
     return this.paymentsService.handleWebhookEvent(req.rawBody!, signature);
   }
 
+  @Post('naver/webhook')
+  @Public()
+  @ApiOperation({ summary: '네이버페이 웹훅 처리' })
+  handleNaverWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('x-naverpay-signature') signature: string,
+  ) {
+    return this.naverPayService.handleWebhook(req.rawBody!.toString('utf-8'), signature);
+  }
+
   @Post('naver/prepare')
   @ApiOperation({ summary: '네이버페이 결제 준비' })
   naverPayPrepare(@CurrentUser() user: JwtPayload, @Body() dto: NaverPayPrepareDto) {

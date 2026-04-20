@@ -284,4 +284,87 @@ describe('NaverPayService', () => {
       );
     });
   });
+
+  // ── handleWebhook ─────────────────────────────────────────────────────────────
+
+  describe('handleWebhook', () => {
+    const buildSignature = (body: string) => {
+      const { createHmac } = require('crypto') as typeof import('crypto');
+      return createHmac('sha256', 'test_client_secret').update(body).digest('base64');
+    };
+
+    it('결제 성공(paymentStatus=SUCCESS) → Payment COMPLETED, Order PAID로 업데이트', async () => {
+      const body = JSON.stringify({
+        paymentId: 'np_payment_123',
+        merchantPayKey: 'order-1',
+        totalPayAmount: 50000,
+        paymentStatus: 'SUCCESS',
+      });
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'COMPLETED' });
+      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        data: { status: 'COMPLETED', paidAt: expect.any(Date) },
+      });
+      expect(mockPrisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        data: { status: 'PAID' },
+      });
+    });
+
+    it('결제 취소(paymentStatus=CANCEL) → Payment FAILED, 주문 상태 미변경', async () => {
+      const body = JSON.stringify({
+        paymentId: 'np_payment_123',
+        merchantPayKey: 'order-1',
+        paymentStatus: 'CANCEL',
+      });
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'FAILED' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        data: { status: 'FAILED' },
+      });
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('결제 실패(paymentStatus=FAIL) → Payment FAILED, 주문 상태 미변경', async () => {
+      const body = JSON.stringify({
+        paymentId: 'np_payment_123',
+        merchantPayKey: 'order-1',
+        paymentStatus: 'FAIL',
+      });
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'FAILED' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        data: { status: 'FAILED' },
+      });
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('잘못된 서명 → early return (DB 미호출)', async () => {
+      const body = JSON.stringify({ merchantPayKey: 'order-1', paymentStatus: 'SUCCESS' });
+
+      await expect(service.handleWebhook(body, 'invalid-signature')).resolves.toBeUndefined();
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('merchantPayKey 없는 페이로드 → 아무것도 하지 않는다', async () => {
+      const body = JSON.stringify({ paymentId: 'np_payment_123', paymentStatus: 'SUCCESS' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+  });
 });
