@@ -5,5 +5,5 @@ export class RefundDto {
   @ApiProperty({ description: '환불 사유' })
   @IsString()
   @IsNotEmpty()
-  reason: string;
+  reason!: string;
 }

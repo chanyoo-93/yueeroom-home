@@ -178,7 +178,18 @@ export class OrdersService {
     }
     if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
 
-    await this.processGatewayRefund(order.payment, order.totalAmount);
+    // 환불 시도 기록을 먼저 저장하여 게이트웨이 API 성공 후 DB 실패 시 추적 가능하도록 함
+    const pendingRefund = await this.prisma.refund.create({
+      data: {
+        orderId,
+        paymentId: order.payment.id,
+        amount: order.totalAmount,
+        reason,
+        status: 'REQUESTED',
+      },
+    });
+
+    await this.processGatewayRefund(order.payment, order.totalAmount, reason);
 
     return this.prisma.$transaction(async (tx) => {
       for (const item of order.items) {
@@ -188,14 +199,9 @@ export class OrdersService {
         });
       }
 
-      await tx.refund.create({
-        data: {
-          orderId,
-          paymentId: order.payment!.id,
-          amount: order.totalAmount,
-          reason,
-          status: 'COMPLETED',
-        },
+      await tx.refund.update({
+        where: { id: pendingRefund.id },
+        data: { status: 'COMPLETED' },
       });
 
       await tx.payment.update({
@@ -213,7 +219,7 @@ export class OrdersService {
   async partialRefundOrder(userId: string, orderId: string, dto: PartialRefundDto) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { payment: true, items: true },
+      include: { payment: true, items: { include: { refundItems: true } }, refunds: true },
     });
 
     if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
@@ -224,22 +230,51 @@ export class OrdersService {
     }
     if (!order.payment) throw new BadRequestException('결제 정보를 찾을 수 없습니다.');
 
+    const existingRefundTotal = order.refunds
+      .filter((r) => r.status === 'COMPLETED' || r.status === 'REQUESTED')
+      .reduce((sum, r) => sum + r.amount, 0);
+
     let refundAmount = 0;
-    const itemsToRefund: { variantId: string; quantity: number }[] = [];
+    const itemsToRefund: { orderItemId: string; variantId: string; quantity: number }[] = [];
 
     for (const refundItem of dto.items) {
       const orderItem = order.items.find((i) => i.id === refundItem.itemId);
       if (!orderItem) {
         throw new NotFoundException(`주문 항목을 찾을 수 없습니다: ${refundItem.itemId}`);
       }
-      if (refundItem.quantity > orderItem.quantity) {
-        throw new BadRequestException(`환불 수량이 주문 수량을 초과합니다: ${refundItem.itemId}`);
+      const alreadyRefundedQty = orderItem.refundItems.reduce((sum, ri) => sum + ri.quantity, 0);
+      if (alreadyRefundedQty + refundItem.quantity > orderItem.quantity) {
+        throw new BadRequestException(
+          `이미 환불된 수량을 포함하여 환불 가능 수량을 초과합니다: ${refundItem.itemId}`,
+        );
       }
       refundAmount += orderItem.unitPrice * refundItem.quantity;
-      itemsToRefund.push({ variantId: orderItem.variantId, quantity: refundItem.quantity });
+      itemsToRefund.push({
+        orderItemId: orderItem.id,
+        variantId: orderItem.variantId,
+        quantity: refundItem.quantity,
+      });
     }
 
-    await this.processGatewayRefund(order.payment, refundAmount);
+    if (existingRefundTotal + refundAmount > order.totalAmount) {
+      throw new BadRequestException('누적 환불 금액이 결제 총액을 초과합니다.');
+    }
+
+    // 환불 시도 기록을 먼저 저장하여 게이트웨이 API 성공 후 DB 실패 시 추적 가능하도록 함
+    const pendingRefund = await this.prisma.refund.create({
+      data: {
+        orderId,
+        paymentId: order.payment.id,
+        amount: refundAmount,
+        reason: dto.reason,
+        status: 'REQUESTED',
+        items: {
+          create: itemsToRefund.map(({ orderItemId, quantity }) => ({ orderItemId, quantity })),
+        },
+      },
+    });
+
+    await this.processGatewayRefund(order.payment, refundAmount, dto.reason);
 
     return this.prisma.$transaction(async (tx) => {
       for (const { variantId, quantity } of itemsToRefund) {
@@ -249,14 +284,9 @@ export class OrdersService {
         });
       }
 
-      return tx.refund.create({
-        data: {
-          orderId,
-          paymentId: order.payment!.id,
-          amount: refundAmount,
-          reason: dto.reason,
-          status: 'COMPLETED',
-        },
+      return tx.refund.update({
+        where: { id: pendingRefund.id },
+        data: { status: 'COMPLETED' },
       });
     });
   }
@@ -264,6 +294,7 @@ export class OrdersService {
   private async processGatewayRefund(
     payment: { id: string; paymentKey: string | null; paymentMethod: string },
     amount: number,
+    reason?: string,
   ): Promise<void> {
     if (!payment.paymentKey) {
       throw new BadRequestException('결제 키가 없어 환불할 수 없습니다.');
@@ -274,7 +305,7 @@ export class OrdersService {
         await this.paymentsService.refundStripePayment(payment.paymentKey, amount);
         break;
       case 'naverpay':
-        await this.naverPayService.refundNaverPayment(payment.paymentKey, amount);
+        await this.naverPayService.refundNaverPayment(payment.paymentKey, amount, reason);
         break;
       case 'kakaopay':
         await this.kakaoPayService.refundKakaoPayment(payment.paymentKey, amount);

@@ -185,7 +185,7 @@ export class NaverPayService {
     return { orderId: merchantPayKey, status: 'COMPLETED' };
   }
 
-  async refundNaverPayment(paymentKey: string, amount: number): Promise<void> {
+  async refundNaverPayment(paymentKey: string, amount: number, reason?: string): Promise<void> {
     const chainId = this.config.get<string>('NAVER_PAY_CHAIN_ID');
     const clientId = this.config.get<string>('NAVER_CLIENT_ID');
     const clientSecret = this.config.get<string>('NAVER_CLIENT_SECRET');
@@ -199,7 +199,7 @@ export class NaverPayService {
       cancelAmount: String(amount),
       cancelTaxScopeAmount: String(amount),
       cancelTaxExScopeAmount: '0',
-      cancelReason: '고객 요청 환불',
+      cancelReason: reason ?? '고객 요청 환불',
     });
 
     const response = await fetch(`${NAVER_PAY_API_BASE}/payments/v1/cancel`, {

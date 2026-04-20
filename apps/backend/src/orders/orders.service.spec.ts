@@ -36,6 +36,7 @@ const mockOrderItems = [
     quantity: 2,
     unitPrice: 25000,
     createdAt: new Date(),
+    refundItems: [],
   },
   {
     id: 'item-2',
@@ -44,6 +45,7 @@ const mockOrderItems = [
     quantity: 1,
     unitPrice: 30000,
     createdAt: new Date(),
+    refundItems: [],
   },
 ];
 
@@ -76,6 +78,7 @@ const mockPaidOrder = {
   ...mockOrder,
   status: 'PAID',
   payment: mockPayment,
+  refunds: [],
 };
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -103,6 +106,7 @@ const mockPrisma = {
   },
   refund: {
     create: jest.fn(),
+    update: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -344,9 +348,10 @@ describe('OrdersService', () => {
   describe('refundOrder', () => {
     it('전체 환불 성공 → Stripe 환불 호출, 재고 복구, 주문 상태 REFUNDED', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(mockPaidOrder);
+      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
       mockPaymentsService.refundStripePayment.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
-      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
+      mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
       const updatedOrder = { ...mockPaidOrder, status: 'REFUNDED' };
       mockPrisma.order.update.mockResolvedValue(updatedOrder);
@@ -354,6 +359,17 @@ describe('OrdersService', () => {
       const result = await service.refundOrder('user-1', 'order-1', '고객 요청');
 
       expect(result).toEqual(updatedOrder);
+
+      // REQUESTED 상태로 먼저 Refund 레코드 생성 (트랜잭션 외부)
+      expect(mockPrisma.refund.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orderId: 'order-1',
+          paymentId: 'payment-1',
+          amount: 80000,
+          reason: '고객 요청',
+          status: 'REQUESTED',
+        }),
+      });
 
       // Stripe 환불 API 호출 확인
       expect(mockPaymentsService.refundStripePayment).toHaveBeenCalledWith('pi_test_123', 80000);
@@ -369,15 +385,10 @@ describe('OrdersService', () => {
         data: { quantity: { increment: 1 } },
       });
 
-      // Refund 레코드 생성 확인
-      expect(mockPrisma.refund.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          orderId: 'order-1',
-          paymentId: 'payment-1',
-          amount: 80000,
-          reason: '고객 요청',
-          status: 'COMPLETED',
-        }),
+      // 트랜잭션 내에서 Refund 상태 COMPLETED로 업데이트 확인
+      expect(mockPrisma.refund.update).toHaveBeenCalledWith({
+        where: { id: 'refund-1' },
+        data: { status: 'COMPLETED' },
       });
 
       // 주문 상태 REFUNDED 업데이트 확인
@@ -421,15 +432,16 @@ describe('OrdersService', () => {
       expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
     });
 
-    it('NaverPay 결제 주문 환불 → NaverPay 환불 API 호출', async () => {
+    it('NaverPay 결제 주문 환불 → NaverPay 환불 API 호출 (reason 전달)', async () => {
       const naverOrder = {
         ...mockPaidOrder,
         payment: { ...mockPayment, paymentMethod: 'naverpay', paymentKey: 'naver-pay-id-123' },
       };
       mockPrisma.order.findUnique.mockResolvedValue(naverOrder);
+      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
       mockNaverPayService.refundNaverPayment.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
-      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
+      mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
       mockPrisma.order.update.mockResolvedValue({ ...naverOrder, status: 'REFUNDED' });
 
@@ -438,6 +450,7 @@ describe('OrdersService', () => {
       expect(mockNaverPayService.refundNaverPayment).toHaveBeenCalledWith(
         'naver-pay-id-123',
         80000,
+        '환불',
       );
     });
 
@@ -447,9 +460,10 @@ describe('OrdersService', () => {
         payment: { ...mockPayment, paymentMethod: 'kakaopay', paymentKey: 'T469b847306d7b2dc234' },
       };
       mockPrisma.order.findUnique.mockResolvedValue(kakaoOrder);
+      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
       mockKakaoPayService.refundKakaoPayment.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
-      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
+      mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
       mockPrisma.order.update.mockResolvedValue({ ...kakaoOrder, status: 'REFUNDED' });
 
@@ -472,9 +486,10 @@ describe('OrdersService', () => {
 
     it('부분 환불 성공 → 해당 항목 재고 복구, Refund 레코드 생성', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(mockPaidOrder);
+      mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
       mockPaymentsService.refundStripePayment.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
-      const mockRefund = {
+      const completedRefund = {
         id: 'refund-1',
         orderId: 'order-1',
         paymentId: 'payment-1',
@@ -482,11 +497,24 @@ describe('OrdersService', () => {
         reason: '단순 변심',
         status: 'COMPLETED',
       };
-      mockPrisma.refund.create.mockResolvedValue(mockRefund);
+      mockPrisma.refund.update.mockResolvedValue(completedRefund);
 
       const result = await service.partialRefundOrder('user-1', 'order-1', partialRefundDto);
 
-      expect(result).toEqual(mockRefund);
+      expect(result).toEqual(completedRefund);
+
+      // REQUESTED 상태로 먼저 Refund 레코드 + RefundItem 생성 (트랜잭션 외부)
+      expect(mockPrisma.refund.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orderId: 'order-1',
+          amount: 25000,
+          reason: '단순 변심',
+          status: 'REQUESTED',
+          items: {
+            create: [{ orderItemId: 'item-1', quantity: 1 }],
+          },
+        }),
+      });
 
       // 25000원 부분 환불 (var-a 1개)
       expect(mockPaymentsService.refundStripePayment).toHaveBeenCalledWith('pi_test_123', 25000);
@@ -498,14 +526,10 @@ describe('OrdersService', () => {
         data: { quantity: { increment: 1 } },
       });
 
-      // Refund 레코드 생성
-      expect(mockPrisma.refund.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          orderId: 'order-1',
-          amount: 25000,
-          reason: '단순 변심',
-          status: 'COMPLETED',
-        }),
+      // 트랜잭션 내에서 Refund 상태 COMPLETED로 업데이트 확인
+      expect(mockPrisma.refund.update).toHaveBeenCalledWith({
+        where: { id: 'refund-1' },
+        data: { status: 'COMPLETED' },
       });
     });
 
@@ -542,6 +566,48 @@ describe('OrdersService', () => {
       await expect(service.partialRefundOrder('user-1', 'order-1', dto)).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('이미 부분 환불된 항목에 중복 환불 요청 → BadRequestException', async () => {
+      const orderWithRefundedItem = {
+        ...mockPaidOrder,
+        items: [
+          {
+            ...mockOrderItems[0], // item-1, var-a, quantity=2
+            refundItems: [{ id: 'ri-1', refundId: 'refund-old', orderItemId: 'item-1', quantity: 2 }],
+          },
+          mockOrderItems[1],
+        ],
+      };
+      mockPrisma.order.findUnique.mockResolvedValue(orderWithRefundedItem);
+
+      const dto: PartialRefundDto = {
+        reason: '추가 환불',
+        items: [{ itemId: 'item-1', quantity: 1 }], // 이미 2개 모두 환불됨
+      };
+
+      await expect(service.partialRefundOrder('user-1', 'order-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+    });
+
+    it('누적 환불 금액이 총 결제 금액 초과 → BadRequestException', async () => {
+      const orderWithExistingRefund = {
+        ...mockPaidOrder,
+        refunds: [{ id: 'refund-old', amount: 75000, status: 'COMPLETED' }], // 이미 75000원 환불
+      };
+      mockPrisma.order.findUnique.mockResolvedValue(orderWithExistingRefund);
+
+      const dto: PartialRefundDto = {
+        reason: '추가 환불',
+        items: [{ itemId: 'item-2', quantity: 1 }], // 30000원 → 합산 105000 > 80000
+      };
+
+      await expect(service.partialRefundOrder('user-1', 'order-1', dto)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
     });
 
     it('다른 사용자의 주문 → ForbiddenException', async () => {
