@@ -6,7 +6,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+
+interface NaverPayWebhookPayload {
+  paymentId?: string;
+  merchantPayKey?: string;
+  totalPayAmount?: number;
+  paymentStatus: string;
+}
 
 interface NaverPayReserveResponse {
   code: string;
@@ -175,5 +183,33 @@ export class NaverPayService {
     ]);
 
     return { orderId: merchantPayKey, status: 'COMPLETED' };
+  }
+
+  async handleWebhook(rawBody: string, signature: string): Promise<void> {
+    const secret = this.config.get<string>('NAVER_CLIENT_SECRET', '');
+    const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
+    if (!signature || signature !== expected) {
+      throw new BadRequestException('웹훅 서명 검증에 실패했습니다.');
+    }
+
+    const payload = JSON.parse(rawBody) as NaverPayWebhookPayload;
+    const orderId = payload.merchantPayKey;
+    if (!orderId) return;
+
+    if (payload.paymentStatus === 'SUCCESS') {
+      await this.prisma.payment.update({
+        where: { orderId },
+        data: { status: 'COMPLETED', paidAt: new Date() },
+      });
+      await this.prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'PAID' },
+      });
+    } else if (payload.paymentStatus === 'CANCEL' || payload.paymentStatus === 'FAIL') {
+      await this.prisma.payment.update({
+        where: { orderId },
+        data: { status: 'FAILED' },
+      });
+    }
   }
 }
