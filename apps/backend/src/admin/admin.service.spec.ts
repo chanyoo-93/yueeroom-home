@@ -210,6 +210,12 @@ describe('AdminService', () => {
         NotFoundException,
       );
     });
+
+    it('관리자가 자기 자신을 정지하려는 경우 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin).mockResolvedValueOnce(mockAdmin);
+
+      await expect(service.suspendUser('admin-1', 'admin-1')).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── restoreUser ───────────────────────────────────────────────────────────────

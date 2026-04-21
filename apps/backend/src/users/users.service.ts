@@ -16,7 +16,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 // 클라이언트에 노출해도 안전한 사용자 타입 (password, mfaSecret, providerId 제외)
 export type SafeUser = Omit<User, 'password' | 'mfaSecret' | 'providerId'>;
 
-const USER_SAFE_SELECT = {
+export const USER_SAFE_SELECT = {
   id: true,
   email: true,
   name: true,

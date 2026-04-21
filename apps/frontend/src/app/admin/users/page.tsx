@@ -188,13 +188,12 @@ export default function AdminUsersPage() {
                 onClick={handleConfirm}
                 disabled={isMutating}
                 className={`flex-1 rounded-lg py-2 text-sm font-medium text-white disabled:opacity-50 ${
-                  dialog.action === 'approve'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : dialog.action === 'restore'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : dialog.action === 'suspend'
-                        ? 'bg-orange-600 hover:bg-orange-700'
-                        : 'bg-red-600 hover:bg-red-700'
+                  {
+                    approve: 'bg-blue-600 hover:bg-blue-700',
+                    restore: 'bg-green-600 hover:bg-green-700',
+                    suspend: 'bg-orange-600 hover:bg-orange-700',
+                    reject: 'bg-red-600 hover:bg-red-700',
+                  }[dialog.action]
                 }`}
               >
                 확인
