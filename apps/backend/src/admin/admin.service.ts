@@ -2,16 +2,30 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, OrderStatus, User, UserRole, UserStatus } from '@prisma/client';
+import { Order, OrderStatus, Prisma, User, UserRole, UserStatus } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
+
+const IMMUTABLE_STATUSES: OrderStatus[] = [
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED,
+];
+
+type AdminOrderWithUser = Prisma.OrderGetPayload<{
+  include: { user: { select: { id: true; email: true; name: true } } };
+}>;
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
@@ -97,11 +111,6 @@ export class AdminService {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
 
-    const IMMUTABLE_STATUSES: OrderStatus[] = [
-      OrderStatus.DELIVERED,
-      OrderStatus.CANCELLED,
-      OrderStatus.REFUNDED,
-    ];
     if (IMMUTABLE_STATUSES.includes(order.status)) {
       throw new BadRequestException('완료·취소·환불된 주문의 상태는 변경할 수 없습니다.');
     }
@@ -110,7 +119,7 @@ export class AdminService {
       throw new BadRequestException('배송 중 상태로 변경하려면 택배사와 송장번호가 필요합니다.');
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: dto.status,
@@ -118,6 +127,60 @@ export class AdminService {
         ...(dto.trackingNumber !== undefined && { trackingNumber: dto.trackingNumber }),
       },
     });
+
+    const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+    if (user) {
+      try {
+        await this.emailService.sendOrderStatusEmail(user.email, user.name, orderId, dto.status);
+      } catch (error) {
+        this.logger.error(`주문 상태 변경 이메일 발송 실패 (orderId=${orderId}): ${String(error)}`);
+      }
+    }
+
+    return updated;
+  }
+
+  async updateOrderTracking(
+    adminId: string,
+    orderId: string,
+    dto: UpdateOrderTrackingDto,
+  ): Promise<Order> {
+    await this.assertAdmin(adminId);
+
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+
+    if (IMMUTABLE_STATUSES.includes(order.status)) {
+      throw new BadRequestException('완료·취소·환불된 주문의 송장번호는 변경할 수 없습니다.');
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { carrier: dto.carrier, trackingNumber: dto.trackingNumber },
+    });
+  }
+
+  async listOrders(
+    page: number,
+    limit: number,
+  ): Promise<{
+    items: AdminOrderWithUser[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+      this.prisma.order.count(),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async listPendingUsers(): Promise<User[]> {
