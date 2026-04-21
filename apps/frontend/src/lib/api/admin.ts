@@ -16,3 +16,13 @@ export async function rejectUser(userId: string): Promise<AdminUser> {
   const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/reject`, { reason: '' });
   return res.data;
 }
+
+export async function suspendUser(userId: string): Promise<AdminUser> {
+  const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/suspend`);
+  return res.data;
+}
+
+export async function restoreUser(userId: string): Promise<AdminUser> {
+  const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/restore`);
+  return res.data;
+}

@@ -170,6 +170,92 @@ describe('AdminService', () => {
     });
   });
 
+  // ── suspendUser ───────────────────────────────────────────────────────────────
+
+  describe('suspendUser', () => {
+    it('관리자가 APPROVED 회원을 정지하면 SUSPENDED 상태가 된다', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockApprovedUser);
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockApprovedUser,
+        status: UserStatus.SUSPENDED,
+      });
+
+      const result = await service.suspendUser('admin-1', 'user-2');
+      expect(result.status).toBe(UserStatus.SUSPENDED);
+    });
+
+    it('비관리자가 정지 요청 시 ForbiddenException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...mockPendingUser,
+        role: UserRole.CUSTOMER,
+      });
+
+      await expect(service.suspendUser('user-1', 'user-2')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('APPROVED가 아닌 회원 정지 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockPendingUser);
+
+      await expect(service.suspendUser('admin-1', 'user-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('존재하지 않는 사용자 정지 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin).mockResolvedValueOnce(null);
+
+      await expect(service.suspendUser('admin-1', 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ── restoreUser ───────────────────────────────────────────────────────────────
+
+  describe('restoreUser', () => {
+    const mockSuspendedUser = { ...mockApprovedUser, id: 'user-3', status: UserStatus.SUSPENDED };
+
+    it('관리자가 SUSPENDED 회원을 복구하면 APPROVED 상태가 된다', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockSuspendedUser);
+      mockPrisma.user.update.mockResolvedValue({
+        ...mockSuspendedUser,
+        status: UserStatus.APPROVED,
+      });
+
+      const result = await service.restoreUser('admin-1', 'user-3');
+      expect(result.status).toBe(UserStatus.APPROVED);
+    });
+
+    it('비관리자가 복구 요청 시 ForbiddenException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...mockPendingUser,
+        role: UserRole.CUSTOMER,
+      });
+
+      await expect(service.restoreUser('user-1', 'user-3')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('SUSPENDED가 아닌 회원 복구 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockApprovedUser);
+
+      await expect(service.restoreUser('admin-1', 'user-2')).rejects.toThrow(BadRequestException);
+    });
+
+    it('존재하지 않는 사용자 복구 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin).mockResolvedValueOnce(null);
+
+      await expect(service.restoreUser('admin-1', 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   // ── updateOrderStatus ─────────────────────────────────────────────────────────
 
   describe('updateOrderStatus', () => {

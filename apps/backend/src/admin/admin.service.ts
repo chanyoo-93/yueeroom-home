@@ -50,6 +50,34 @@ export class AdminService {
     return updated;
   }
 
+  async suspendUser(adminId: string, targetUserId: string): Promise<User> {
+    await this.assertAdmin(adminId);
+    const target = await this.getTarget(targetUserId);
+
+    if (target.status !== UserStatus.APPROVED) {
+      throw new BadRequestException('APPROVED 상태의 회원만 정지할 수 있습니다.');
+    }
+
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { status: UserStatus.SUSPENDED },
+    });
+  }
+
+  async restoreUser(adminId: string, targetUserId: string): Promise<User> {
+    await this.assertAdmin(adminId);
+    const target = await this.getTarget(targetUserId);
+
+    if (target.status !== UserStatus.SUSPENDED) {
+      throw new BadRequestException('SUSPENDED 상태의 회원만 복구할 수 있습니다.');
+    }
+
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { status: UserStatus.APPROVED },
+    });
+  }
+
   async updateOrderStatus(
     adminId: string,
     orderId: string,

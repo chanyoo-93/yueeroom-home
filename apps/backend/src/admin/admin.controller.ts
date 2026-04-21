@@ -51,4 +51,16 @@ export class AdminController {
   ): Promise<User> {
     return this.adminService.rejectUser(admin.sub, userId);
   }
+
+  @Patch('users/:id/suspend')
+  @ApiOperation({ summary: '회원 정지' })
+  suspendUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<User> {
+    return this.adminService.suspendUser(admin.sub, userId);
+  }
+
+  @Patch('users/:id/restore')
+  @ApiOperation({ summary: '회원 복구' })
+  restoreUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<User> {
+    return this.adminService.restoreUser(admin.sub, userId);
+  }
 }

@@ -1,14 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdminUsers, useApproveUser, useRejectUser } from '@/lib/hooks/useAdminUsers';
+import {
+  useAdminUsers,
+  useApproveUser,
+  useRejectUser,
+  useSuspendUser,
+  useRestoreUser,
+} from '@/lib/hooks/useAdminUsers';
 import type { AdminUser, UserStatus } from '@/lib/types/admin';
 
 type FilterStatus = UserStatus | undefined;
 
 interface DialogState {
   open: boolean;
-  action: 'approve' | 'reject' | null;
+  action: 'approve' | 'reject' | 'suspend' | 'restore' | null;
   user: AdminUser | null;
 }
 
@@ -31,6 +37,7 @@ const FILTER_BUTTONS: { label: string; value: FilterStatus }[] = [
   { label: 'PENDING', value: 'PENDING' },
   { label: 'APPROVED', value: 'APPROVED' },
   { label: 'REJECTED', value: 'REJECTED' },
+  { label: 'SUSPENDED', value: 'SUSPENDED' },
 ];
 
 export default function AdminUsersPage() {
@@ -40,8 +47,10 @@ export default function AdminUsersPage() {
   const { data: users, isLoading, isError } = useAdminUsers(statusFilter);
   const { mutate: approve, isPending: isApproving } = useApproveUser();
   const { mutate: reject, isPending: isRejecting } = useRejectUser();
+  const { mutate: suspend, isPending: isSuspending } = useSuspendUser();
+  const { mutate: restore, isPending: isRestoring } = useRestoreUser();
 
-  function openDialog(action: 'approve' | 'reject', user: AdminUser) {
+  function openDialog(action: 'approve' | 'reject' | 'suspend' | 'restore', user: AdminUser) {
     setDialog({ open: true, action, user });
   }
 
@@ -51,11 +60,11 @@ export default function AdminUsersPage() {
 
   function handleConfirm() {
     if (!dialog.user || !dialog.action) return;
-    const mutateFn = dialog.action === 'approve' ? approve : reject;
-    mutateFn(dialog.user.id, { onSuccess: closeDialog });
+    const mutateFnMap = { approve, reject, suspend, restore };
+    mutateFnMap[dialog.action](dialog.user.id, { onSuccess: closeDialog });
   }
 
-  const isMutating = isApproving || isRejecting;
+  const isMutating = isApproving || isRejecting || isSuspending || isRestoring;
 
   return (
     <div>
@@ -113,24 +122,44 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {user.status === 'PENDING' && (
-                      <div className="flex gap-2">
+                    <div className="flex gap-2">
+                      {user.status === 'PENDING' && (
+                        <>
+                          <button
+                            onClick={() => openDialog('approve', user)}
+                            disabled={isMutating}
+                            className="rounded px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={() => openDialog('reject', user)}
+                            disabled={isMutating}
+                            className="rounded px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                          >
+                            거절
+                          </button>
+                        </>
+                      )}
+                      {user.status === 'APPROVED' && (
                         <button
-                          onClick={() => openDialog('approve', user)}
+                          onClick={() => openDialog('suspend', user)}
                           disabled={isMutating}
-                          className="rounded px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                          className="rounded px-3 py-1 text-xs font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
                         >
-                          승인
+                          정지
                         </button>
+                      )}
+                      {user.status === 'SUSPENDED' && (
                         <button
-                          onClick={() => openDialog('reject', user)}
+                          onClick={() => openDialog('restore', user)}
                           disabled={isMutating}
-                          className="rounded px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                          className="rounded px-3 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
                         >
-                          거절
+                          복구
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -144,7 +173,9 @@ export default function AdminUsersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
             <p className="mb-6 text-center text-gray-800">
-              {dialog.user.name}님을 {dialog.action === 'approve' ? '승인' : '거절'}하시겠습니까?
+              {dialog.user.name}님을{' '}
+              {{ approve: '승인', reject: '거절', suspend: '정지', restore: '복구' }[dialog.action]}
+              하시겠습니까?
             </p>
             <div className="flex gap-3">
               <button
@@ -159,7 +190,11 @@ export default function AdminUsersPage() {
                 className={`flex-1 rounded-lg py-2 text-sm font-medium text-white disabled:opacity-50 ${
                   dialog.action === 'approve'
                     ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-red-600 hover:bg-red-700'
+                    : dialog.action === 'restore'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : dialog.action === 'suspend'
+                        ? 'bg-orange-600 hover:bg-orange-700'
+                        : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
                 확인
