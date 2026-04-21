@@ -36,4 +36,7 @@ export const queryKeys = {
     all: ['payments'] as const,
     list: () => ['payments', 'list'] as const,
   },
+  admin: {
+    users: (status?: string) => ['admin', 'users', status] as const,
+  },
 } as const;

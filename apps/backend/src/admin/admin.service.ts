@@ -90,6 +90,13 @@ export class AdminService {
     });
   }
 
+  async listUsers(status?: UserStatus): Promise<User[]> {
+    return this.prisma.user.findMany({
+      where: status ? { status } : {},
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   private async assertAdmin(adminId: string): Promise<void> {
     const admin = await this.prisma.user.findUnique({ where: { id: adminId } });
     if (!admin || admin.role !== UserRole.ADMIN) {

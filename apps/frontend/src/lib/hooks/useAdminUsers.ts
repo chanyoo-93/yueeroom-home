@@ -1,0 +1,31 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getAdminUsers, approveUser, rejectUser } from '../api/admin';
+import { queryKeys } from '../api/query-keys';
+import type { UserStatus } from '../types/admin';
+
+export function useAdminUsers(status?: UserStatus) {
+  return useQuery({
+    queryKey: queryKeys.admin.users(status),
+    queryFn: () => getAdminUsers(status),
+  });
+}
+
+export function useApproveUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => approveUser(userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
+export function useRejectUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => rejectUser(userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
