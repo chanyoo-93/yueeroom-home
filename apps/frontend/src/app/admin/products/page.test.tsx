@@ -1,6 +1,5 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import AdminProductsPage from './page';
 
 vi.mock('@/lib/hooks/useAdminProducts', () => ({
   useAdminProducts: vi.fn(),
@@ -17,15 +16,22 @@ vi.mock('@/lib/hooks/useCategories', () => ({
   useCategories: vi.fn(),
 }));
 
-import * as adminProductHooks from '@/lib/hooks/useAdminProducts';
-import * as categoriesHooks from '@/lib/hooks/useCategories';
+import AdminProductsPage from './page';
+import {
+  useAdminProducts,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
+  useCreateVariant,
+  useDeleteVariant,
+  useUploadImage,
+  useDeleteImage,
+} from '@/lib/hooks/useAdminProducts';
+import { useCategories } from '@/lib/hooks/useCategories';
 
 const mockMutate = vi.fn();
 
-const defaultMutation = {
-  mutate: mockMutate,
-  isPending: false,
-};
+const defaultMutation = { mutate: mockMutate, isPending: false };
 
 const mockProducts = [
   {
@@ -80,39 +86,24 @@ const mockCategories = [
 ];
 
 beforeEach(() => {
-  vi.mocked(adminProductHooks.useAdminProducts).mockReturnValue({
+  (useAdminProducts as ReturnType<typeof vi.fn>).mockReturnValue({
     data: { data: mockProducts, total: 2, page: 1, limit: 20, nextCursor: null },
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof adminProductHooks.useAdminProducts>);
-
-  vi.mocked(adminProductHooks.useCreateProduct).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useCreateProduct>,
-  );
-  vi.mocked(adminProductHooks.useUpdateProduct).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useUpdateProduct>,
-  );
-  vi.mocked(adminProductHooks.useDeleteProduct).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useDeleteProduct>,
-  );
-  vi.mocked(adminProductHooks.useCreateVariant).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useCreateVariant>,
-  );
-  vi.mocked(adminProductHooks.useDeleteVariant).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useDeleteVariant>,
-  );
-  vi.mocked(adminProductHooks.useUploadImage).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useUploadImage>,
-  );
-  vi.mocked(adminProductHooks.useDeleteImage).mockReturnValue(
-    defaultMutation as ReturnType<typeof adminProductHooks.useDeleteImage>,
-  );
-
-  vi.mocked(categoriesHooks.useCategories).mockReturnValue({
+  });
+  (useCreateProduct as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useUpdateProduct as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useDeleteProduct as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useCreateVariant as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useDeleteVariant as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useUploadImage as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useDeleteImage as ReturnType<typeof vi.fn>).mockReturnValue(defaultMutation);
+  (useCategories as ReturnType<typeof vi.fn>).mockReturnValue({
     data: mockCategories,
     isLoading: false,
     isError: false,
-  } as ReturnType<typeof categoriesHooks.useCategories>);
+  });
+  mockMutate.mockReset();
 });
 
 describe('AdminProductsPage', () => {
@@ -142,31 +133,31 @@ describe('AdminProductsPage', () => {
     });
 
     it('로딩 중일 때 로딩 메시지를 표시한다', () => {
-      vi.mocked(adminProductHooks.useAdminProducts).mockReturnValue({
+      (useAdminProducts as ReturnType<typeof vi.fn>).mockReturnValue({
         data: undefined,
         isLoading: true,
         isError: false,
-      } as ReturnType<typeof adminProductHooks.useAdminProducts>);
+      });
       render(<AdminProductsPage />);
       expect(screen.getByText('불러오는 중...')).toBeInTheDocument();
     });
 
     it('에러 발생 시 에러 메시지를 표시한다', () => {
-      vi.mocked(adminProductHooks.useAdminProducts).mockReturnValue({
+      (useAdminProducts as ReturnType<typeof vi.fn>).mockReturnValue({
         data: undefined,
         isLoading: false,
         isError: true,
-      } as ReturnType<typeof adminProductHooks.useAdminProducts>);
+      });
       render(<AdminProductsPage />);
       expect(screen.getByText(/오류/)).toBeInTheDocument();
     });
 
     it('상품이 없을 때 빈 메시지를 표시한다', () => {
-      vi.mocked(adminProductHooks.useAdminProducts).mockReturnValue({
+      (useAdminProducts as ReturnType<typeof vi.fn>).mockReturnValue({
         data: { data: [], total: 0, page: 1, limit: 20, nextCursor: null },
         isLoading: false,
         isError: false,
-      } as ReturnType<typeof adminProductHooks.useAdminProducts>);
+      });
       render(<AdminProductsPage />);
       expect(screen.getByText('상품이 없습니다.')).toBeInTheDocument();
     });
@@ -212,8 +203,7 @@ describe('AdminProductsPage', () => {
         target: { value: '테스트 상품' },
       });
       fireEvent.change(within(dialog).getByLabelText('카테고리'), { target: { value: 'c1' } });
-      const priceInput = within(dialog).getByLabelText('기본 가격 (원)');
-      fireEvent.change(priceInput, { target: { value: '' } });
+      fireEvent.change(within(dialog).getByLabelText('기본 가격 (원)'), { target: { value: '' } });
       fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
       await waitFor(() => {
         expect(screen.getByText('가격을 입력해주세요.')).toBeInTheDocument();
@@ -267,15 +257,15 @@ describe('AdminProductsPage', () => {
   describe('상품 삭제 다이얼로그', () => {
     it('삭제 버튼을 클릭하면 확인 다이얼로그가 열린다', () => {
       render(<AdminProductsPage />);
-      const deleteButtons = screen.getAllByRole('button', { name: '삭제' });
-      fireEvent.click(deleteButtons[0]);
+      const [deleteBtn] = screen.getAllByRole('button', { name: '삭제' });
+      fireEvent.click(deleteBtn!);
       expect(screen.getByText(/삭제하시겠습니까/)).toBeInTheDocument();
     });
 
     it('삭제 다이얼로그에서 취소를 누르면 닫힌다', () => {
       render(<AdminProductsPage />);
-      const deleteButtons = screen.getAllByRole('button', { name: '삭제' });
-      fireEvent.click(deleteButtons[0]);
+      const [deleteBtn] = screen.getAllByRole('button', { name: '삭제' });
+      fireEvent.click(deleteBtn!);
       expect(screen.getByText(/삭제하시겠습니까/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: '취소' }));
       expect(screen.queryByText(/삭제하시겠습니까/)).not.toBeInTheDocument();
@@ -283,8 +273,8 @@ describe('AdminProductsPage', () => {
 
     it('삭제 다이얼로그에서 확인을 누르면 삭제 함수를 호출한다', () => {
       render(<AdminProductsPage />);
-      const deleteButtons = screen.getAllByRole('button', { name: '삭제' });
-      fireEvent.click(deleteButtons[0]);
+      const [deleteBtn] = screen.getAllByRole('button', { name: '삭제' });
+      fireEvent.click(deleteBtn!);
       fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }));
       expect(mockMutate).toHaveBeenCalledWith('p1', expect.anything());
     });
@@ -293,8 +283,8 @@ describe('AdminProductsPage', () => {
   describe('상품 수정 폼', () => {
     it('수정 버튼을 클릭하면 기존 상품 정보가 채워진 폼이 열린다', () => {
       render(<AdminProductsPage />);
-      const editButtons = screen.getAllByRole('button', { name: '수정' });
-      fireEvent.click(editButtons[0]);
+      const [editBtn] = screen.getAllByRole('button', { name: '수정' });
+      fireEvent.click(editBtn!);
       const dialog = screen.getByRole('dialog');
       expect(within(dialog).getByDisplayValue('아기 원피스')).toBeInTheDocument();
       expect(within(dialog).getByDisplayValue('29000')).toBeInTheDocument();
