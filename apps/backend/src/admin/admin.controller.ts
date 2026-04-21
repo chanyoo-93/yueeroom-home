@@ -8,6 +8,7 @@ import { AdminService } from './admin.service';
 import { SafeUser } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
+import { GetAdminOrdersQueryDto } from './dto/get-admin-orders-query.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -36,10 +37,8 @@ export class AdminController {
 
   @Get('orders')
   @ApiOperation({ summary: '전체 주문 목록 조회 (페이지네이션)' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  listOrders(@Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.adminService.listOrders(+page, +limit);
+  listOrders(@Query() query: GetAdminOrdersQueryDto) {
+    return this.adminService.listOrders(query.page, query.limit);
   }
 
   @Patch('orders/:id/status')

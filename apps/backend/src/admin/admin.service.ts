@@ -2,9 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, OrderStatus, User, UserRole, UserStatus } from '@prisma/client';
+import { Order, OrderStatus, Prisma, User, UserRole, UserStatus } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
@@ -17,8 +18,14 @@ const IMMUTABLE_STATUSES: OrderStatus[] = [
   OrderStatus.REFUNDED,
 ];
 
+type AdminOrderWithUser = Prisma.OrderGetPayload<{
+  include: { user: { select: { id: true; email: true; name: true } } };
+}>;
+
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
@@ -123,7 +130,11 @@ export class AdminService {
 
     const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
     if (user) {
-      await this.emailService.sendOrderStatusEmail(user.email, user.name, orderId, dto.status);
+      try {
+        await this.emailService.sendOrderStatusEmail(user.email, user.name, orderId, dto.status);
+      } catch (error) {
+        this.logger.error(`주문 상태 변경 이메일 발송 실패 (orderId=${orderId}): ${String(error)}`);
+      }
     }
 
     return updated;
@@ -153,7 +164,7 @@ export class AdminService {
     page: number,
     limit: number,
   ): Promise<{
-    items: (Order & { user: { id: string; email: string; name: string } })[];
+    items: AdminOrderWithUser[];
     total: number;
     page: number;
     limit: number;
