@@ -85,4 +85,37 @@ describe('middleware', () => {
       expect(res.headers.get('location')).toContain('/login');
     });
   });
+
+  describe('/admin 경로 — 관리자 전용', () => {
+    it('CUSTOMER role이면 홈(/)으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'u1', status: 'APPROVED', role: 'CUSTOMER' });
+      const req = createRequest('/admin', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toContain('/');
+      expect(res.headers.get('location')).not.toContain('/admin');
+    });
+
+    it('role이 없으면 홈(/)으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'u2', status: 'APPROVED' });
+      const req = createRequest('/admin/users', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toContain('/');
+      expect(res.headers.get('location')).not.toContain('/admin');
+    });
+
+    it('ADMIN role이면 통과한다', () => {
+      const token = makeJwt({ sub: 'u3', status: 'APPROVED', role: 'ADMIN' });
+      const req = createRequest('/admin', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('/admin/users 하위 경로도 CUSTOMER이면 홈으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'u4', status: 'APPROVED', role: 'CUSTOMER' });
+      const req = createRequest('/admin/users/123', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toContain('/');
+      expect(res.headers.get('location')).not.toContain('/admin');
+    });
+  });
 });

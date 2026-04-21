@@ -1,17 +1,15 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole, User, Order } from '@prisma/client';
+import { User, Order } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService } from './admin.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @ApiTags('admin')
 @Controller('admin')
-@UseGuards(RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
