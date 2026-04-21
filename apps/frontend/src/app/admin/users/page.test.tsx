@@ -6,10 +6,18 @@ vi.mock('@/lib/hooks/useAdminUsers', () => ({
   useAdminUsers: vi.fn(),
   useApproveUser: vi.fn(),
   useRejectUser: vi.fn(),
+  useSuspendUser: vi.fn(),
+  useRestoreUser: vi.fn(),
 }));
 
 import AdminUsersPage from './page';
-import { useAdminUsers, useApproveUser, useRejectUser } from '@/lib/hooks/useAdminUsers';
+import {
+  useAdminUsers,
+  useApproveUser,
+  useRejectUser,
+  useSuspendUser,
+  useRestoreUser,
+} from '@/lib/hooks/useAdminUsers';
 import type { AdminUser } from '@/lib/types/admin';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -29,6 +37,8 @@ function makeUser(overrides: Partial<AdminUser> = {}): AdminUser {
 
 const mockApproveMutate = vi.fn();
 const mockRejectMutate = vi.fn();
+const mockSuspendMutate = vi.fn();
+const mockRestoreMutate = vi.fn();
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
@@ -47,17 +57,28 @@ describe('AdminUsersPage', () => {
       mutate: mockRejectMutate,
       isPending: false,
     });
+    (useSuspendUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockSuspendMutate,
+      isPending: false,
+    });
+    (useRestoreUser as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockRestoreMutate,
+      isPending: false,
+    });
     mockApproveMutate.mockReset();
     mockRejectMutate.mockReset();
+    mockSuspendMutate.mockReset();
+    mockRestoreMutate.mockReset();
   });
 
-  it('상태 필터 버튼(전체/PENDING/APPROVED/REJECTED)이 렌더링된다', () => {
+  it('상태 필터 버튼(전체/PENDING/APPROVED/REJECTED/SUSPENDED)이 렌더링된다', () => {
     render(<AdminUsersPage />);
 
     expect(screen.getByRole('button', { name: '전체' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'PENDING' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'APPROVED' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'REJECTED' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SUSPENDED' })).toBeInTheDocument();
   });
 
   it('로딩 중에는 로딩 표시를 보여준다', () => {
@@ -209,5 +230,95 @@ describe('AdminUsersPage', () => {
 
     render(<AdminUsersPage />);
     expect(screen.getByText('회원이 없습니다.')).toBeInTheDocument();
+  });
+
+  it('APPROVED 회원에게 정지 버튼이 표시된다', () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'APPROVED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<AdminUsersPage />);
+    expect(screen.getByRole('button', { name: '정지' })).toBeInTheDocument();
+  });
+
+  it('SUSPENDED 회원에게 복구 버튼이 표시된다', () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'SUSPENDED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<AdminUsersPage />);
+    expect(screen.getByRole('button', { name: '복구' })).toBeInTheDocument();
+  });
+
+  it('정지 버튼 클릭 시 확인 다이얼로그가 표시된다', async () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'APPROVED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />);
+
+    await user.click(screen.getByRole('button', { name: '정지' }));
+
+    expect(screen.getByText(/홍길동.*정지/)).toBeInTheDocument();
+  });
+
+  it('정지 다이얼로그에서 확인을 누르면 suspendUser가 호출된다', async () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'APPROVED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />);
+
+    await user.click(screen.getByRole('button', { name: '정지' }));
+    await user.click(screen.getByRole('button', { name: '확인' }));
+
+    expect(mockSuspendMutate).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+  });
+
+  it('복구 버튼 클릭 시 확인 다이얼로그가 표시된다', async () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'SUSPENDED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />);
+
+    await user.click(screen.getByRole('button', { name: '복구' }));
+
+    expect(screen.getByText(/홍길동.*복구/)).toBeInTheDocument();
+  });
+
+  it('복구 다이얼로그에서 확인을 누르면 restoreUser가 호출된다', async () => {
+    (useAdminUsers as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [makeUser({ id: 'u1', name: '홍길동', status: 'SUSPENDED' })],
+      isLoading: false,
+      isError: false,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminUsersPage />);
+
+    await user.click(screen.getByRole('button', { name: '복구' }));
+    await user.click(screen.getByRole('button', { name: '확인' }));
+
+    expect(mockRestoreMutate).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 });

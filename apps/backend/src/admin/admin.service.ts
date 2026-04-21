@@ -7,6 +7,7 @@ import {
 import { Order, OrderStatus, User, UserRole, UserStatus } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
@@ -16,7 +17,7 @@ export class AdminService {
     private readonly emailService: EmailService,
   ) {}
 
-  async approveUser(adminId: string, targetUserId: string): Promise<User> {
+  async approveUser(adminId: string, targetUserId: string): Promise<SafeUser> {
     await this.assertAdmin(adminId);
     const target = await this.getTarget(targetUserId);
 
@@ -27,13 +28,14 @@ export class AdminService {
     const updated = await this.prisma.user.update({
       where: { id: targetUserId },
       data: { status: UserStatus.APPROVED },
+      select: USER_SAFE_SELECT,
     });
 
     await this.emailService.sendApprovalEmail(updated.email, updated.name);
     return updated;
   }
 
-  async rejectUser(adminId: string, targetUserId: string): Promise<User> {
+  async rejectUser(adminId: string, targetUserId: string): Promise<SafeUser> {
     await this.assertAdmin(adminId);
     const target = await this.getTarget(targetUserId);
 
@@ -44,10 +46,45 @@ export class AdminService {
     const updated = await this.prisma.user.update({
       where: { id: targetUserId },
       data: { status: UserStatus.REJECTED },
+      select: USER_SAFE_SELECT,
     });
 
     await this.emailService.sendRejectionEmail(updated.email, updated.name);
     return updated;
+  }
+
+  async suspendUser(adminId: string, targetUserId: string): Promise<SafeUser> {
+    await this.assertAdmin(adminId);
+    const target = await this.getTarget(targetUserId);
+
+    if (target.status !== UserStatus.APPROVED) {
+      throw new BadRequestException('APPROVED 상태의 회원만 정지할 수 있습니다.');
+    }
+
+    if (adminId === targetUserId) {
+      throw new BadRequestException('자기 자신을 정지할 수 없습니다.');
+    }
+
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { status: UserStatus.SUSPENDED },
+      select: USER_SAFE_SELECT,
+    });
+  }
+
+  async restoreUser(adminId: string, targetUserId: string): Promise<SafeUser> {
+    await this.assertAdmin(adminId);
+    const target = await this.getTarget(targetUserId);
+
+    if (target.status !== UserStatus.SUSPENDED) {
+      throw new BadRequestException('SUSPENDED 상태의 회원만 복구할 수 있습니다.');
+    }
+
+    return this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { status: UserStatus.APPROVED },
+      select: USER_SAFE_SELECT,
+    });
   }
 
   async updateOrderStatus(

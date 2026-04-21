@@ -9,8 +9,13 @@ export class UserStatusGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user: JwtPayload }>();
     const user = request.user;
 
-    if (user && user.status !== UserStatus.APPROVED) {
-      throw new ForbiddenException('승인된 회원만 이용 가능합니다.');
+    if (user) {
+      if (user.status === UserStatus.SUSPENDED) {
+        throw new ForbiddenException('계정이 정지되었습니다. 관리자에게 문의하세요.');
+      }
+      if (user.status !== UserStatus.APPROVED) {
+        throw new ForbiddenException('승인된 회원만 이용 가능합니다.');
+      }
     }
     return true;
   }

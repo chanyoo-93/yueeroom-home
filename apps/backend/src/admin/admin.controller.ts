@@ -5,6 +5,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService } from './admin.service';
+import { SafeUser } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @ApiTags('admin')
@@ -28,7 +29,7 @@ export class AdminController {
 
   @Patch('users/:id/approve')
   @ApiOperation({ summary: '회원 승인' })
-  approveUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<User> {
+  approveUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<SafeUser> {
     return this.adminService.approveUser(admin.sub, userId);
   }
 
@@ -48,7 +49,19 @@ export class AdminController {
     @CurrentUser() admin: JwtPayload,
     @Param('id') userId: string,
     @Body('reason') _reason: string,
-  ): Promise<User> {
+  ): Promise<SafeUser> {
     return this.adminService.rejectUser(admin.sub, userId);
+  }
+
+  @Patch('users/:id/suspend')
+  @ApiOperation({ summary: '회원 정지' })
+  suspendUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<SafeUser> {
+    return this.adminService.suspendUser(admin.sub, userId);
+  }
+
+  @Patch('users/:id/restore')
+  @ApiOperation({ summary: '회원 복구' })
+  restoreUser(@CurrentUser() admin: JwtPayload, @Param('id') userId: string): Promise<SafeUser> {
+    return this.adminService.restoreUser(admin.sub, userId);
   }
 }
