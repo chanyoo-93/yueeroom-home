@@ -49,8 +49,13 @@ function validate(values: FormValues): FormErrors {
   if (!values.categoryId) errors.categoryId = '카테고리를 선택해주세요.';
   if (values.basePrice === '' || values.basePrice === undefined) {
     errors.basePrice = '가격을 입력해주세요.';
-  } else if (Number(values.basePrice) < 0) {
-    errors.basePrice = '가격은 0 이상이어야 합니다.';
+  } else {
+    const price = Number(values.basePrice);
+    if (isNaN(price)) {
+      errors.basePrice = '유효한 숫자를 입력해주세요.';
+    } else if (price < 0) {
+      errors.basePrice = '가격은 0 이상이어야 합니다.';
+    }
   }
   return errors;
 }

@@ -19,14 +19,14 @@ import { queryKeys } from '../api/query-keys';
 
 export function useAdminProducts(page = 1) {
   return useQuery({
-    queryKey: queryKeys.admin.products(page),
+    queryKey: queryKeys.admin.products.list(page),
     queryFn: () => adminGetProducts(page),
   });
 }
 
 export function useAdminProductDetail(id: string) {
   return useQuery({
-    queryKey: queryKeys.admin.productDetail(id),
+    queryKey: queryKeys.admin.products.detail(id),
     queryFn: () => adminGetProductDetail(id),
     enabled: !!id,
   });
@@ -37,7 +37,7 @@ export function useCreateProduct() {
   return useMutation({
     mutationFn: (payload: CreateProductPayload) => adminCreateProduct(payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.products.all });
     },
   });
 }
@@ -48,7 +48,7 @@ export function useUpdateProduct() {
     mutationFn: ({ id, payload }: { id: string; payload: UpdateProductPayload }) =>
       adminUpdateProduct(id, payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.products.all });
     },
   });
 }
@@ -58,7 +58,7 @@ export function useDeleteProduct() {
   return useMutation({
     mutationFn: (id: string) => adminDeleteProduct(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.products.all });
     },
   });
 }
@@ -69,7 +69,9 @@ export function useCreateVariant() {
     mutationFn: ({ productId, payload }: { productId: string; payload: CreateVariantPayload }) =>
       adminCreateVariant(productId, payload),
     onSuccess: (_data, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.productDetail(productId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.products.detail(productId),
+      });
     },
   });
 }
@@ -80,7 +82,9 @@ export function useDeleteVariant() {
     mutationFn: ({ productId, variantId }: { productId: string; variantId: string }) =>
       adminDeleteVariant(productId, variantId),
     onSuccess: (_data, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.productDetail(productId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.products.detail(productId),
+      });
     },
   });
 }
@@ -91,7 +95,9 @@ export function useUploadImage() {
     mutationFn: ({ productId, file }: { productId: string; file: File }) =>
       adminUploadImage(productId, file),
     onSuccess: (_data, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.productDetail(productId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.products.detail(productId),
+      });
     },
   });
 }
@@ -102,7 +108,9 @@ export function useDeleteImage() {
     mutationFn: ({ productId, imageId }: { productId: string; imageId: string }) =>
       adminDeleteImage(productId, imageId),
     onSuccess: (_data, { productId }) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.productDetail(productId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.products.detail(productId),
+      });
     },
   });
 }
