@@ -13,6 +13,6 @@ export async function approveUser(userId: string): Promise<AdminUser> {
 }
 
 export async function rejectUser(userId: string): Promise<AdminUser> {
-  const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/reject`);
+  const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/reject`, { reason: '' });
   return res.data;
 }

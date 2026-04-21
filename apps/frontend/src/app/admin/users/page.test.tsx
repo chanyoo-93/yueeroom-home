@@ -133,7 +133,10 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '승인' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockApproveMutate).toHaveBeenCalledWith('u1');
+    expect(mockApproveMutate).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 
   it('거절 버튼 클릭 시 확인 다이얼로그가 표시된다', async () => {
@@ -164,7 +167,10 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '거절' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockRejectMutate).toHaveBeenCalledWith('u1');
+    expect(mockRejectMutate).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
   });
 
   it('다이얼로그에서 취소를 누르면 API가 호출되지 않는다', async () => {

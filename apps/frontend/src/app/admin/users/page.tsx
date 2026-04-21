@@ -37,7 +37,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>(undefined);
   const [dialog, setDialog] = useState<DialogState>({ open: false, action: null, user: null });
 
-  const { data: users, isLoading } = useAdminUsers(statusFilter);
+  const { data: users, isLoading, isError } = useAdminUsers(statusFilter);
   const { mutate: approve, isPending: isApproving } = useApproveUser();
   const { mutate: reject, isPending: isRejecting } = useRejectUser();
 
@@ -51,12 +51,8 @@ export default function AdminUsersPage() {
 
   function handleConfirm() {
     if (!dialog.user || !dialog.action) return;
-    if (dialog.action === 'approve') {
-      approve(dialog.user.id);
-    } else {
-      reject(dialog.user.id);
-    }
-    closeDialog();
+    const mutateFn = dialog.action === 'approve' ? approve : reject;
+    mutateFn(dialog.user.id, { onSuccess: closeDialog });
   }
 
   const isMutating = isApproving || isRejecting;
@@ -85,6 +81,8 @@ export default function AdminUsersPage() {
       {/* 목록 */}
       {isLoading ? (
         <p className="text-gray-500">불러오는 중...</p>
+      ) : isError ? (
+        <p className="text-red-500">회원 목록을 불러오는 중 오류가 발생했습니다.</p>
       ) : !users || users.length === 0 ? (
         <p className="text-gray-500">회원이 없습니다.</p>
       ) : (
@@ -157,7 +155,8 @@ export default function AdminUsersPage() {
               </button>
               <button
                 onClick={handleConfirm}
-                className={`flex-1 rounded-lg py-2 text-sm font-medium text-white ${
+                disabled={isMutating}
+                className={`flex-1 rounded-lg py-2 text-sm font-medium text-white disabled:opacity-50 ${
                   dialog.action === 'approve'
                     ? 'bg-blue-600 hover:bg-blue-700'
                     : 'bg-red-600 hover:bg-red-700'
