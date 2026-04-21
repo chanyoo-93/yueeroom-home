@@ -65,6 +65,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // /admin/* 경로는 ADMIN role만 접근 가능 — 비관리자는 홈으로 리다이렉트
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    if (payload.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 
