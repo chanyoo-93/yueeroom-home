@@ -1,4 +1,17 @@
 import { apiClient } from './client';
+import type { PaginatedPaymentsResponse, Refund } from '../types/order';
+
+export async function getPayments(page = 1, limit = 10): Promise<PaginatedPaymentsResponse> {
+  const res = await apiClient.get<PaginatedPaymentsResponse>('/payments/me', {
+    params: { page, limit },
+  });
+  return res.data;
+}
+
+export async function requestRefund(paymentId: string, reason: string): Promise<Refund> {
+  const res = await apiClient.post<Refund>(`/payments/${paymentId}/refund`, { reason });
+  return res.data;
+}
 
 export interface CreatePaymentIntentResponse {
   clientSecret: string;

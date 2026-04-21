@@ -13,7 +13,7 @@ import type { Order, PaymentMethod } from '@/lib/types/order';
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'kakaopay', label: '카카오페이' },
   { value: 'naverpay', label: '네이버페이' },
-  { value: 'card', label: '신용/체크카드' },
+  { value: 'stripe', label: '신용카드' },
 ];
 
 export default function CheckoutContent() {

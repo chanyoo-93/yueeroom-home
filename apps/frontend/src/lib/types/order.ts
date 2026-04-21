@@ -1,8 +1,57 @@
 import type { Address } from './user';
 
+export type RefundStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+
+export interface Refund {
+  id: string;
+  orderId: string;
+  paymentId: string;
+  status: RefundStatus;
+  amount: number;
+  reason: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentWithOrder extends Payment {
+  order: {
+    id: string;
+    items: OrderItem[];
+    totalAmount: number;
+  };
+}
+
+export interface PaginatedPaymentsResponse {
+  items: PaymentWithOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
+  PENDING: '결제 대기',
+  COMPLETED: '결제 완료',
+  FAILED: '결제 실패',
+  REFUNDED: '환불됨',
+};
+
+export const PAYMENT_STATUS_COLOR: Record<PaymentStatus, string> = {
+  PENDING: 'bg-yellow-100 text-yellow-700',
+  COMPLETED: 'bg-green-100 text-green-700',
+  FAILED: 'bg-red-100 text-red-600',
+  REFUNDED: 'bg-gray-100 text-gray-600',
+};
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  stripe: '신용카드',
+  kakaopay: '카카오페이',
+  naverpay: '네이버페이',
+};
+
 export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'kakaopay' | 'naverpay' | 'card';
+export type PaymentMethod = 'kakaopay' | 'naverpay' | 'stripe';
 
 export interface Payment {
   id: string;

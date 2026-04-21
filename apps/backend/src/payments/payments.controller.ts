@@ -1,10 +1,22 @@
-import { Body, Controller, Headers, Post, RawBodyRequest, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  RawBodyRequest,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { CreateRefundDto } from './dto/create-refund.dto';
+import { GetPaymentsQueryDto } from './dto/get-payments-query.dto';
 import { KakaoPayApproveDto } from './dto/kakao-pay-approve.dto';
 import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
@@ -21,6 +33,22 @@ export class PaymentsController {
     private readonly naverPayService: NaverPayService,
     private readonly kakaoPayService: KakaoPayService,
   ) {}
+
+  @Get('me')
+  @ApiOperation({ summary: '내 결제 내역 조회' })
+  getMyPayments(@CurrentUser() user: JwtPayload, @Query() query: GetPaymentsQueryDto) {
+    return this.paymentsService.getUserPayments(user.sub, query.page, query.limit);
+  }
+
+  @Post(':paymentId/refund')
+  @ApiOperation({ summary: '환불 신청' })
+  requestRefund(
+    @CurrentUser() user: JwtPayload,
+    @Param('paymentId') paymentId: string,
+    @Body() dto: CreateRefundDto,
+  ) {
+    return this.paymentsService.requestRefund(user.sub, paymentId, dto.reason);
+  }
 
   @Post('stripe/intent')
   @ApiOperation({ summary: 'Stripe PaymentIntent 생성' })

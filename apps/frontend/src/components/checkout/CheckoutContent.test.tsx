@@ -232,7 +232,7 @@ describe('CheckoutContent', () => {
       render(<CheckoutContent />);
       expect(screen.getByText('카카오페이')).toBeInTheDocument();
       expect(screen.getByText('네이버페이')).toBeInTheDocument();
-      expect(screen.getByText('신용/체크카드')).toBeInTheDocument();
+      expect(screen.getByText('신용카드')).toBeInTheDocument();
     });
 
     it('기본으로 카카오페이가 선택된다', () => {
