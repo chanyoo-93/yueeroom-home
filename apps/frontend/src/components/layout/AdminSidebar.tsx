@@ -20,7 +20,8 @@ export default function AdminSidebar() {
         <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-400">관리자</p>
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map(({ href, label }) => {
-            const isActive = href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
+            const isActive =
+              pathname === href || (href !== '/admin' && pathname.startsWith(href + '/'));
             return (
               <Link
                 key={href}
