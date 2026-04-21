@@ -68,6 +68,33 @@ describe('AdminService', () => {
     jest.clearAllMocks();
   });
 
+  // ── listUsers ─────────────────────────────────────────────────────────────────
+
+  describe('listUsers', () => {
+    it('status 없이 호출하면 전체 회원 목록을 반환한다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser, mockApprovedUser]);
+
+      const result = await service.listUsers();
+      expect(result).toHaveLength(2);
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: { createdAt: 'asc' },
+      });
+    });
+
+    it('status 필터로 PENDING 회원만 반환한다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser]);
+
+      const result = await service.listUsers(UserStatus.PENDING);
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe(UserStatus.PENDING);
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+        where: { status: UserStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+      });
+    });
+  });
+
   // ── approveUser ───────────────────────────────────────────────────────────────
 
   describe('approveUser', () => {
