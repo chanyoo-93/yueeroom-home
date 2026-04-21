@@ -44,12 +44,16 @@ const mockPrisma = {
   order: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 const mockEmailService = {
   sendApprovalEmail: jest.fn().mockResolvedValue(undefined),
   sendRejectionEmail: jest.fn().mockResolvedValue(undefined),
+  sendOrderStatusEmail: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('AdminService', () => {
@@ -339,7 +343,9 @@ describe('AdminService', () => {
     });
 
     it('SHIPPING 전환 시 carrier와 trackingNumber가 있으면 성공한다', async () => {
-      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockApprovedUser);
       mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
       const updatedOrder = {
         ...baseOrder,
@@ -357,6 +363,26 @@ describe('AdminService', () => {
       expect(result.status).toBe(OrderStatus.SHIPPING);
     });
 
+    it('상태 변경 성공 시 회원 이메일 알림을 발송한다', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(mockAdmin)
+        .mockResolvedValueOnce(mockApprovedUser);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
+      mockPrisma.order.update.mockResolvedValueOnce({
+        ...baseOrder,
+        status: OrderStatus.DELIVERED,
+      });
+
+      await service.updateOrderStatus('admin-1', 'order-1', { status: OrderStatus.DELIVERED });
+
+      expect(mockEmailService.sendOrderStatusEmail).toHaveBeenCalledWith(
+        mockApprovedUser.email,
+        mockApprovedUser.name,
+        'order-1',
+        OrderStatus.DELIVERED,
+      );
+    });
+
     it('존재하지 않는 주문 변경 시 NotFoundException을 던진다', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
       mockPrisma.order.findUnique.mockResolvedValueOnce(null);
@@ -364,6 +390,127 @@ describe('AdminService', () => {
       await expect(
         service.updateOrderStatus('admin-1', 'nonexistent', { status: OrderStatus.SHIPPING }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── listOrders ────────────────────────────────────────────────────────────────
+
+  describe('listOrders', () => {
+    const orderWithUser = {
+      id: 'order-1',
+      userId: 'user-2',
+      addressId: 'addr-1',
+      status: OrderStatus.PAID,
+      totalAmount: 20000,
+      shippingFee: 0,
+      carrier: null,
+      trackingNumber: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: { id: 'user-2', email: 'user@test.com', name: '테스터' },
+    };
+
+    it('주문 목록을 페이지네이션하여 반환한다', async () => {
+      mockPrisma.order.findMany.mockResolvedValueOnce([orderWithUser]);
+      mockPrisma.order.count.mockResolvedValueOnce(1);
+      mockPrisma.$transaction.mockImplementationOnce((args: Promise<unknown>[]) =>
+        Promise.all(args),
+      );
+
+      const result = await service.listOrders(1, 20);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.page).toBe(1);
+      expect(result.totalPages).toBe(1);
+      expect(result.items[0].user.email).toBe('user@test.com');
+    });
+
+    it('빈 목록을 올바르게 반환한다', async () => {
+      mockPrisma.order.findMany.mockResolvedValueOnce([]);
+      mockPrisma.order.count.mockResolvedValueOnce(0);
+      mockPrisma.$transaction.mockImplementationOnce((args: Promise<unknown>[]) =>
+        Promise.all(args),
+      );
+
+      const result = await service.listOrders(1, 20);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+  });
+
+  // ── updateOrderTracking ───────────────────────────────────────────────────────
+
+  describe('updateOrderTracking', () => {
+    const baseOrder = {
+      id: 'order-1',
+      userId: 'user-2',
+      addressId: 'addr-1',
+      status: OrderStatus.SHIPPING,
+      totalAmount: 10000,
+      shippingFee: 0,
+      carrier: null,
+      trackingNumber: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('관리자가 송장번호를 업데이트할 수 있다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(baseOrder);
+      const updated = { ...baseOrder, carrier: 'CJ대한통운', trackingNumber: '111222' };
+      mockPrisma.order.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateOrderTracking('admin-1', 'order-1', {
+        carrier: 'CJ대한통운',
+        trackingNumber: '111222',
+      });
+
+      expect(result.carrier).toBe('CJ대한통운');
+      expect(result.trackingNumber).toBe('111222');
+    });
+
+    it('완료된 주문의 송장번호 변경 시 BadRequestException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce({
+        ...baseOrder,
+        status: OrderStatus.DELIVERED,
+      });
+
+      await expect(
+        service.updateOrderTracking('admin-1', 'order-1', {
+          carrier: 'CJ대한통운',
+          trackingNumber: '111222',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('존재하지 않는 주문 송장 변경 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockAdmin);
+      mockPrisma.order.findUnique.mockResolvedValueOnce(null);
+
+      await expect(
+        service.updateOrderTracking('admin-1', 'nonexistent', {
+          carrier: 'CJ대한통운',
+          trackingNumber: '111222',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('비관리자가 요청 시 ForbiddenException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...mockPendingUser,
+        role: UserRole.CUSTOMER,
+      });
+
+      await expect(
+        service.updateOrderTracking('user-1', 'order-1', {
+          carrier: 'CJ대한통운',
+          trackingNumber: '111222',
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

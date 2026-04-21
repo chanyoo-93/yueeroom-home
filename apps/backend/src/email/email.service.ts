@@ -36,6 +36,28 @@ export class EmailService {
     await this.send(adminEmail, '[유이룸] 재고 부족 알림', this.lowStockTemplate(data));
   }
 
+  async sendOrderStatusEmail(
+    to: string,
+    name: string,
+    orderId: string,
+    status: string,
+  ): Promise<void> {
+    const statusLabel: Record<string, string> = {
+      PENDING: '주문 접수',
+      PAID: '결제 완료',
+      SHIPPING: '배송 중',
+      DELIVERED: '배송 완료',
+      CANCELLED: '취소됨',
+      REFUNDED: '환불됨',
+    };
+    const label = statusLabel[status] ?? status;
+    await this.send(
+      to,
+      `[유이룸] 주문 상태가 변경되었습니다: ${label}`,
+      this.orderStatusTemplate(name, orderId, label),
+    );
+  }
+
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const resetUrl = `${this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'}/reset-password?token=${token}`;
     await this.send(to, '[유이룸] 비밀번호 재설정 안내', this.passwordResetTemplate(resetUrl));
@@ -81,6 +103,14 @@ export class EmailService {
       <p>상품 변형 <strong>${data.sku}</strong>의 재고가 임계값 이하로 떨어졌습니다.</p>
       <p>현재 수량: <strong>${data.quantity}개</strong> (임계값: ${data.threshold}개)</p>
       <p>재고를 보충해 주세요.</p>
+    `;
+  }
+
+  private orderStatusTemplate(name: string, orderId: string, statusLabel: string): string {
+    return `
+      <h2>안녕하세요, ${name}님!</h2>
+      <p>주문 번호 <strong>${orderId}</strong>의 상태가 <strong>${statusLabel}</strong>(으)로 변경되었습니다.</p>
+      <p>문의사항이 있으시면 관리자에게 연락해주세요.</p>
     `;
   }
 

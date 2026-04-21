@@ -9,6 +9,13 @@ import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
+
+const IMMUTABLE_STATUSES: OrderStatus[] = [
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+  OrderStatus.REFUNDED,
+];
 
 @Injectable()
 export class AdminService {
@@ -97,11 +104,6 @@ export class AdminService {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
 
-    const IMMUTABLE_STATUSES: OrderStatus[] = [
-      OrderStatus.DELIVERED,
-      OrderStatus.CANCELLED,
-      OrderStatus.REFUNDED,
-    ];
     if (IMMUTABLE_STATUSES.includes(order.status)) {
       throw new BadRequestException('완료·취소·환불된 주문의 상태는 변경할 수 없습니다.');
     }
@@ -110,7 +112,7 @@ export class AdminService {
       throw new BadRequestException('배송 중 상태로 변경하려면 택배사와 송장번호가 필요합니다.');
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: dto.status,
@@ -118,6 +120,56 @@ export class AdminService {
         ...(dto.trackingNumber !== undefined && { trackingNumber: dto.trackingNumber }),
       },
     });
+
+    const user = await this.prisma.user.findUnique({ where: { id: order.userId } });
+    if (user) {
+      await this.emailService.sendOrderStatusEmail(user.email, user.name, orderId, dto.status);
+    }
+
+    return updated;
+  }
+
+  async updateOrderTracking(
+    adminId: string,
+    orderId: string,
+    dto: UpdateOrderTrackingDto,
+  ): Promise<Order> {
+    await this.assertAdmin(adminId);
+
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('주문을 찾을 수 없습니다.');
+
+    if (IMMUTABLE_STATUSES.includes(order.status)) {
+      throw new BadRequestException('완료·취소·환불된 주문의 송장번호는 변경할 수 없습니다.');
+    }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { carrier: dto.carrier, trackingNumber: dto.trackingNumber },
+    });
+  }
+
+  async listOrders(
+    page: number,
+    limit: number,
+  ): Promise<{
+    items: (Order & { user: { id: string; email: string; name: string } })[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const skip = (page - 1) * limit;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, email: true, name: true } } },
+      }),
+      this.prisma.order.count(),
+    ]);
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async listPendingUsers(): Promise<User[]> {

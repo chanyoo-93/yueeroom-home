@@ -7,6 +7,7 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService } from './admin.service';
 import { SafeUser } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -33,6 +34,14 @@ export class AdminController {
     return this.adminService.approveUser(admin.sub, userId);
   }
 
+  @Get('orders')
+  @ApiOperation({ summary: '전체 주문 목록 조회 (페이지네이션)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  listOrders(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.adminService.listOrders(+page, +limit);
+  }
+
   @Patch('orders/:id/status')
   @ApiOperation({ summary: '주문 상태 및 배송 정보 업데이트' })
   updateOrderStatus(
@@ -41,6 +50,16 @@ export class AdminController {
     @Body() dto: UpdateOrderStatusDto,
   ): Promise<Order> {
     return this.adminService.updateOrderStatus(admin.sub, orderId, dto);
+  }
+
+  @Patch('orders/:id/tracking')
+  @ApiOperation({ summary: '송장번호 입력/수정' })
+  updateOrderTracking(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') orderId: string,
+    @Body() dto: UpdateOrderTrackingDto,
+  ): Promise<Order> {
+    return this.adminService.updateOrderTracking(admin.sub, orderId, dto);
   }
 
   @Patch('users/:id/reject')
