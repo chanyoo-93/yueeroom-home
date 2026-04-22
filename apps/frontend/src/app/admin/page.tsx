@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}K`} />
                   <Tooltip
-                    formatter={(v: number) => formatKRW(v)}
+                    formatter={(v) => (typeof v === 'number' ? formatKRW(v) : String(v))}
                     labelFormatter={(l) => `날짜: ${l}`}
                   />
                   <Line
@@ -101,7 +101,7 @@ export default function AdminDashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tickFormatter={(v: number) => `${(v / 10000).toFixed(0)}만`} />
-                  <Tooltip formatter={(v: number) => formatKRW(v)} />
+                  <Tooltip formatter={(v) => (typeof v === 'number' ? formatKRW(v) : String(v))} />
                   <Bar dataKey="revenue" fill="#818cf8" name="매출" />
                 </BarChart>
               </ResponsiveContainer>
