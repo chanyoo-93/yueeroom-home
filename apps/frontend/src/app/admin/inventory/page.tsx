@@ -109,7 +109,7 @@ export default function AdminInventoryPage() {
                 return (
                   <tr
                     key={item.variantId}
-                    className={low ? 'bg-red-50' : 'hover:bg-gray-50'}
+                    className={low ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}
                     data-testid={low ? 'low-stock-row' : 'normal-stock-row'}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">
@@ -129,6 +129,7 @@ export default function AdminInventoryPage() {
                           <input
                             type="number"
                             min={0}
+                            step={1}
                             value={quantityEdit.value}
                             onChange={(e) =>
                               setQuantityEdit((prev) => ({ ...prev, value: e.target.value }))
@@ -164,6 +165,7 @@ export default function AdminInventoryPage() {
                           <input
                             type="number"
                             min={0}
+                            step={1}
                             value={thresholdEdit.value}
                             onChange={(e) =>
                               setThresholdEdit((prev) => ({ ...prev, value: e.target.value }))
