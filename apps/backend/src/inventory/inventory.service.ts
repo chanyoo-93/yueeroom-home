@@ -1,25 +1,35 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Inventory } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
-
-const DEFAULT_LOW_STOCK_THRESHOLD = 5;
+import { UpdateThresholdDto } from './dto/update-threshold.dto';
 
 @Injectable()
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
-  private readonly threshold: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-    private readonly configService: ConfigService,
-  ) {
-    this.threshold = Number(
-      this.configService.get('LOW_STOCK_THRESHOLD') ?? DEFAULT_LOW_STOCK_THRESHOLD,
-    );
+  ) {}
+
+  async findAll() {
+    return this.prisma.inventory.findMany({
+      include: {
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            size: true,
+            color: true,
+            price: true,
+            product: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { quantity: 'asc' },
+    });
   }
 
   async findByVariant(variantId: string) {
@@ -47,18 +57,29 @@ export class InventoryService {
       data: { quantity: dto.quantity },
     });
 
-    const wasAbove = current.quantity > this.threshold;
-    const isNowBelow = dto.quantity <= this.threshold;
+    const threshold = current.lowStockThreshold;
+    const wasAbove = current.quantity > threshold;
+    const isNowBelow = dto.quantity <= threshold;
     if (wasAbove && isNowBelow) {
       this.emailService
         .sendLowStockEmail({
           sku: current.variant.sku,
           quantity: dto.quantity,
-          threshold: this.threshold,
+          threshold,
         })
         .catch((err: unknown) => this.logger.error(`저재고 이메일 발송 실패: ${String(err)}`));
     }
 
     return updated;
+  }
+
+  async updateThreshold(variantId: string, dto: UpdateThresholdDto): Promise<Inventory> {
+    const inventory = await this.prisma.inventory.findUnique({ where: { variantId } });
+    if (!inventory) throw new NotFoundException(`재고 정보를 찾을 수 없습니다: ${variantId}`);
+
+    return this.prisma.inventory.update({
+      where: { variantId },
+      data: { lowStockThreshold: dto.lowStockThreshold },
+    });
   }
 }
