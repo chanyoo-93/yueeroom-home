@@ -49,7 +49,12 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <SummaryCard
               label="이번 달 총 매출"
-              value={salesStats ? formatKRW(salesStats.monthly[0]?.revenue ?? 0) : '-'}
+              value={(() => {
+                if (!salesStats) return '-';
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                const stats = salesStats.monthly.find((m) => m.month === currentMonth);
+                return formatKRW(stats?.revenue ?? 0);
+              })()}
             />
             <SummaryCard
               label="전체 주문 수"

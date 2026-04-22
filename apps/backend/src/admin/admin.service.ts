@@ -241,6 +241,7 @@ export class AdminService {
           COUNT(id) AS "orderCount"
         FROM orders
         WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+          AND status NOT IN ('CANCELLED', 'REFUNDED')
         GROUP BY DATE("createdAt")
         ORDER BY date DESC
       `,
@@ -251,6 +252,7 @@ export class AdminService {
           COUNT(id) AS "orderCount"
         FROM orders
         WHERE "createdAt" >= NOW() - INTERVAL '12 months'
+          AND status NOT IN ('CANCELLED', 'REFUNDED')
         GROUP BY DATE_TRUNC('month', "createdAt")
         ORDER BY month DESC
       `,
@@ -261,20 +263,30 @@ export class AdminService {
           SUM(oi.quantity)::bigint AS "totalSold",
           SUM(oi.quantity * oi."unitPrice")::bigint AS "totalRevenue"
         FROM order_items oi
+        JOIN orders o ON oi."orderId" = o.id
         JOIN product_variants pv ON oi."variantId" = pv.id
         JOIN products p ON pv."productId" = p.id
+        WHERE o."createdAt" >= NOW() - INTERVAL '30 days'
+          AND o.status NOT IN ('CANCELLED', 'REFUNDED')
         GROUP BY p.id, p.name
         ORDER BY "totalSold" DESC
         LIMIT 5
       `,
     ]);
 
+    const dailyMap = new Map(
+      daily.map((r) => [r.date, { revenue: Number(r.revenue), orderCount: Number(r.orderCount) }]),
+    );
+    const filledDaily: DailySalesRow[] = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const date = d.toISOString().slice(0, 10);
+      const existing = dailyMap.get(date);
+      return { date, revenue: existing?.revenue ?? 0, orderCount: existing?.orderCount ?? 0 };
+    });
+
     return {
-      daily: daily.map((r) => ({
-        date: r.date,
-        revenue: Number(r.revenue),
-        orderCount: Number(r.orderCount),
-      })),
+      daily: filledDaily,
       monthly: monthly.map((r) => ({
         month: r.month,
         revenue: Number(r.revenue),

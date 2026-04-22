@@ -63,6 +63,9 @@ describe('AdminService', () => {
   let service: AdminService;
 
   beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-22T12:00:00Z'));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
@@ -73,6 +76,10 @@ describe('AdminService', () => {
 
     service = module.get<AdminService>(AdminService);
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   // ── listUsers ─────────────────────────────────────────────────────────────────
@@ -461,17 +468,19 @@ describe('AdminService', () => {
 
       const result = await service.getSalesStats();
 
-      expect(result.daily).toHaveLength(1);
-      expect(result.daily[0].date).toBe('2026-04-22');
-      expect(result.daily[0].revenue).toBe(150000);
-      expect(result.daily[0].orderCount).toBe(3);
+      expect(result.daily).toHaveLength(30);
+      const todayEntry = result.daily.find((d) => d.date === '2026-04-22');
+      expect(todayEntry?.revenue).toBe(150000);
+      expect(todayEntry?.orderCount).toBe(3);
+      const missingEntry = result.daily.find((d) => d.date === '2026-04-21');
+      expect(missingEntry?.revenue).toBe(0);
       expect(result.monthly[0].month).toBe('2026-04');
       expect(result.monthly[0].revenue).toBe(500000);
       expect(result.topProducts[0].name).toBe('티셔츠');
       expect(result.topProducts[0].totalSold).toBe(20);
     });
 
-    it('데이터가 없으면 빈 배열을 반환한다', async () => {
+    it('데이터가 없으면 30일 분량의 빈 일별 데이터를 반환한다', async () => {
       mockPrisma.$queryRaw
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
@@ -479,7 +488,8 @@ describe('AdminService', () => {
 
       const result = await service.getSalesStats();
 
-      expect(result.daily).toHaveLength(0);
+      expect(result.daily).toHaveLength(30);
+      expect(result.daily.every((d) => d.revenue === 0 && d.orderCount === 0)).toBe(true);
       expect(result.monthly).toHaveLength(0);
       expect(result.topProducts).toHaveLength(0);
     });
