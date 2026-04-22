@@ -50,5 +50,9 @@ export const queryKeys = {
     inventory: {
       all: ['admin', 'inventory'] as const,
     },
+    stats: {
+      sales: ['admin', 'stats', 'sales'] as const,
+      orders: ['admin', 'stats', 'orders'] as const,
+    },
   },
 } as const;

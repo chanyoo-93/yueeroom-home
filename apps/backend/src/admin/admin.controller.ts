@@ -4,7 +4,7 @@ import { User, Order, UserStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
-import { AdminService } from './admin.service';
+import { AdminService, OrderStatsResponse, SalesStatsResponse } from './admin.service';
 import { SafeUser } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
@@ -15,6 +15,18 @@ import { GetAdminOrdersQueryDto } from './dto/get-admin-orders-query.dto';
 @UseGuards(AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Get('stats/sales')
+  @ApiOperation({ summary: '일별/월별 매출 통계 및 인기 상품 Top 5' })
+  getSalesStats(): Promise<SalesStatsResponse> {
+    return this.adminService.getSalesStats();
+  }
+
+  @Get('stats/orders')
+  @ApiOperation({ summary: '주문 상태별 통계 및 승인 대기 회원 수' })
+  getOrderStats(): Promise<OrderStatsResponse> {
+    return this.adminService.getOrderStats();
+  }
 
   @Get('users')
   @ApiOperation({ summary: '회원 목록 조회 (상태 필터 가능)' })
