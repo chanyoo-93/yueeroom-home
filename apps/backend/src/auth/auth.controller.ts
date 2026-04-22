@@ -4,12 +4,14 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import type { Request, Response } from 'express';
@@ -22,9 +24,14 @@ import { LoginDto } from './dto/login.dto';
 import { MfaVerifyDto } from './dto/mfa.dto';
 import { RegisterDto } from './dto/register.dto';
 
+const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15분
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @Public()
@@ -38,6 +45,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('local'))
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({ summary: '로그인 (APPROVED 회원만 허용)' })
   async login(
     @Req() req: Request & { user: User },
@@ -49,8 +57,9 @@ export class AuthController {
       httpOnly: true,
       secure: process.env['NODE_ENV'] === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: REFRESH_TOKEN_MAX_AGE,
     });
+    this.logger.log(`로그인 성공: userId=${req.user.id}`);
     return { accessToken };
   }
 
@@ -105,8 +114,7 @@ export class AuthController {
   @UseGuards(AuthGuard('naver'))
   @ApiOperation({ summary: '네이버 OAuth 콜백' })
   async naverCallback(@Req() req: Request & { user: User }, @Res() res: Response): Promise<void> {
-    const { accessToken } = await this.authService.login(req.user);
-    res.redirect(`${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}?token=${accessToken}`);
+    await this.setSocialLoginCookiesAndRedirect(req.user, res);
   }
 
   @Public()
@@ -122,8 +130,30 @@ export class AuthController {
   @UseGuards(AuthGuard('kakao'))
   @ApiOperation({ summary: '카카오 OAuth 콜백' })
   async kakaoCallback(@Req() req: Request & { user: User }, @Res() res: Response): Promise<void> {
-    const { accessToken } = await this.authService.login(req.user);
-    res.redirect(`${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}?token=${accessToken}`);
+    await this.setSocialLoginCookiesAndRedirect(req.user, res);
+  }
+
+  private async setSocialLoginCookiesAndRedirect(user: User, res: Response): Promise<void> {
+    const { accessToken, refreshToken } = await this.authService.login(user);
+    const secure = process.env['NODE_ENV'] === 'production';
+    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+
+    // access_token: non-httpOnly (Edge Runtime 미들웨어에서 JWT payload 직접 읽기 위해)
+    res.cookie('access_token', accessToken, {
+      httpOnly: false,
+      secure,
+      sameSite: 'strict',
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
+
+    this.logger.log(`소셜 로그인 성공: userId=${user.id}`);
+    res.redirect(frontendUrl);
   }
 
   // ── Admin MFA ────────────────────────────────────────────────────────────────
