@@ -35,3 +35,34 @@ export interface PaginatedAdminOrdersResponse {
   limit: number;
   totalPages: number;
 }
+
+export interface DailySalesRow {
+  date: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface MonthlySalesRow {
+  month: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface TopProductRow {
+  id: string;
+  name: string;
+  totalSold: number;
+  totalRevenue: number;
+}
+
+export interface SalesStatsResponse {
+  daily: DailySalesRow[];
+  monthly: MonthlySalesRow[];
+  topProducts: TopProductRow[];
+}
+
+export interface OrderStatsResponse {
+  statusBreakdown: Record<string, number>;
+  totalOrders: number;
+  pendingUsersCount: number;
+}
