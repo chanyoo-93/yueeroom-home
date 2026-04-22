@@ -1,18 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { tokens } from './helpers/jwt';
 
-const FRONTEND_URL = 'http://localhost:3000';
+const FRONTEND_URL = process.env['BASE_URL'] ?? 'http://localhost:3000';
 const API_PATTERN = 'http://localhost:4000/api/**';
 
 function accessTokenCookie(value: string) {
   return { name: 'access_token', value, url: FRONTEND_URL, path: '/' };
 }
 
-function mockApi(
-  page: Parameters<typeof test>[1] extends { page: infer P } ? P : never,
-  status: number,
-  body: unknown,
-) {
+function mockApi(page: Page, status: number, body: unknown) {
   return page.route(API_PATTERN, (route) =>
     route.fulfill({
       status,
