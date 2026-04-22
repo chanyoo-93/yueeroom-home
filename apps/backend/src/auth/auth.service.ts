@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +25,8 @@ const PASSWORD_RESET_TTL_SECONDS = 30 * 60; // 30 minutes
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -55,10 +58,16 @@ export class AuthService {
 
   async validateLocalUser(email: string, password: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password) return null;
+    if (!user || !user.password) {
+      this.logger.warn(`로그인 실패 — 존재하지 않는 이메일: ${email}`);
+      return null;
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return null;
+    if (!isMatch) {
+      this.logger.warn(`로그인 실패 — 비밀번호 불일치: userId=${user.id}`);
+      return null;
+    }
 
     return user;
   }
@@ -72,6 +81,7 @@ export class AuthService {
         [UserStatus.REJECTED]: '가입이 거절되었습니다.',
         [UserStatus.SUSPENDED]: '계정이 정지되었습니다.',
       };
+      this.logger.warn(`로그인 거부 — 미승인 계정: userId=${user.id} status=${user.status}`);
       throw new ForbiddenException(messageMap[user.status] ?? '접근 불가');
     }
 
@@ -107,6 +117,7 @@ export class AuthService {
 
     const stored = await this.redisService.get(`refresh:${payload.sub}`);
     if (stored !== refreshToken) {
+      this.logger.warn(`토큰 재발급 실패 — 저장된 토큰 불일치: userId=${payload.sub}`);
       throw new UnauthorizedException('Refresh Token이 만료되었습니다.');
     }
 
