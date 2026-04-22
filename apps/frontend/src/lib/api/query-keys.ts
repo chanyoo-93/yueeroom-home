@@ -47,5 +47,8 @@ export const queryKeys = {
       list: (page?: number) => ['admin', 'products', 'list', page] as const,
       detail: (id: string) => ['admin', 'products', 'detail', id] as const,
     },
+    inventory: {
+      all: ['admin', 'inventory'] as const,
+    },
   },
 } as const;

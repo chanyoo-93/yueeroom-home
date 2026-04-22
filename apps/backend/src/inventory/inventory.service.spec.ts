@@ -1,6 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { InventoryService } from './inventory.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,14 +10,49 @@ const mockInventory = {
   id: 'inv-1',
   variantId: 'var-1',
   quantity: 10,
+  lowStockThreshold: 5,
   updatedAt: new Date(),
   variant: { id: 'var-1', sku: 'TSH-M-WHITE', size: 'M', color: '화이트' },
 };
+
+const mockInventoryList = [
+  {
+    id: 'inv-1',
+    variantId: 'var-1',
+    quantity: 3,
+    lowStockThreshold: 5,
+    updatedAt: new Date(),
+    variant: {
+      id: 'var-1',
+      sku: 'TSH-M-WHITE',
+      size: 'M',
+      color: '화이트',
+      price: 29000,
+      product: { id: 'prod-1', name: '기본 티셔츠' },
+    },
+  },
+  {
+    id: 'inv-2',
+    variantId: 'var-2',
+    quantity: 20,
+    lowStockThreshold: 5,
+    updatedAt: new Date(),
+    variant: {
+      id: 'var-2',
+      sku: 'TSH-L-BLACK',
+      size: 'L',
+      color: '블랙',
+      price: 29000,
+      product: { id: 'prod-1', name: '기본 티셔츠' },
+    },
+  },
+];
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockPrisma = {
   inventory: {
+    findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
   },
@@ -26,10 +60,6 @@ const mockPrisma = {
 
 const mockEmailService = {
   sendLowStockEmail: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockConfigService = {
-  get: jest.fn().mockReturnValue(undefined), // LOW_STOCK_THRESHOLD 미설정 → 기본값 5
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -43,12 +73,26 @@ describe('InventoryService', () => {
         InventoryService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EmailService, useValue: mockEmailService },
-        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
     service = module.get<InventoryService>(InventoryService);
     jest.clearAllMocks();
+  });
+
+  // ── findAll ───────────────────────────────────────────────────────────────────
+
+  describe('findAll', () => {
+    it('전체 재고 목록을 반환한다', async () => {
+      mockPrisma.inventory.findMany.mockResolvedValue(mockInventoryList);
+
+      const result = await service.findAll();
+
+      expect(result).toEqual(mockInventoryList);
+      expect(mockPrisma.inventory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { quantity: 'asc' } }),
+      );
+    });
   });
 
   // ── findByVariant ─────────────────────────────────────────────────────────────
@@ -129,6 +173,33 @@ describe('InventoryService', () => {
       await service.updateQuantity('var-1', { quantity: 2 });
 
       expect(mockEmailService.sendLowStockEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── updateThreshold ───────────────────────────────────────────────────────────
+
+  describe('updateThreshold', () => {
+    it('임계값을 수정하고 반환한다', async () => {
+      mockPrisma.inventory.findUnique.mockResolvedValue(mockInventory);
+      mockPrisma.inventory.update.mockResolvedValue({ ...mockInventory, lowStockThreshold: 10 });
+
+      const result = await service.updateThreshold('var-1', { lowStockThreshold: 10 });
+
+      expect(result.lowStockThreshold).toBe(10);
+      expect(mockPrisma.inventory.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { variantId: 'var-1' },
+          data: { lowStockThreshold: 10 },
+        }),
+      );
+    });
+
+    it('존재하지 않는 변형의 임계값 수정 시 NotFoundException을 던진다', async () => {
+      mockPrisma.inventory.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateThreshold('nonexistent', { lowStockThreshold: 10 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
