@@ -6,12 +6,12 @@ const cspHeader = [
   // external script sources are restricted to known payment providers only.
   "script-src 'self' 'unsafe-inline' https://js.stripe.com https://pay.naver.com https://online-pay.kakao.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
+  "img-src 'self' data:",
   "font-src 'self'",
   // Stripe payment iframes
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   // API connections to payment providers
-  "connect-src 'self' https://api.stripe.com https://dev.apis.naver.com https://open-api.kakaopay.com",
+  "connect-src 'self' https://api.stripe.com https://apis.naver.com https://open-api.kakaopay.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
