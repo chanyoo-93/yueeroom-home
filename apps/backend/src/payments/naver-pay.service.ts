@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface NaverPayWebhookPayload {
@@ -229,12 +229,27 @@ export class NaverPayService {
       throw new InternalServerErrorException('NAVER_CLIENT_SECRET이 설정되지 않았습니다.');
     }
 
-    const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
-    if (!signature || signature !== expected) {
-      return;
+    const expected = createHmac('sha256', secret).update(rawBody).digest();
+    const signatureBuffer = Buffer.from(signature || '', 'base64');
+    if (
+      !signature ||
+      expected.length !== signatureBuffer.length ||
+      !timingSafeEqual(expected, signatureBuffer)
+    ) {
+      throw new BadRequestException('웹훅 서명 검증에 실패했습니다.');
     }
 
-    const payload = JSON.parse(rawBody) as NaverPayWebhookPayload;
+    let payload: NaverPayWebhookPayload;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== 'object') {
+        throw new BadRequestException('웹훅 페이로드가 유효하지 않습니다.');
+      }
+      payload = parsed as NaverPayWebhookPayload;
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      throw new BadRequestException('웹훅 페이로드 파싱에 실패했습니다.');
+    }
     const orderId = payload.merchantPayKey;
     if (!orderId) return;
 
