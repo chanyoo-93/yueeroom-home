@@ -22,8 +22,14 @@
     {
       "Sid": "ECSRegisterTaskDefinition",
       "Effect": "Allow",
-      "Action": ["ecs:RegisterTaskDefinition", "ecs:DescribeTaskDefinition"],
+      "Action": ["ecs:RegisterTaskDefinition"],
       "Resource": "*"
+    },
+    {
+      "Sid": "ECSDescribeTaskDefinition",
+      "Effect": "Allow",
+      "Action": ["ecs:DescribeTaskDefinition"],
+      "Resource": "arn:aws:ecs:ap-northeast-2:ACCOUNT_ID:task-definition/yueeroom-backend:*"
     },
     {
       "Sid": "ECSUpdateService",
