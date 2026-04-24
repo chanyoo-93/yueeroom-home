@@ -40,14 +40,17 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
   },
   order: {
     findUnique: jest.fn(),
     update: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
+    groupBy: jest.fn(),
   },
   $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
 };
 
 const mockEmailService = {
@@ -60,6 +63,9 @@ describe('AdminService', () => {
   let service: AdminService;
 
   beforeEach(async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-22T12:00:00Z'));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
@@ -70,6 +76,10 @@ describe('AdminService', () => {
 
     service = module.get<AdminService>(AdminService);
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   // ── listUsers ─────────────────────────────────────────────────────────────────
@@ -438,6 +448,84 @@ describe('AdminService', () => {
       expect(result.items).toHaveLength(0);
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+  });
+
+  // ── getSalesStats ─────────────────────────────────────────────────────────────
+
+  describe('getSalesStats', () => {
+    it('일별/월별 매출 및 인기 상품 통계를 반환한다', async () => {
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([
+          { date: '2026-04-22', revenue: BigInt(150000), orderCount: BigInt(3) },
+        ])
+        .mockResolvedValueOnce([
+          { month: '2026-04', revenue: BigInt(500000), orderCount: BigInt(10) },
+        ])
+        .mockResolvedValueOnce([
+          { id: 'prod-1', name: '티셔츠', totalSold: BigInt(20), totalRevenue: BigInt(400000) },
+        ]);
+
+      const result = await service.getSalesStats();
+
+      expect(result.daily).toHaveLength(30);
+      const todayEntry = result.daily.find((d) => d.date === '2026-04-22');
+      expect(todayEntry?.revenue).toBe(150000);
+      expect(todayEntry?.orderCount).toBe(3);
+      const missingEntry = result.daily.find((d) => d.date === '2026-04-21');
+      expect(missingEntry?.revenue).toBe(0);
+      expect(result.monthly[0].month).toBe('2026-04');
+      expect(result.monthly[0].revenue).toBe(500000);
+      expect(result.topProducts[0].name).toBe('티셔츠');
+      expect(result.topProducts[0].totalSold).toBe(20);
+    });
+
+    it('데이터가 없으면 30일 분량의 빈 일별 데이터를 반환한다', async () => {
+      mockPrisma.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getSalesStats();
+
+      expect(result.daily).toHaveLength(30);
+      expect(result.daily.every((d) => d.revenue === 0 && d.orderCount === 0)).toBe(true);
+      expect(result.monthly).toHaveLength(0);
+      expect(result.topProducts).toHaveLength(0);
+    });
+  });
+
+  // ── getOrderStats ─────────────────────────────────────────────────────────────
+
+  describe('getOrderStats', () => {
+    it('주문 상태별 통계와 승인 대기 회원 수를 반환한다', async () => {
+      mockPrisma.order.groupBy.mockResolvedValueOnce([
+        { status: OrderStatus.PENDING, _count: { id: 5 } },
+        { status: OrderStatus.PAID, _count: { id: 3 } },
+        { status: OrderStatus.DELIVERED, _count: { id: 10 } },
+      ]);
+      mockPrisma.order.count.mockResolvedValueOnce(18);
+      mockPrisma.user.count.mockResolvedValueOnce(7);
+
+      const result = await service.getOrderStats();
+
+      expect(result.statusBreakdown[OrderStatus.PENDING]).toBe(5);
+      expect(result.statusBreakdown[OrderStatus.PAID]).toBe(3);
+      expect(result.statusBreakdown[OrderStatus.DELIVERED]).toBe(10);
+      expect(result.totalOrders).toBe(18);
+      expect(result.pendingUsersCount).toBe(7);
+    });
+
+    it('주문이 없으면 빈 statusBreakdown을 반환한다', async () => {
+      mockPrisma.order.groupBy.mockResolvedValueOnce([]);
+      mockPrisma.order.count.mockResolvedValueOnce(0);
+      mockPrisma.user.count.mockResolvedValueOnce(0);
+
+      const result = await service.getOrderStats();
+
+      expect(result.statusBreakdown).toEqual({});
+      expect(result.totalOrders).toBe(0);
+      expect(result.pendingUsersCount).toBe(0);
     });
   });
 

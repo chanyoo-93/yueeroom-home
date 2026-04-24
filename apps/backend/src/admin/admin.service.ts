@@ -12,6 +12,37 @@ import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
 
+export interface DailySalesRow {
+  date: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface MonthlySalesRow {
+  month: string;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface TopProductRow {
+  id: string;
+  name: string;
+  totalSold: number;
+  totalRevenue: number;
+}
+
+export interface SalesStatsResponse {
+  daily: DailySalesRow[];
+  monthly: MonthlySalesRow[];
+  topProducts: TopProductRow[];
+}
+
+export interface OrderStatsResponse {
+  statusBreakdown: Record<string, number>;
+  totalOrders: number;
+  pendingUsersCount: number;
+}
+
 const IMMUTABLE_STATUSES: OrderStatus[] = [
   OrderStatus.DELIVERED,
   OrderStatus.CANCELLED,
@@ -195,6 +226,94 @@ export class AdminService {
       where: status ? { status } : {},
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async getSalesStats(): Promise<SalesStatsResponse> {
+    type RawDailyRow = { date: string; revenue: bigint; orderCount: bigint };
+    type RawMonthlyRow = { month: string; revenue: bigint; orderCount: bigint };
+    type RawTopProductRow = { id: string; name: string; totalSold: bigint; totalRevenue: bigint };
+
+    const [daily, monthly, topProducts] = await Promise.all([
+      this.prisma.$queryRaw<RawDailyRow[]>`
+        SELECT
+          DATE("createdAt")::text AS date,
+          SUM("totalAmount") AS revenue,
+          COUNT(id) AS "orderCount"
+        FROM orders
+        WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+          AND status NOT IN ('CANCELLED', 'REFUNDED')
+        GROUP BY DATE("createdAt")
+        ORDER BY date DESC
+      `,
+      this.prisma.$queryRaw<RawMonthlyRow[]>`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', "createdAt"), 'YYYY-MM') AS month,
+          SUM("totalAmount") AS revenue,
+          COUNT(id) AS "orderCount"
+        FROM orders
+        WHERE "createdAt" >= NOW() - INTERVAL '12 months'
+          AND status NOT IN ('CANCELLED', 'REFUNDED')
+        GROUP BY DATE_TRUNC('month', "createdAt")
+        ORDER BY month DESC
+      `,
+      this.prisma.$queryRaw<RawTopProductRow[]>`
+        SELECT
+          p.id,
+          p.name,
+          SUM(oi.quantity)::bigint AS "totalSold",
+          SUM(oi.quantity * oi."unitPrice")::bigint AS "totalRevenue"
+        FROM order_items oi
+        JOIN orders o ON oi."orderId" = o.id
+        JOIN product_variants pv ON oi."variantId" = pv.id
+        JOIN products p ON pv."productId" = p.id
+        WHERE o."createdAt" >= NOW() - INTERVAL '30 days'
+          AND o.status NOT IN ('CANCELLED', 'REFUNDED')
+        GROUP BY p.id, p.name
+        ORDER BY "totalSold" DESC
+        LIMIT 5
+      `,
+    ]);
+
+    const dailyMap = new Map(
+      daily.map((r) => [r.date, { revenue: Number(r.revenue), orderCount: Number(r.orderCount) }]),
+    );
+    const filledDaily: DailySalesRow[] = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const date = d.toISOString().slice(0, 10);
+      const existing = dailyMap.get(date);
+      return { date, revenue: existing?.revenue ?? 0, orderCount: existing?.orderCount ?? 0 };
+    });
+
+    return {
+      daily: filledDaily,
+      monthly: monthly.map((r) => ({
+        month: r.month,
+        revenue: Number(r.revenue),
+        orderCount: Number(r.orderCount),
+      })),
+      topProducts: topProducts.map((r) => ({
+        id: r.id,
+        name: r.name,
+        totalSold: Number(r.totalSold),
+        totalRevenue: Number(r.totalRevenue),
+      })),
+    };
+  }
+
+  async getOrderStats(): Promise<OrderStatsResponse> {
+    const [statusCounts, totalOrders, pendingUsersCount] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
+      this.prisma.order.count(),
+      this.prisma.user.count({ where: { status: UserStatus.PENDING } }),
+    ]);
+
+    const statusBreakdown: Record<string, number> = {};
+    for (const item of statusCounts) {
+      statusBreakdown[item.status] = item._count.id;
+    }
+
+    return { statusBreakdown, totalOrders, pendingUsersCount };
   }
 
   private async assertAdmin(adminId: string): Promise<void> {
