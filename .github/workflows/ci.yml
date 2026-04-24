@@ -198,6 +198,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build frontend
+        run: pnpm --filter @yueeroom/frontend build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
       - name: Install Playwright browsers
         run: cd apps/frontend && npx playwright install --with-deps chromium
 
