@@ -11,10 +11,6 @@ export class EmailService {
   constructor(private readonly configService: ConfigService) {
     this.sesClient = new SESClient({
       region: this.configService.get<string>('AWS_REGION') ?? 'ap-northeast-2',
-      credentials: {
-        accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID') ?? '',
-        secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY') ?? '',
-      },
     });
     this.fromEmail = this.configService.get<string>('SES_FROM_EMAIL') ?? 'noreply@yueeroom.com';
   }

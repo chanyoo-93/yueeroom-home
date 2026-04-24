@@ -1,0 +1,52 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ECRAuth",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECRPush",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:CompleteLayerUpload",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": "arn:aws:ecr:ap-northeast-2:ACCOUNT_ID:repository/yueeroom-backend"
+    },
+    {
+      "Sid": "ECSRegisterTaskDefinition",
+      "Effect": "Allow",
+      "Action": ["ecs:RegisterTaskDefinition", "ecs:DescribeTaskDefinition"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECSUpdateService",
+      "Effect": "Allow",
+      "Action": ["ecs:UpdateService", "ecs:DescribeServices"],
+      "Resource": [
+        "arn:aws:ecs:ap-northeast-2:ACCOUNT_ID:cluster/yueeroom-prod",
+        "arn:aws:ecs:ap-northeast-2:ACCOUNT_ID:service/yueeroom-prod/yueeroom-backend"
+      ]
+    },
+    {
+      "Sid": "PassRoleToECS",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::ACCOUNT_ID:role/yueeroom-ecs-task-role",
+        "arn:aws:iam::ACCOUNT_ID:role/yueeroom-ecs-task-execution-role"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
