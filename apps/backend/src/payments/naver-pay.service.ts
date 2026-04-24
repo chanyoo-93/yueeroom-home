@@ -231,7 +231,7 @@ export class NaverPayService {
 
     const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
     if (!signature || signature !== expected) {
-      return;
+      throw new BadRequestException('웹훅 서명 검증에 실패했습니다.');
     }
 
     const payload = JSON.parse(rawBody) as NaverPayWebhookPayload;
