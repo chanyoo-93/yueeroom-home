@@ -22,10 +22,6 @@ export class FilesService {
   constructor(private readonly configService: ConfigService) {
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION') ?? 'ap-northeast-2',
-      credentials: {
-        accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID') ?? '',
-        secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY') ?? '',
-      },
     });
     this.bucket = this.configService.get<string>('S3_BUCKET_NAME') ?? '';
     this.cdnUrl = this.configService.get<string>('CDN_URL') ?? '';
