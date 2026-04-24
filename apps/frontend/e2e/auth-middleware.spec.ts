@@ -149,7 +149,8 @@ test.describe('미인증 접근 시나리오 E2E', () => {
       });
 
       await page.goto('/');
-      await page.waitForLoadState('networkidle', { timeout: 15000 });
+      // networkidle 대신 load 사용: dev 서버 HMR WebSocket이 networkidle을 방해함
+      await page.waitForLoadState('load', { timeout: 15000 });
 
       expect(page.url()).not.toContain('/login');
       expect(page.url()).toMatch(/localhost:3000\/?$/);
