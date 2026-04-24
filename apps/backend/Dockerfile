@@ -18,20 +18,11 @@ RUN pnpm --filter @yueeroom/backend build
 
 FROM node:22-alpine AS runner
 
-RUN npm install -g pnpm@10.33.0
-
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/backend/package.json ./apps/backend/
-
-RUN pnpm install --frozen-lockfile --prod
-
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY apps/backend/prisma ./apps/backend/prisma
-
-RUN pnpm --filter @yueeroom/backend prisma:generate
 
 WORKDIR /app/apps/backend
 
