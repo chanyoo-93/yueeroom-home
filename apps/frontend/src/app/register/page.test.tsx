@@ -20,12 +20,13 @@ describe('RegisterPage', () => {
     vi.clearAllMocks();
   });
 
-  it('이름/이메일/비밀번호/비밀번호 확인 필드와 제출 버튼이 렌더링된다', () => {
+  it('이름/이메일/비밀번호/비밀번호 확인 필드와 개인정보 동의 체크박스, 제출 버튼이 렌더링된다', () => {
     render(<RegisterPage />);
     expect(screen.getByLabelText('이름')).toBeInTheDocument();
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호 확인')).toBeInTheDocument();
+    expect(screen.getByLabelText(/개인정보 수집·이용/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '가입 신청' })).toBeInTheDocument();
   });
 
@@ -39,6 +40,20 @@ describe('RegisterPage', () => {
     expect(screen.getByText('이메일을 입력해주세요.')).toBeInTheDocument();
     expect(screen.getByText('비밀번호를 입력해주세요.')).toBeInTheDocument();
     expect(screen.getByText('비밀번호 확인을 입력해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('개인정보 수집·이용에 동의해주세요.')).toBeInTheDocument();
+  });
+
+  it('개인정보 동의 없이 제출하면 오류 메시지를 표시한다', async () => {
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText('이름'), '홍길동');
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByRole('button', { name: '가입 신청' }));
+
+    expect(await screen.findByText('개인정보 수집·이용에 동의해주세요.')).toBeInTheDocument();
   });
 
   it('이름이 2자 미만이면 오류 메시지를 표시한다', async () => {
@@ -93,6 +108,7 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
@@ -100,6 +116,7 @@ describe('RegisterPage', () => {
         name: '홍길동',
         email: 'test@example.com',
         password: 'Password1!',
+        termsAgreed: true,
       });
     });
   });
@@ -115,6 +132,7 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
@@ -134,6 +152,7 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'duplicate@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     expect(await screen.findByText('이미 사용 중인 이메일입니다.')).toBeInTheDocument();

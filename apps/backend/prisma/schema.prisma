@@ -67,6 +67,8 @@ model User {
   providerId String?
   mfaSecret  String? // TOTP secret for admin MFA
   mfaEnabled Boolean      @default(false)
+  consentAt  DateTime? // 개인정보 수집·이용 동의 일시 (PIPA)
+  deletedAt  DateTime? // 회원 탈퇴 일시 (소프트 삭제 + 익명화)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 

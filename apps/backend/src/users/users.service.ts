@@ -25,6 +25,8 @@ export const USER_SAFE_SELECT = {
   role: true,
   provider: true,
   mfaEnabled: true,
+  consentAt: true,
+  deletedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -195,5 +197,25 @@ export class UsersService {
       throw new NotFoundException('배송지를 찾을 수 없습니다.');
     }
     return address;
+  }
+
+  // ── 회원 탈퇴 (PIPA: 개인정보 익명화) ─────────────────────────────────────────
+
+  async deleteAccount(userId: string): Promise<void> {
+    await this.findById(userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: `deleted_${userId}@deleted.com`,
+        name: '탈퇴회원',
+        phone: null,
+        password: null,
+        providerId: null,
+        mfaSecret: null,
+        mfaEnabled: false,
+        status: 'SUSPENDED',
+        deletedAt: new Date(),
+      },
+    });
   }
 }

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/register', '/pending'];
+const PUBLIC_PATHS = ['/login', '/register', '/pending', '/privacy'];
 
 /**
  * JWT payload를 서명 검증 없이 디코딩한다.
