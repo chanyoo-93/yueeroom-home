@@ -174,7 +174,54 @@ jobs:
           path: apps/frontend/coverage/
 
   # ──────────────────────────────────────────────────────────
-  # 5. 빌드 검증
+  # 5. E2E 테스트 (Playwright)
+  # ──────────────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, type-check]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm --filter @yueeroom/frontend build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+      - name: Install Playwright browsers
+        run: cd apps/frontend && npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: cd apps/frontend && npx playwright test
+        env:
+          CI: true
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/frontend/playwright-report/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────
+  # 6. 빌드 검증
   # ──────────────────────────────────────────────────────────
   build:
     name: Build Check
@@ -209,7 +256,7 @@ jobs:
   ci-success:
     name: CI Passed
     runs-on: ubuntu-latest
-    needs: [lint-and-format, type-check, test-backend, test-frontend, build]
+    needs: [lint-and-format, type-check, test-backend, test-frontend, e2e, build]
     if: always()
     steps:
       - name: Check all jobs
