@@ -5,7 +5,7 @@ const FRONTEND_URL = process.env['BASE_URL'] ?? 'http://localhost:3000';
 const API_PATTERN = 'http://localhost:4000/api/**';
 
 function accessTokenCookie(value: string) {
-  return { name: 'access_token', value, url: FRONTEND_URL, path: '/' };
+  return { name: 'access_token', value, url: FRONTEND_URL };
 }
 
 function mockApi(page: Page, status: number, body: unknown) {
