@@ -29,7 +29,7 @@
       "Sid": "ECSDescribeTaskDefinition",
       "Effect": "Allow",
       "Action": ["ecs:DescribeTaskDefinition"],
-      "Resource": "arn:aws:ecs:ap-northeast-2:ACCOUNT_ID:task-definition/yueeroom-backend:*"
+      "Resource": "*"
     },
     {
       "Sid": "ECSUpdateService",
