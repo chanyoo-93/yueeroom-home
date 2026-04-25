@@ -48,6 +48,7 @@ export class AuthService {
         password: hashedPassword,
         name: dto.name,
         status: UserStatus.PENDING,
+        consentAt: dto.termsAgreed ? new Date() : null,
       },
     });
 

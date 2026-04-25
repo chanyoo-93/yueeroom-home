@@ -31,6 +31,8 @@ const mockUser = {
   providerId: null,
   mfaSecret: null,
   mfaEnabled: false,
+  consentAt: now,
+  deletedAt: null,
   createdAt: now,
   updatedAt: now,
 };
@@ -45,6 +47,8 @@ const mockSafeUser = {
   role: 'CUSTOMER',
   provider: 'LOCAL',
   mfaEnabled: false,
+  consentAt: now,
+  deletedAt: null,
   createdAt: now,
   updatedAt: now,
 };
@@ -346,6 +350,37 @@ describe('UsersService', () => {
     it('존재하지 않는 배송지 삭제 시 NotFoundException을 던진다', async () => {
       mockPrisma.address.findUnique.mockResolvedValue(null);
       await expect(service.removeAddress('user-1', 'not-exist')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── deleteAccount ─────────────────────────────────────────────────────────────
+
+  describe('deleteAccount', () => {
+    it('개인정보를 익명화하고 deletedAt을 설정한다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.user.update.mockResolvedValue({});
+
+      await service.deleteAccount('user-1');
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: expect.objectContaining({
+          email: 'deleted_user-1@deleted.com',
+          name: '탈퇴회원',
+          phone: null,
+          password: null,
+          providerId: null,
+          mfaSecret: null,
+          mfaEnabled: false,
+          status: 'SUSPENDED',
+          deletedAt: expect.any(Date),
+        }),
+      });
+    });
+
+    it('존재하지 않는 사용자 탈퇴 시 NotFoundException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.deleteAccount('not-exist')).rejects.toThrow(NotFoundException);
     });
   });
 });

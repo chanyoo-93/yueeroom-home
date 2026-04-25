@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -20,4 +20,8 @@ export class RegisterDto {
   @MinLength(2, { message: '이름은 최소 2자 이상이어야 합니다.' })
   @MaxLength(50)
   name!: string;
+
+  @ApiProperty({ example: true, description: '개인정보 수집·이용 동의 (필수)' })
+  @IsBoolean({ message: '개인정보 수집·이용에 동의해야 합니다.' })
+  termsAgreed!: boolean;
 }

@@ -2,6 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import axios from 'axios';
 import { apiClient } from '@/lib/api/client';
 
@@ -10,6 +11,7 @@ interface RegisterForm {
   email: string;
   password: string;
   passwordConfirm: string;
+  termsAgreed: boolean;
 }
 
 export default function RegisterPage() {
@@ -28,6 +30,7 @@ export default function RegisterPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        termsAgreed: data.termsAgreed,
       });
       router.push('/pending');
     } catch (error) {
@@ -131,6 +134,30 @@ export default function RegisterPage() {
             {errors.passwordConfirm && (
               <p role="alert" className="mt-1 text-sm text-red-600">
                 {errors.passwordConfirm.message}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded border p-3">
+            <div className="flex items-start gap-2">
+              <input
+                id="termsAgreed"
+                type="checkbox"
+                className="mt-0.5"
+                {...register('termsAgreed', {
+                  validate: (value) => value === true || '개인정보 수집·이용에 동의해주세요.',
+                })}
+              />
+              <label htmlFor="termsAgreed" className="text-sm">
+                개인정보 수집·이용에 동의합니다. (필수){' '}
+                <Link href="/privacy" className="text-blue-600 underline" target="_blank">
+                  처리방침 보기
+                </Link>
+              </label>
+            </div>
+            {errors.termsAgreed && (
+              <p role="alert" className="mt-1 text-sm text-red-600">
+                {errors.termsAgreed.message}
               </p>
             )}
           </div>

@@ -37,6 +37,13 @@ export class UsersController {
     return this.usersService.updateProfile(user.sub, dto);
   }
 
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: '회원 탈퇴 (개인정보 익명화 처리)' })
+  deleteAccount(@CurrentUser() user: JwtPayload) {
+    return this.usersService.deleteAccount(user.sub);
+  }
+
   @Patch('me/password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: '비밀번호 변경' })
