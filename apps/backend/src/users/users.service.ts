@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Address, ChildProfile, User } from '@prisma/client';
+import { Address, ChildProfile, User, UserStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto, UpdateAddressDto } from './dto/address.dto';
@@ -213,7 +213,7 @@ export class UsersService {
         providerId: null,
         mfaSecret: null,
         mfaEnabled: false,
-        status: 'SUSPENDED',
+        status: UserStatus.SUSPENDED,
         deletedAt: new Date(),
       },
     });

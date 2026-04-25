@@ -23,6 +23,8 @@ const mockApprovedUser = {
   providerId: null,
   mfaSecret: null,
   mfaEnabled: false,
+  consentAt: new Date(),
+  deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -95,6 +97,7 @@ describe('AuthService', () => {
         email: 'new@test.com',
         password: 'Password1!',
         name: '신규회원',
+        termsAgreed: true,
       });
 
       expect(result.message).toBeDefined();
@@ -109,7 +112,12 @@ describe('AuthService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockApprovedUser);
 
       await expect(
-        service.register({ email: 'approved@test.com', password: 'Password1!', name: '홍길동' }),
+        service.register({
+          email: 'approved@test.com',
+          password: 'Password1!',
+          name: '홍길동',
+          termsAgreed: true,
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -117,7 +125,12 @@ describe('AuthService', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockPendingUser);
 
-      await service.register({ email: 'new@test.com', password: 'Password1!', name: '신규' });
+      await service.register({
+        email: 'new@test.com',
+        password: 'Password1!',
+        name: '신규',
+        termsAgreed: true,
+      });
 
       const createCall = mockPrisma.user.create.mock.calls[0] as [{ data: { password: string } }];
       const hashedPw = createCall[0].data.password;

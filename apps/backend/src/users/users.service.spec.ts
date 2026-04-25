@@ -31,6 +31,8 @@ const mockUser = {
   providerId: null,
   mfaSecret: null,
   mfaEnabled: false,
+  consentAt: now,
+  deletedAt: null,
   createdAt: now,
   updatedAt: now,
 };
@@ -45,6 +47,8 @@ const mockSafeUser = {
   role: 'CUSTOMER',
   provider: 'LOCAL',
   mfaEnabled: false,
+  consentAt: now,
+  deletedAt: null,
   createdAt: now,
   updatedAt: now,
 };
