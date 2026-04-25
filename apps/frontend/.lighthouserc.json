@@ -1,13 +1,10 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "pnpm --filter @yueeroom/frontend start",
-      "startServerReadyPattern": "Local",
-      "startServerReadyTimeout": 30000,
       "url": ["http://localhost:3000/login", "http://localhost:3000/register"],
       "numberOfRuns": 1,
       "settings": {
-        "chromeFlags": "--no-sandbox"
+        "chromeFlags": "--no-sandbox --headless=new"
       }
     },
     "assert": {
@@ -20,7 +17,8 @@
       }
     },
     "upload": {
-      "target": "temporary-public-storage"
+      "target": "filesystem",
+      "outputDir": "../../.lighthouseci"
     }
   }
 }

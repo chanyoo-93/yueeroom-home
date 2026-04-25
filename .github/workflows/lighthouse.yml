@@ -35,9 +35,26 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000/api
 
+      - name: Start frontend server
+        run: |
+          pnpm --filter @yueeroom/frontend start &
+          echo "Waiting for server..."
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/login | grep -qE "^(200|301|302|307|308)$"; then
+              echo "Server ready"
+              break
+            fi
+            echo "Attempt $i/30: not ready, retrying in 2s..."
+            sleep 2
+          done
+
       - name: Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v12
+        run: npx -y @lhci/cli@0.14.x autorun --config=./apps/frontend/.lighthouserc.json
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          configPath: ./apps/frontend/.lighthouserc.json
-          uploadArtifacts: true
-          temporaryPublicStorage: true
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 7
