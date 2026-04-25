@@ -1,0 +1,8 @@
+aws_region  = "ap-northeast-2"
+project     = "yueeroom"
+env         = "prod"
+domain      = "yueeroom.com"
+db_username = "yueeroom"
+db_password = "CHANGE_ME_use_strong_password"
+db_name     = "yueeroom"
+github_repo = "chanyoo-93/yueeroom-home"
