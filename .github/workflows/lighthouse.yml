@@ -41,7 +41,7 @@ jobs:
           echo "Waiting for server..."
           for i in $(seq 1 30); do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/login | grep -qE "^(200|301|302|307|308)$"; then
-              echo "Server ready"
+              echo "Server ready after ${i} attempts"
               break
             fi
             echo "Attempt $i/30: not ready, retrying in 2s..."
@@ -49,7 +49,9 @@ jobs:
           done
 
       - name: Run Lighthouse CI
-        run: npx -y @lhci/cli@0.14.x autorun --config=./apps/frontend/.lighthouserc.json
+        run: npx -y @lhci/cli@latest autorun --config=./apps/frontend/.lighthouserc.json
+        env:
+          CHROME_PATH: /usr/bin/google-chrome-stable
 
       - name: Upload Lighthouse reports
         uses: actions/upload-artifact@v4
