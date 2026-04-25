@@ -131,18 +131,37 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Resource = "*"
       },
       {
+        Sid      = "ECSRegisterTaskDef"
+        Effect   = "Allow"
+        Action   = ["ecs:RegisterTaskDefinition"]
+        Resource = "*"
+      },
+      {
         Sid    = "ECSDeployBackend"
         Effect = "Allow"
         Action = [
-          "ecs:RegisterTaskDefinition",
           "ecs:UpdateService",
           "ecs:DescribeServices"
         ]
         Resource = [
           "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.project}-prod",
-          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:service/${var.project}-prod/${var.project}-backend",
-          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-backend:*"
+          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:service/${var.project}-prod/${var.project}-backend"
         ]
+      },
+      {
+        Sid    = "S3FrontendDeploy"
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:ListBucket"]
+        Resource = [
+          aws_s3_bucket.frontend_build.arn,
+          "${aws_s3_bucket.frontend_build.arn}/*"
+        ]
+      },
+      {
+        Sid      = "CloudFrontInvalidation"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = aws_cloudfront_distribution.frontend.arn
       },
       {
         Sid    = "IAMPassRole"

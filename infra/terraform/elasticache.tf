@@ -12,7 +12,7 @@ resource "aws_elasticache_replication_group" "redis" {
   node_type      = "cache.t3.micro"
   port           = 6379
 
-  num_cache_clusters = 1
+  num_cache_clusters = 2
 
   subnet_group_name  = aws_elasticache_subnet_group.main.name
   security_group_ids = [aws_security_group.redis.id]
@@ -21,7 +21,7 @@ resource "aws_elasticache_replication_group" "redis" {
   transit_encryption_enabled = true
   transit_encryption_mode    = "required"
 
-  automatic_failover_enabled = false
+  automatic_failover_enabled = true
 
   snapshot_retention_limit = 1
   snapshot_window          = "03:00-04:00"

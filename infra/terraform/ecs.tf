@@ -39,7 +39,7 @@ resource "aws_lb_target_group" "backend" {
 
   health_check {
     path                = "/api/health"
-    matcher             = "200-404"
+    matcher             = "200"
     healthy_threshold   = 2
     unhealthy_threshold = 3
     interval            = 30
@@ -134,7 +134,7 @@ resource "aws_ecs_service" "backend" {
   name            = "${var.project}-backend"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = 1
+  desired_count   = 2
   launch_type     = "FARGATE"
 
   network_configuration {
