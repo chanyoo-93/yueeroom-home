@@ -8,7 +8,7 @@ resource "aws_elasticache_replication_group" "redis" {
   description          = "Redis for ${var.project}"
 
   engine         = "redis"
-  engine_version = "7.2"
+  engine_version = "7.0"
   node_type      = "cache.t3.micro"
   port           = 6379
 
