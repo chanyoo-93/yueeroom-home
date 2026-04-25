@@ -59,4 +59,9 @@ describe('MobileNav', () => {
     const homeLink = screen.getByRole('link', { name: /홈/ });
     expect(homeLink).not.toHaveClass('text-blue-600');
   });
+
+  it('모바일 내비게이션에 aria-label이 있다', () => {
+    render(<MobileNav />);
+    expect(screen.getByRole('navigation', { name: /모바일 내비게이션/ })).toBeInTheDocument();
+  });
 });

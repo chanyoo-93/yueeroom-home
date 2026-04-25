@@ -54,4 +54,9 @@ describe('Header', () => {
     render(<Header />);
     expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/mypage');
   });
+
+  it('헤더 내비게이션에 aria-label이 있다', () => {
+    render(<Header />);
+    expect(screen.getByRole('navigation', { name: /주요 메뉴/ })).toBeInTheDocument();
+  });
 });

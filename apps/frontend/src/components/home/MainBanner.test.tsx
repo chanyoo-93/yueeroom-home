@@ -26,4 +26,9 @@ describe('MainBanner', () => {
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', '/products');
   });
+
+  it('섹션에 aria-label이 있다', () => {
+    render(<MainBanner />);
+    expect(screen.getByRole('region', { name: /메인 배너/ })).toBeInTheDocument();
+  });
 });

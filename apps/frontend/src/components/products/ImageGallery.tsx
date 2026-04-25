@@ -39,7 +39,7 @@ export default function ImageGallery({ images, productName }: Props) {
               key={image.id}
               onClick={() => setSelectedIndex(index)}
               aria-label={`${index + 1}번째 이미지`}
-              aria-current={selectedIndex === index ? 'true' : undefined}
+              aria-pressed={selectedIndex === index}
               className={`relative aspect-square h-16 shrink-0 overflow-hidden rounded-lg border-2 transition-colors ${
                 selectedIndex === index
                   ? 'border-indigo-600'
