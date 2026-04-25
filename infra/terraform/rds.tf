@@ -27,16 +27,15 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.rds.id]
   parameter_group_name   = aws_db_parameter_group.postgres16.name
 
-  multi_az            = true
+  multi_az            = false
   publicly_accessible = false
   deletion_protection = true
 
   skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project}-prod-final-snapshot"
 
-  backup_retention_period = 7
-  backup_window           = "02:00-03:00"
+  backup_retention_period = 0
   maintenance_window      = "Mon:03:00-Mon:04:00"
 
-  performance_insights_enabled = true
+  performance_insights_enabled = false
 }
