@@ -10,9 +10,11 @@ import {
   useWishlistStatus,
 } from '@/lib/hooks/useWishlist';
 import { formatPrice } from '@/lib/utils/format';
+import dynamic from 'next/dynamic';
 import ImageGallery from './ImageGallery';
 import VariantSelector from './VariantSelector';
-import SizeGuideModal from './SizeGuideModal';
+
+const SizeGuideModal = dynamic(() => import('./SizeGuideModal'));
 
 interface Props {
   productId: string;
@@ -148,8 +150,7 @@ export default function ProductDetailContent({ productId }: Props) {
           {/* 변형 선택 */}
           {variants.length > 0 && (
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400" />
+              <div className="flex justify-end">
                 <button
                   onClick={() => setIsSizeGuideOpen(true)}
                   aria-label="사이즈 가이드 열기"

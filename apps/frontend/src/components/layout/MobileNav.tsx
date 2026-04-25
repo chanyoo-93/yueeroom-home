@@ -14,7 +14,10 @@ export default function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white md:hidden">
+    <nav
+      aria-label="모바일 내비게이션"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white md:hidden"
+    >
       <ul className="flex h-16 items-center justify-around">
         {NAV_ITEMS.map(({ href, label, icon }) => {
           const isActive = pathname === href || (href !== '/' && pathname.startsWith(href + '/'));

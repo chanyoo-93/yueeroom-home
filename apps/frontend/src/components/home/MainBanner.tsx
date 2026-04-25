@@ -2,7 +2,10 @@ import Link from 'next/link';
 
 export default function MainBanner() {
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 px-8 py-16 text-center sm:py-24">
+    <section
+      aria-label="메인 배너"
+      className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 px-8 py-16 text-center sm:py-24"
+    >
       <div className="relative z-10 mx-auto max-w-xl space-y-4">
         <p className="text-sm font-medium uppercase tracking-widest text-indigo-500">
           New Collection

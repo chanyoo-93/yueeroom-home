@@ -1,0 +1,62 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [main, staging]
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10.33.0'
+
+jobs:
+  lighthouse:
+    name: Lighthouse Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm --filter @yueeroom/frontend build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+
+      - name: Start frontend server
+        run: |
+          pnpm --filter @yueeroom/frontend start &
+          echo "Waiting for server..."
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/login | grep -qE "^(200|301|302|307|308)$"; then
+              echo "Server ready after ${i} attempts"
+              break
+            fi
+            echo "Attempt $i/30: not ready, retrying in 2s..."
+            sleep 2
+          done
+
+      - name: Run Lighthouse CI
+        run: npx -y @lhci/cli@latest autorun --config=./apps/frontend/.lighthouserc.json
+        env:
+          CHROME_PATH: /usr/bin/google-chrome-stable
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 7

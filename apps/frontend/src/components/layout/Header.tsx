@@ -22,7 +22,7 @@ export default function Header() {
         </form>
 
         {/* 우측 아이콘/링크 */}
-        <nav className="flex shrink-0 items-center gap-4">
+        <nav aria-label="주요 메뉴" className="flex shrink-0 items-center gap-4">
           <MiniCart />
           <Link
             href="/mypage"
