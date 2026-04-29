@@ -32,4 +32,4 @@ WORKDIR /app/apps/backend
 ENV NODE_ENV=production
 EXPOSE 4000
 
-CMD ["sh", "-c", "prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "prisma migrate resolve --rolled-back 20260413000000_add_products_search_gin_index 2>/dev/null; prisma migrate deploy && node dist/main"]
