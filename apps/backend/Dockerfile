@@ -22,13 +22,14 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY apps/backend/prisma ./apps/backend/prisma
 
 WORKDIR /app/apps/backend
 
 ENV NODE_ENV=production
-ENV PATH="/app/node_modules/.bin:$PATH"
+ENV PATH="/app/apps/backend/node_modules/.bin:/app/node_modules/.bin:$PATH"
 EXPOSE 4000
 
 CMD ["sh", "-c", "prisma migrate deploy && node dist/main"]
