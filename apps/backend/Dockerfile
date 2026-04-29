@@ -15,21 +15,18 @@ COPY packages/shared ./packages/shared
 COPY apps/backend ./apps/backend
 
 RUN pnpm --filter @yueeroom/backend build
+RUN pnpm --filter @yueeroom/backend deploy --prod /deploy
 
 
 FROM node:22-alpine AS runner
 
 RUN npm install -g prisma@6
 
-WORKDIR /app
-
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=builder /app/packages/shared ./packages/shared
-COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY apps/backend/prisma ./apps/backend/prisma
-
 WORKDIR /app/apps/backend
+
+COPY --from=builder /deploy/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/dist ./dist
+COPY apps/backend/prisma ./prisma
 
 ENV NODE_ENV=production
 EXPOSE 4000
