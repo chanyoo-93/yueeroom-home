@@ -28,6 +28,7 @@ COPY apps/backend/prisma ./apps/backend/prisma
 WORKDIR /app/apps/backend
 
 ENV NODE_ENV=production
+ENV PATH="/app/node_modules/.bin:$PATH"
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "prisma migrate deploy && node dist/main"]
