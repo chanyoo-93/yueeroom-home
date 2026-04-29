@@ -15,7 +15,7 @@ COPY packages/shared ./packages/shared
 COPY apps/backend ./apps/backend
 
 RUN pnpm --filter @yueeroom/backend build
-RUN pnpm --filter @yueeroom/backend deploy --prod /deploy
+RUN pnpm --filter @yueeroom/backend deploy --prod --legacy /deploy
 
 
 FROM node:22-alpine AS runner
