@@ -28,6 +28,8 @@ COPY --from=builder /deploy/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY apps/backend/prisma ./prisma
 
+RUN prisma generate
+
 ENV NODE_ENV=production
 EXPOSE 4000
 
