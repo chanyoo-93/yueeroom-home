@@ -43,6 +43,7 @@ jobs:
       - name: Build Next.js (static export)
         run: pnpm --filter @yueeroom/frontend build
         env:
+          NEXT_STATIC_EXPORT: 'true'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
       - name: Configure AWS credentials via OIDC

@@ -1,8 +1,6 @@
 import { Suspense } from 'react';
 import OrderDetail from '@/components/orders/OrderDetail';
 
-export const dynamicParams = false;
-
 // output: 'export' requires at least one entry; actual data is fetched client-side at runtime
 export function generateStaticParams() {
   return [{ id: '_' }];
