@@ -1,6 +1,13 @@
 import { Suspense } from 'react';
 import ProductDetailContent from '@/components/products/ProductDetailContent';
 
+export const dynamicParams = false;
+
+// output: 'export' requires at least one entry; actual data is fetched client-side at runtime
+export function generateStaticParams() {
+  return [{ id: '_' }];
+}
+
 interface Props {
   params: Promise<{ id: string }>;
 }

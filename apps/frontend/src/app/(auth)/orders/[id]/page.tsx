@@ -1,6 +1,13 @@
 import { Suspense } from 'react';
 import OrderDetail from '@/components/orders/OrderDetail';
 
+export const dynamicParams = false;
+
+// output: 'export' requires at least one entry; actual data is fetched client-side at runtime
+export function generateStaticParams() {
+  return [{ id: '_' }];
+}
+
 export const metadata = { title: '주문 상세 | 유이룸' };
 
 interface OrderDetailPageProps {

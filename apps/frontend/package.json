@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "start": "npx serve@latest out -p 3000 -s",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
