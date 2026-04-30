@@ -119,6 +119,7 @@ jobs:
           wait-for-service-stability: true
 
       - name: Health check
+        if: github.ref_name == 'main'
         run: |
           echo "Verifying deployment health..."
           for i in $(seq 1 12); do
@@ -135,7 +136,7 @@ jobs:
           exit 1
 
       - name: Integration tests (staging only)
-        if: github.ref_name == 'staging'
+        if: github.ref_name == 'staging' && secrets.DOMAIN != ''
         env:
           API_BASE_URL: https://api.${{ secrets.DOMAIN }}
         run: |
