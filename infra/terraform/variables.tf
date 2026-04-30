@@ -51,3 +51,9 @@ variable "github_repo" {
   type        = string
   default     = "chanyoo-93/yueeroom-home"
 }
+
+variable "api_origin" {
+  description = "Backend API origin for CSP connect-src (e.g. https://api.yueeroom.com)"
+  type        = string
+  default     = ""
+}

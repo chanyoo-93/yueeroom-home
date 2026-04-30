@@ -164,16 +164,16 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
       {
         Sid    = "S3FrontendDeploy"
         Effect = "Allow"
-        Action = ["s3:PutObject", "s3:ListBucket"]
+        Action = ["s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
         Resource = [
           aws_s3_bucket.frontend_build.arn,
           "${aws_s3_bucket.frontend_build.arn}/*"
         ]
       },
       {
-        Sid      = "CloudFrontInvalidation"
-        Effect   = "Allow"
-        Action   = ["cloudfront:CreateInvalidation"]
+        Sid    = "CloudFrontInvalidation"
+        Effect = "Allow"
+        Action = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
         Resource = aws_cloudfront_distribution.frontend.arn
       },
       {
