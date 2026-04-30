@@ -14,7 +14,9 @@ export class NaverStrategy extends PassportStrategy(Strategy, 'naver') {
     super({
       clientID: configService.get<string>('NAVER_CLIENT_ID') || 'naver_not_configured',
       clientSecret: configService.get<string>('NAVER_CLIENT_SECRET') || 'naver_not_configured',
-      callbackURL: configService.get<string>('NAVER_CALLBACK_URL') || 'http://localhost:4000/api/auth/naver/callback',
+      callbackURL:
+        configService.get<string>('NAVER_CALLBACK_URL') ||
+        'http://localhost:4000/api/auth/naver/callback',
     });
   }
 
