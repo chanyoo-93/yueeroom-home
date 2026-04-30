@@ -136,10 +136,15 @@ jobs:
           exit 1
 
       - name: Integration tests (staging only)
-        if: github.ref_name == 'staging' && secrets.DOMAIN != ''
+        if: github.ref_name == 'staging'
         env:
-          API_BASE_URL: https://api.${{ secrets.DOMAIN }}
+          DOMAIN: ${{ secrets.DOMAIN }}
         run: |
+          if [ -z "$DOMAIN" ]; then
+            echo "Skipping integration tests: DOMAIN secret not configured"
+            exit 0
+          fi
+          API_BASE_URL="https://api.$DOMAIN"
           echo "Running integration tests against $API_BASE_URL"
 
           check() {
