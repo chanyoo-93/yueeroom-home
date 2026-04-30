@@ -2,7 +2,7 @@ name: CD — Frontend
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 permissions:
   id-token: write
@@ -19,8 +19,9 @@ env:
 
 jobs:
   deploy:
-    name: Build → S3 Upload → CloudFront Invalidation
+    name: Build → S3 Upload → CloudFront Invalidation (${{ github.ref_name == 'main' && 'production' || 'staging' }})
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     steps:
       - name: Checkout
@@ -81,3 +82,21 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --id "$INVALIDATION_ID"
           echo "CloudFront invalidation completed"
+
+      - name: Smoke test (staging only)
+        if: github.ref_name == 'staging'
+        run: |
+          FRONTEND_URL="https://${{ secrets.DOMAIN }}"
+          echo "Running smoke tests against $FRONTEND_URL"
+
+          for path in "/" "/login" "/register"; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$FRONTEND_URL$path" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "PASS $path → $STATUS"
+            else
+              echo "FAIL $path → $STATUS (expected 200)"
+              exit 1
+            fi
+          done
+
+          echo "All smoke tests passed"
