@@ -1,0 +1,160 @@
+name: CD — Backend
+
+on:
+  push:
+    branches: [main, staging]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cd-backend-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: yueeroom-backend
+  CONTAINER_NAME: yueeroom-backend
+
+jobs:
+  deploy:
+    name: Build → Migrate → Deploy (${{ github.ref_name == 'main' && 'production' || 'staging' }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
+    env:
+      ECS_CLUSTER: ${{ github.ref_name == 'main' && 'yueeroom-prod' || 'yueeroom-staging' }}
+      ECS_SERVICE: yueeroom-backend
+      TASK_DEFINITION: ${{ github.ref_name == 'main' && 'yueeroom-backend' || 'yueeroom-backend-staging' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-Deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          ENV_TAG: ${{ github.ref_name == 'main' && 'latest' || 'staging' }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
+            --file apps/backend/Dockerfile \
+            .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.TASK_DEFINITION }} \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Register new task definition revision
+        id: register-task-def
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "$(cat ${{ steps.task-def.outputs.task-definition }})" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Run Prisma migration (ECS one-off task)
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster $ECS_CLUSTER \
+            --task-definition ${{ steps.register-task-def.outputs.task_def_arn }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNET_IDS }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUP_ID }}],assignPublicIp=DISABLED}" \
+            --overrides "{\"containerOverrides\":[{\"name\":\"$CONTAINER_NAME\",\"command\":[\"prisma\",\"migrate\",\"deploy\"]}]}" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "Migration task ARN: $TASK_ARN"
+
+          aws ecs wait tasks-stopped \
+            --cluster $ECS_CLUSTER \
+            --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster $ECS_CLUSTER \
+            --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+
+          echo "Migration exit code: $EXIT_CODE"
+          [ "$EXIT_CODE" = "0" ] || { echo "Prisma migration failed"; exit 1; }
+
+      - name: Deploy to ECS (Rolling Update)
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Health check
+        run: |
+          echo "Verifying deployment health..."
+          for i in $(seq 1 12); do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+              https://api.${{ secrets.DOMAIN }}/api/health 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i/12: HTTP $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 2 minutes"
+          exit 1
+
+      - name: Integration tests (staging only)
+        if: github.ref_name == 'staging'
+        env:
+          API_BASE_URL: https://api.${{ secrets.DOMAIN }}
+        run: |
+          echo "Running integration tests against $API_BASE_URL"
+
+          check() {
+            local path=$1 expected=$2
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$API_BASE_URL$path" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "$expected" ]; then
+              echo "PASS $path → $STATUS"
+            else
+              echo "FAIL $path → $STATUS (expected $expected)"
+              exit 1
+            fi
+          }
+
+          check "/api/health"           "200"
+          check "/api/auth/login"       "400"
+          check "/api/products"         "401"
+          check "/api/nonexistent"      "404"
+
+          echo "All integration tests passed"
