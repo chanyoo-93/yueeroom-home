@@ -10,22 +10,24 @@ COPY apps/backend/package.json ./apps/backend/
 COPY apps/backend/prisma ./apps/backend/prisma
 
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @yueeroom/backend exec prisma generate
 
 COPY packages/shared ./packages/shared
 COPY apps/backend ./apps/backend
 
 RUN pnpm --filter @yueeroom/backend build
+RUN pnpm --filter @yueeroom/backend deploy --prod --legacy /deploy
 
 
 FROM node:22-alpine AS runner
 
+RUN npm install -g prisma@6
+
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /deploy ./
 
-WORKDIR /app/apps/backend
+RUN prisma generate
 
 ENV NODE_ENV=production
 EXPOSE 4000

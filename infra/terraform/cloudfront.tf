@@ -1,3 +1,47 @@
+locals {
+  csp_connect_src = join(" ", compact([
+    "'self'",
+    "https://api.stripe.com",
+    "https://apis.naver.com",
+    "https://open-api.kakaopay.com",
+    var.api_origin,
+  ]))
+
+  csp_header = join("; ", [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://pay.naver.com https://online-pay.kakao.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+    "connect-src ${local.csp_connect_src}",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ])
+}
+
+resource "aws_cloudfront_response_headers_policy" "frontend_security" {
+  name    = "${var.project}-frontend-security-headers"
+  comment = "Security headers for ${var.project} frontend"
+
+  security_headers_config {
+    content_security_policy {
+      content_security_policy = local.csp_header
+      override                = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "SAMEORIGIN"
+      override     = true
+    }
+  }
+}
+
 resource "aws_cloudfront_origin_access_control" "assets" {
   name                              = "${var.project}-assets-oac"
   description                       = "OAC for ${var.project} assets bucket"
@@ -93,7 +137,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress               = true
 
     # Managed-CachingOptimized
-    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id             = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    response_headers_policy_id  = aws_cloudfront_response_headers_policy.frontend_security.id
   }
 
   # SPA fallback
