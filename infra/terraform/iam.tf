@@ -149,6 +149,18 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         ]
       },
       {
+        Sid    = "ECSMigrateTask"
+        Effect = "Allow"
+        Action = [
+          "ecs:RunTask",
+          "ecs:DescribeTasks"
+        ]
+        Resource = [
+          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.project}-prod",
+          "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-backend:*"
+        ]
+      },
+      {
         Sid    = "S3FrontendDeploy"
         Effect = "Allow"
         Action = ["s3:PutObject", "s3:ListBucket"]

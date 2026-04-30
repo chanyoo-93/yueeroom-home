@@ -32,4 +32,4 @@ RUN prisma generate
 ENV NODE_ENV=production
 EXPOSE 4000
 
-CMD ["sh", "-c", "prisma migrate deploy && node dist/main"]
+CMD ["node", "dist/main"]
