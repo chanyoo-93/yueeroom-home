@@ -76,7 +76,7 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_route53_record" "api" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "api.${var.domain}"
   type    = "A"
 

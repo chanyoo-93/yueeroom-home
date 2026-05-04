@@ -7,7 +7,7 @@ resource "aws_ses_domain_dkim" "main" {
 }
 
 resource "aws_route53_record" "ses_domain_verification" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "_amazonses.${var.domain}"
   type    = "TXT"
   ttl     = 300
@@ -21,7 +21,7 @@ resource "aws_ses_domain_identity_verification" "main" {
 
 resource "aws_route53_record" "ses_dkim" {
   count   = 3
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "${aws_ses_domain_dkim.main.dkim_tokens[count.index]}._domainkey.${var.domain}"
   type    = "CNAME"
   ttl     = 1800
@@ -34,7 +34,7 @@ resource "aws_ses_domain_mail_from" "main" {
 }
 
 resource "aws_route53_record" "ses_mail_from_mx" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "mail.${var.domain}"
   type    = "MX"
   ttl     = 300
@@ -42,7 +42,7 @@ resource "aws_route53_record" "ses_mail_from_mx" {
 }
 
 resource "aws_route53_record" "ses_mail_from_spf" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "mail.${var.domain}"
   type    = "TXT"
   ttl     = 300

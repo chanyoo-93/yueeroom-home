@@ -1,8 +1,3 @@
-data "aws_route53_zone" "main" {
-  name         = var.domain
-  private_zone = false
-}
-
 # ALB용 인증서 (ap-northeast-2)
 resource "aws_acm_certificate" "main" {
   domain_name               = var.domain
@@ -53,7 +48,7 @@ resource "aws_route53_record" "acm_validation" {
   records         = [each.value.record]
   ttl             = 60
   type            = each.value.type
-  zone_id         = data.aws_route53_zone.main.zone_id
+  zone_id         = aws_route53_zone.main.zone_id
 }
 
 resource "aws_acm_certificate_validation" "main" {

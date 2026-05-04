@@ -41,3 +41,18 @@ output "github_actions_role_arn" {
   description = "GitHub Secrets → AWS_DEPLOY_ROLE_ARN에 등록할 ARN"
   value       = aws_iam_role.github_actions_deploy.arn
 }
+
+output "route53_name_servers" {
+  description = "도메인 등록기관(registrar)에 등록할 Route 53 네임서버 목록"
+  value       = aws_route53_zone.main.name_servers
+}
+
+output "cloudfront_frontend_distribution_id" {
+  description = "프론트엔드 CloudFront distribution ID (CI/CD 캐시 무효화용)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
+output "cloudfront_assets_distribution_id" {
+  description = "에셋 CloudFront distribution ID (CI/CD 캐시 무효화용)"
+  value       = aws_cloudfront_distribution.assets.id
+}

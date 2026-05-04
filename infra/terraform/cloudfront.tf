@@ -190,7 +190,7 @@ resource "aws_s3_bucket_policy" "frontend_build" {
 }
 
 resource "aws_route53_record" "assets_cdn" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "assets.${var.domain}"
   type    = "A"
 
@@ -202,7 +202,7 @@ resource "aws_route53_record" "assets_cdn" {
 }
 
 resource "aws_route53_record" "frontend_apex" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = var.domain
   type    = "A"
 
@@ -214,7 +214,7 @@ resource "aws_route53_record" "frontend_apex" {
 }
 
 resource "aws_route53_record" "frontend_www" {
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = "www.${var.domain}"
   type    = "A"
 
