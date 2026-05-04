@@ -87,9 +87,15 @@ jobs:
           echo "CloudFront invalidation completed"
 
       - name: Smoke test (staging only)
-        if: github.ref_name == 'staging' && secrets.DOMAIN != ''
+        if: github.ref_name == 'staging'
+        env:
+          DOMAIN: ${{ secrets.DOMAIN }}
         run: |
-          FRONTEND_URL="https://${{ secrets.DOMAIN }}"
+          if [ -z "$DOMAIN" ]; then
+            echo "Skipping smoke test: DOMAIN secret not configured"
+            exit 0
+          fi
+          FRONTEND_URL="https://$DOMAIN"
           echo "Running smoke tests against $FRONTEND_URL"
 
           for path in "/" "/login" "/register"; do
