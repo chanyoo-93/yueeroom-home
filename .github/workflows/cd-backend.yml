@@ -2,7 +2,7 @@ name: CD — Backend
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 permissions:
   id-token: write
@@ -15,15 +15,18 @@ concurrency:
 env:
   AWS_REGION: ap-northeast-2
   ECR_REPOSITORY: yueeroom-backend
-  ECS_CLUSTER: yueeroom-prod
-  ECS_SERVICE: yueeroom-backend
   CONTAINER_NAME: yueeroom-backend
-  TASK_DEFINITION: yueeroom-backend
 
 jobs:
   deploy:
-    name: Build → Migrate → Deploy
+    name: Build → Migrate → Deploy (${{ github.ref_name == 'main' && 'production' || 'staging' }})
     runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
+    env:
+      ECS_CLUSTER: ${{ github.ref_name == 'main' && 'yueeroom-prod' || 'yueeroom-staging' }}
+      ECS_SERVICE: yueeroom-backend
+      TASK_DEFINITION: ${{ github.ref_name == 'main' && 'yueeroom-backend' || 'yueeroom-backend-staging' }}
 
     steps:
       - name: Checkout
@@ -46,14 +49,15 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          ENV_TAG: ${{ github.ref_name == 'main' && 'latest' || 'staging' }}
         run: |
           docker build \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG \
             --file apps/backend/Dockerfile \
             .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Download current task definition
@@ -115,6 +119,7 @@ jobs:
           wait-for-service-stability: true
 
       - name: Health check
+        if: github.ref_name == 'main'
         run: |
           echo "Verifying deployment health..."
           for i in $(seq 1 12); do
@@ -129,3 +134,28 @@ jobs:
           done
           echo "Health check failed after 2 minutes"
           exit 1
+
+      - name: Integration tests (staging only)
+        if: github.ref_name == 'staging' && secrets.DOMAIN != ''
+        env:
+          API_BASE_URL: https://api.${{ secrets.DOMAIN }}
+        run: |
+          echo "Running integration tests against $API_BASE_URL"
+
+          check() {
+            local path=$1 expected=$2
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$API_BASE_URL$path" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "$expected" ]; then
+              echo "PASS $path → $STATUS"
+            else
+              echo "FAIL $path → $STATUS (expected $expected)"
+              exit 1
+            fi
+          }
+
+          check "/api/health"           "200"
+          check "/api/auth/login"       "400"
+          check "/api/products"         "401"
+          check "/api/nonexistent"      "404"
+
+          echo "All integration tests passed"
