@@ -123,7 +123,7 @@ jobs:
         run: |
           echo "Verifying deployment health..."
           for i in $(seq 1 12); do
-            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               https://api.${{ secrets.DOMAIN }}/api/health 2>/dev/null || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
