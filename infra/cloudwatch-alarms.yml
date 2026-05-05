@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch alarms and SNS notifications for yueeroom
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [production, staging]
+    Default: production
+  AlarmEmail:
+    Type: String
+    Description: Email address to receive alarm notifications
+  SlackWebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Slack incoming webhook URL for alarm notifications
+  EcsClusterName:
+    Type: String
+    Default: yueeroom-prod
+  EcsServiceName:
+    Type: String
+    Default: yueeroom-backend
+  LoadBalancerFullName:
+    Type: String
+    Description: Full name of the ALB (e.g. app/yueeroom-alb/xxxxxxxx)
+  RdsInstanceId:
+    Type: String
+    Default: yueeroom-db
+
+Resources:
+  # SNS Topic for alarms
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub yueeroom-${Environment}-alarms
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlarmEmail
+
+  # ECS CPU 80% 이상
+  EcsCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub yueeroom-${Environment}-ecs-cpu-high
+      AlarmDescription: ECS CPU utilization >= 80%
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref EcsClusterName
+        - Name: ServiceName
+          Value: !Ref EcsServiceName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      TreatMissingData: notBreaching
+
+  # ECS 메모리 80% 이상
+  EcsMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub yueeroom-${Environment}-ecs-memory-high
+      AlarmDescription: ECS Memory utilization >= 80%
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref EcsClusterName
+        - Name: ServiceName
+          Value: !Ref EcsServiceName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      TreatMissingData: notBreaching
+
+  # ALB 5xx 에러율 1% 이상
+  Alb5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub yueeroom-${Environment}-alb-5xx-high
+      AlarmDescription: ALB 5xx error rate >= 1%
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 10
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      TreatMissingData: notBreaching
+
+  # RDS CPU 80% 이상
+  RdsCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub yueeroom-${Environment}-rds-cpu-high
+      AlarmDescription: RDS CPU utilization >= 80%
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsInstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      TreatMissingData: notBreaching
+
+  # RDS 여유 스토리지 2GB 미만
+  RdsStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub yueeroom-${Environment}-rds-storage-low
+      AlarmDescription: RDS free storage < 2GB
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsInstanceId
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2147483648 # 2GB in bytes
+      ComparisonOperator: LessThanThreshold
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+      TreatMissingData: breaching
+
+Outputs:
+  AlarmTopicArn:
+    Description: SNS Topic ARN for alarms
+    Value: !Ref AlarmTopic
+    Export:
+      Name: !Sub yueeroom-${Environment}-alarm-topic-arn
