@@ -28,22 +28,28 @@ resource "aws_wafv2_web_acl" "cloudfront" {
     allow {}
   }
 
-  # ── Rule 1: Admin IP 화이트리스트 (우선순위 최상위)
+  # ── Rule 1: Admin 경로 접근 제한 — 화이트리스트 외 IP는 BLOCK
+  # default_action이 allow이므로 "허용 IP → ALLOW" 방식은 효과 없음.
+  # "비허용 IP + /admin 경로 → BLOCK"으로 반전해야 실질적인 차단이 된다.
   dynamic "rule" {
     for_each = length(var.waf_admin_ip_whitelist) > 0 ? [1] : []
     content {
-      name     = "AdminIPWhitelist"
+      name     = "RestrictAdminAccess"
       priority = 1
 
       action {
-        allow {}
+        block {}
       }
 
       statement {
         and_statement {
           statement {
-            ip_set_reference_statement {
-              arn = aws_wafv2_ip_set.admin_whitelist[0].arn
+            not_statement {
+              statement {
+                ip_set_reference_statement {
+                  arn = aws_wafv2_ip_set.admin_whitelist[0].arn
+                }
+              }
             }
           }
           statement {
@@ -64,7 +70,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
 
       visibility_config {
         cloudwatch_metrics_enabled = true
-        metric_name                = "AdminIPWhitelistRule"
+        metric_name                = "RestrictAdminAccessRule"
         sampled_requests_enabled   = true
       }
     }
