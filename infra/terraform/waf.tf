@@ -4,6 +4,7 @@
 # Admin IP 화이트리스트 (선택)
 # ────────────────────────────────────────────────────────
 resource "aws_wafv2_ip_set" "admin_whitelist" {
+  count    = length(var.waf_admin_ip_whitelist) > 0 ? 1 : 0
   provider = aws.us_east_1
 
   name               = "${var.project}-admin-whitelist"
@@ -42,7 +43,7 @@ resource "aws_wafv2_web_acl" "cloudfront" {
         and_statement {
           statement {
             ip_set_reference_statement {
-              arn = aws_wafv2_ip_set.admin_whitelist.arn
+              arn = aws_wafv2_ip_set.admin_whitelist[0].arn
             }
           }
           statement {
