@@ -118,6 +118,22 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
 
+      - name: Notify Sentry of new release
+        if: github.ref_name == 'main'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_BACKEND_PROJECT }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "SENTRY_AUTH_TOKEN not set — skipping Sentry release"
+            exit 0
+          fi
+          curl -sS https://sentry.io/api/0/organizations/$SENTRY_ORG/releases/ \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"version\": \"${{ github.sha }}\", \"projects\": [\"$SENTRY_PROJECT\"]}"
+
       - name: Health check
         if: github.ref_name == 'main'
         run: |

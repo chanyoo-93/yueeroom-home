@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const isStaticExport = process.env.NEXT_STATIC_EXPORT === 'true';
 
@@ -17,4 +18,12 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@yueeroom/shared'],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_FRONTEND_PROJECT,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});
