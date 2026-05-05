@@ -9,10 +9,6 @@ Parameters:
   AlarmEmail:
     Type: String
     Description: Email address to receive alarm notifications
-  SlackWebhookUrl:
-    Type: String
-    NoEcho: true
-    Description: Slack incoming webhook URL for alarm notifications
   EcsClusterName:
     Type: String
     Default: yueeroom-prod
@@ -89,7 +85,7 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Sub yueeroom-${Environment}-alb-5xx-high
-      AlarmDescription: ALB 5xx error rate >= 1%
+      AlarmDescription: ALB 5xx error count >= 10 per minute
       Namespace: AWS/ApplicationELB
       MetricName: HTTPCode_Target_5XX_Count
       Dimensions:
