@@ -56,3 +56,18 @@ output "cloudfront_assets_distribution_id" {
   description = "에셋 CloudFront distribution ID (CI/CD 캐시 무효화용)"
   value       = aws_cloudfront_distribution.assets.id
 }
+
+output "waf_web_acl_arn" {
+  description = "CloudFront WAF WebACL ARN"
+  value       = aws_wafv2_web_acl.cloudfront.arn
+}
+
+output "waf_web_acl_id" {
+  description = "CloudFront WAF WebACL ID"
+  value       = aws_wafv2_web_acl.cloudfront.id
+}
+
+output "waf_cloudwatch_log_group" {
+  description = "WAF 로그 CloudWatch Logs 그룹명"
+  value       = aws_cloudwatch_log_group.waf.name
+}

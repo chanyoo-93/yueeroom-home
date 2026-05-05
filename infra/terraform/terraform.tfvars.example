@@ -7,3 +7,7 @@ db_password = "CHANGE_ME_use_strong_password"
 db_name     = "yueeroom"
 github_repo = "chanyoo-93/yueeroom-home"
 api_origin  = "https://api.yueeroom.com"
+
+# WAF
+waf_rate_limit         = 2000                          # IP당 5분간 최대 요청 수
+waf_admin_ip_whitelist = ["203.0.113.0/24"]            # 관리자 IP 대역 (선택, 빈 리스트면 비활성화)
