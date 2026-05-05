@@ -2,13 +2,13 @@
 
 ## 백업 정책 개요
 
-| 종류 | 주기 | 보관 기간 | 저장소 |
-|------|------|-----------|--------|
-| RDS 자동 백업 | 매일 02:00–03:00 UTC | 7일 | AWS RDS |
-| AWS Backup 일별 스냅샷 | 매일 02:30 UTC | 7일 | `yueeroom-rds-backup-vault` |
-| AWS Backup 주간 스냅샷 | 매주 일요일 02:00 UTC | 35일 (5주) | `yueeroom-rds-backup-vault` |
-| 장기 보관 스냅샷 | 주간 스냅샷과 동시 복사 | 365일 | `yueeroom-rds-backup-vault-longterm` |
-| S3 아카이브 | 수동 or 필요 시 | 30일→Glacier, 365일 삭제 | `yueeroom-db-backup-archive` |
+| 종류                   | 주기                    | 보관 기간                | 저장소                               |
+| ---------------------- | ----------------------- | ------------------------ | ------------------------------------ |
+| RDS 자동 백업          | 매일 02:00–03:00 UTC    | 7일                      | AWS RDS                              |
+| AWS Backup 일별 스냅샷 | 매일 02:30 UTC          | 7일                      | `yueeroom-rds-backup-vault`          |
+| AWS Backup 주간 스냅샷 | 매주 일요일 02:00 UTC   | 35일 (5주)               | `yueeroom-rds-backup-vault`          |
+| 장기 보관 스냅샷       | 주간 스냅샷과 동시 복사 | 365일                    | `yueeroom-rds-backup-vault-longterm` |
+| S3 아카이브            | 수동 or 필요 시         | 30일→Glacier, 365일 삭제 | `yueeroom-db-backup-archive`         |
 
 ---
 
@@ -29,6 +29,7 @@ aws rds restore-db-instance-to-point-in-time \
 ```
 
 복구 완료 후:
+
 1. 복구된 인스턴스의 엔드포인트 확인
 2. ECS Task Definition의 `DATABASE_URL` 환경 변수 업데이트
 3. ECS 서비스 재배포
