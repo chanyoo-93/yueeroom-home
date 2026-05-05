@@ -57,3 +57,15 @@ variable "api_origin" {
   type        = string
   default     = ""
 }
+
+variable "waf_rate_limit" {
+  description = "WAF rate-based rule: max requests per IP per 5 minutes"
+  type        = number
+  default     = 2000
+}
+
+variable "waf_admin_ip_whitelist" {
+  description = "Admin page IP whitelist (CIDR list). Empty list disables the rule."
+  type        = list(string)
+  default     = []
+}

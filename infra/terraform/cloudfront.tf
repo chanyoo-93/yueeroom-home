@@ -63,6 +63,7 @@ resource "aws_cloudfront_distribution" "assets" {
   comment     = "${var.project} assets CDN"
   aliases     = ["assets.${var.domain}"]
   price_class = "PriceClass_200"
+  web_acl_id  = aws_wafv2_web_acl.cloudfront.arn
 
   origin {
     domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
@@ -122,6 +123,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   aliases             = [var.domain, "www.${var.domain}"]
   default_root_object = "index.html"
   price_class         = "PriceClass_200"
+  web_acl_id          = aws_wafv2_web_acl.cloudfront.arn
 
   origin {
     domain_name              = aws_s3_bucket.frontend_build.bucket_regional_domain_name
