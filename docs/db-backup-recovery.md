@@ -58,7 +58,7 @@ aws backup list-recovery-points-by-backup-vault \
 aws backup start-restore-job \
   --recovery-point-arn <RECOVERY_POINT_ARN> \
   --iam-role-arn arn:aws:iam::<ACCOUNT_ID>:role/yueeroom-backup-role \
-  --metadata '{"DBInstanceIdentifier":"yueeroom-prod-restored","DBSubnetGroupName":"yueeroom-db-subnet-group","VpcSecurityGroupIds":"<RDS_SG_ID>","MultiAZ":"false","PubliclyAccessible":"false","Engine":"postgres"}' \
+  --metadata '{"DBInstanceIdentifier":"yueeroom-prod-restored","DBSubnetGroupName":"yueeroom-db-subnet-group","VpcSecurityGroupIds":"[\"<RDS_SG_ID>\"]","MultiAZ":"false","PubliclyAccessible":"false","Engine":"postgres"}' \
   --region ap-northeast-2
 ```
 

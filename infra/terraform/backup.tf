@@ -11,7 +11,7 @@ resource "aws_iam_role" "backup" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "backup.amazonaws.com" }
+      Principal = { Service = ["backup.amazonaws.com", "rds.amazonaws.com"] }
       Action    = "sts:AssumeRole"
     }]
   })
@@ -27,10 +27,26 @@ resource "aws_iam_role_policy_attachment" "backup_restore" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores"
 }
 
-# S3 export 권한 (RDS 스냅샷 → S3 내보내기용)
-resource "aws_iam_role_policy_attachment" "backup_s3_export" {
-  role       = aws_iam_role.backup.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+# S3 export 권한 — db_backup 버킷에만 최소 권한 부여
+resource "aws_iam_role_policy" "backup_s3_export" {
+  name = "${var.project}-backup-s3-export"
+  role = aws_iam_role.backup.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+      ]
+      Resource = [
+        aws_s3_bucket.db_backup.arn,
+        "${aws_s3_bucket.db_backup.arn}/*",
+      ]
+    }]
+  })
 }
 
 # ── AWS Backup Plan ──────────────────────────────────────────────────────────
@@ -120,6 +136,14 @@ resource "aws_sns_topic_policy" "backup_alarm" {
       Principal = { Service = "events.amazonaws.com" }
       Action    = "SNS:Publish"
       Resource  = aws_sns_topic.backup_alarm.arn
+      Condition = {
+        ArnLike = {
+          "aws:SourceArn" = [
+            aws_cloudwatch_event_rule.backup_failed.arn,
+            aws_cloudwatch_event_rule.backup_succeeded.arn,
+          ]
+        }
+      }
     }]
   })
 }
