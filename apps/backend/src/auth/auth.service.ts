@@ -122,11 +122,16 @@ export class AuthService {
       throw new UnauthorizedException('Refresh Token이 만료되었습니다.');
     }
 
+    // payload의 status는 발급 당시 값이므로 DB에서 현재 상태를 조회한다.
+    // (관리자 승인 후 APPROVED로 갱신된 상태를 반영하기 위해)
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) throw new UnauthorizedException('존재하지 않는 사용자입니다.');
+
     const accessToken = this.jwtService.sign({
-      sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      status: payload.status,
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
     });
 
     return { accessToken };

@@ -199,9 +199,30 @@ describe('AuthService', () => {
         status: UserStatus.APPROVED,
       });
       mockRedisService.get.mockResolvedValue('valid.refresh.token');
+      // DB에서 최신 status를 조회하므로 findUnique mock 추가
+      mockPrisma.user.findUnique.mockResolvedValue(mockApprovedUser);
 
       const result = await service.refresh('valid.refresh.token');
       expect(result.accessToken).toBeDefined();
+    });
+
+    it('PENDING → APPROVED 승인 후 refresh 시 APPROVED status가 담긴 토큰을 반환한다', async () => {
+      mockJwtService.verify.mockReturnValue({
+        sub: 'user-2',
+        email: 'pending@test.com',
+        role: UserRole.CUSTOMER,
+        status: UserStatus.PENDING,
+      });
+      mockRedisService.get.mockResolvedValue('valid.refresh.token');
+      // 관리자가 DB에서 APPROVED로 변경한 상태를 반영
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockApprovedUser, id: 'user-2' });
+
+      const result = await service.refresh('valid.refresh.token');
+      expect(result.accessToken).toBeDefined();
+      // sign 호출 시 DB에서 읽은 APPROVED status가 사용됐는지 확인
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ status: UserStatus.APPROVED }),
+      );
     });
 
     it('Redis에 없는 Refresh Token 사용 시 UnauthorizedException을 던진다', async () => {
