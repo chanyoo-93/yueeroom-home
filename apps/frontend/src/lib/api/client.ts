@@ -62,7 +62,11 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await apiClient.post('/auth/refresh');
+        const refreshRes = await apiClient.post<{ accessToken: string }>('/auth/refresh');
+        if (typeof window !== 'undefined') {
+          const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          document.cookie = `access_token=${refreshRes.data.accessToken}; path=/; SameSite=Strict${secure}`;
+        }
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
