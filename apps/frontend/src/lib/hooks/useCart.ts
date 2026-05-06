@@ -8,7 +8,7 @@ import { useCartStore, type LocalCartItem } from '../stores/cart';
 import type { Cart } from '../types/cart';
 
 function cartToLocalItems(cart: Cart): LocalCartItem[] {
-  return cart.items.map((item) => ({
+  return (cart.items ?? []).map((item) => ({
     id: item.id,
     variantId: item.variantId,
     productId: item.variant.productId,
