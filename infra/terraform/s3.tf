@@ -35,6 +35,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "db_backup" {
     id     = "archive-to-glacier"
     status = "Enabled"
 
+    filter {} # 모든 객체에 적용
+
     transition {
       days          = 30
       storage_class = "GLACIER"
