@@ -98,7 +98,7 @@ export default function PaymentDetailModal({ payment, onClose }: Props) {
         </dl>
 
         {/* 주문 상품 목록 */}
-        {payment.order.items.length > 0 && (
+        {Array.isArray(payment.order.items) && payment.order.items.length > 0 && (
           <div className="mb-5">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
               주문 상품

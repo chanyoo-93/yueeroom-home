@@ -20,6 +20,7 @@ function SkeletonCard() {
 
 export default function NewArrivals() {
   const { data, isLoading, isError } = useNewArrivals();
+  const products = Array.isArray(data?.data) ? data.data : [];
 
   return (
     <section className="space-y-4">
@@ -37,13 +38,13 @@ export default function NewArrivals() {
         <p className="py-8 text-center text-sm text-red-500">상품을 불러오는 데 실패했습니다.</p>
       )}
 
-      {!isLoading && !isError && data?.data.length === 0 && (
+      {!isLoading && !isError && products.length === 0 && (
         <p className="py-8 text-center text-sm text-gray-500">등록된 신상품이 없습니다.</p>
       )}
 
-      {!isLoading && !isError && data && data.data.length > 0 && (
+      {!isLoading && !isError && products.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {data.data.map((product) => {
+          {products.map((product) => {
             const thumbnail = product.images?.[0]?.url;
             return (
               <Link key={product.id} href={`/products/${product.id}`} className="group space-y-2">

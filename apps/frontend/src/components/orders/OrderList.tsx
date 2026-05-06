@@ -8,10 +8,11 @@ import { formatPrice } from '@/lib/utils/format';
 import { type Order, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from '@/lib/types/order';
 
 function OrderCard({ order }: { order: Order }) {
-  const firstItem = order.items[0];
+  const items = Array.isArray(order.items) ? order.items : [];
+  const firstItem = items[0];
   const firstImage = firstItem?.variant?.product?.images?.[0]?.url;
   const productName = firstItem?.variant?.product?.name ?? '상품 정보 없음';
-  const extraCount = order.items.length - 1;
+  const extraCount = items.length - 1;
 
   return (
     <Link
@@ -89,7 +90,9 @@ export default function OrderList() {
     );
   }
 
-  if (!data || data.items.length === 0) {
+  const orders = Array.isArray(data?.items) ? data.items : [];
+
+  if (!data || orders.length === 0) {
     return (
       <div className="py-16 text-center">
         <p className="text-3xl">📦</p>
@@ -107,7 +110,7 @@ export default function OrderList() {
   return (
     <div>
       <ul className="space-y-3">
-        {data.items.map((order) => (
+        {orders.map((order) => (
           <li key={order.id}>
             <OrderCard order={order} />
           </li>
