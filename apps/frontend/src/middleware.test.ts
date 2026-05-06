@@ -19,7 +19,7 @@ function createRequest(pathname: string, cookies: Record<string, string> = {}): 
 
 describe('middleware', () => {
   describe('공개 경로', () => {
-    it.each(['/login', '/register', '/pending'])(
+    it.each(['/login', '/register', '/pending', '/privacy', '/terms'])(
       '%s 경로는 인증 없이 접근 가능하다',
       (pathname) => {
         const req = createRequest(pathname);
