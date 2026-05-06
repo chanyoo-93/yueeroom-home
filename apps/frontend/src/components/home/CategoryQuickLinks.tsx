@@ -24,7 +24,7 @@ function SkeletonItem() {
 export default function CategoryQuickLinks() {
   const { data, isLoading } = useCategories();
 
-  const activeCategories = data?.filter((c) => c.isActive) ?? [];
+  const activeCategories = (Array.isArray(data) ? data : []).filter((c) => c.isActive);
 
   return (
     <section className="space-y-4">
