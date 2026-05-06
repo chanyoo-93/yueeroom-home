@@ -86,7 +86,7 @@ export default function AdminOrdersPage() {
         <p className="text-gray-500">불러오는 중...</p>
       ) : isError ? (
         <p className="text-red-500">주문 목록을 불러오는 중 오류가 발생했습니다.</p>
-      ) : !data?.items || data.items.length === 0 ? (
+      ) : !Array.isArray(data?.items) || data.items.length === 0 ? (
         <p className="text-gray-500">주문이 없습니다.</p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">

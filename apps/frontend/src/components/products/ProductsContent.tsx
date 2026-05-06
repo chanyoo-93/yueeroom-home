@@ -56,6 +56,7 @@ export default function ProductsContent() {
   };
 
   const currentPage = filters.page ?? 1;
+  const products = Array.isArray(data?.data) ? data.data : [];
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
   const currentSort: SortOrder = filters.sort ?? 'latest';
 
@@ -99,14 +100,14 @@ export default function ProductsContent() {
           )}
 
           {/* 빈 상태 */}
-          {!isLoading && !isError && data?.data.length === 0 && (
+          {!isLoading && !isError && products.length === 0 && (
             <p className="py-12 text-center text-sm text-gray-500">조건에 맞는 상품이 없습니다.</p>
           )}
 
           {/* 상품 그리드 */}
-          {!isLoading && !isError && data && data.data.length > 0 && (
+          {!isLoading && !isError && products.length > 0 && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {data.data.map((product) => (
+              {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>

@@ -70,7 +70,9 @@ export default function PaymentList() {
     );
   }
 
-  if (!data || data.items.length === 0) {
+  const payments = Array.isArray(data?.items) ? data.items : [];
+
+  if (!data || payments.length === 0) {
     return (
       <div className="py-16 text-center">
         <p className="text-3xl">💳</p>
@@ -83,7 +85,7 @@ export default function PaymentList() {
     <>
       <div>
         <ul className="space-y-3">
-          {data.items.map((payment) => (
+          {payments.map((payment) => (
             <li key={payment.id}>
               <PaymentCard payment={payment} onClick={() => setSelectedPayment(payment)} />
             </li>
