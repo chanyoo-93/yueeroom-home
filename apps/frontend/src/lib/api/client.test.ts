@@ -75,7 +75,7 @@ describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
 
     await import('./client');
 
-    errorHandler = mockResponseUse.mock.calls[0][1] as (error: unknown) => Promise<unknown>;
+    errorHandler = mockResponseUse.mock.calls[0]![1] as (error: unknown) => Promise<unknown>;
   });
 
   afterEach(() => {
