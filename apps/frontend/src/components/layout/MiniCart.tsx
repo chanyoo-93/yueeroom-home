@@ -11,7 +11,8 @@ export default function MiniCart() {
   const [isOpen, setIsOpen] = useState(false);
   // 하이드레이션 완료 후에만 localStorage 기반 스토어 값을 렌더링
   const [isMounted, setIsMounted] = useState(false);
-  const items = useCartStore((s) => s.items) ?? [];
+  const rawItems = useCartStore((s) => s.items);
+  const items = Array.isArray(rawItems) ? rawItems : [];
   const removeMutation = useRemoveCartItem();
   const ref = useRef<HTMLDivElement>(null);
 
