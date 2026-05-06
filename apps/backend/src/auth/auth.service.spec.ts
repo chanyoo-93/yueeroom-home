@@ -89,7 +89,7 @@ describe('AuthService', () => {
   // ── register ──────────────────────────────────────────────────────────────────
 
   describe('register', () => {
-    it('유효한 입력으로 회원가입 신청 시 PENDING 상태로 생성된다', async () => {
+    it('유효한 입력으로 회원가입 신청 시 PENDING 상태로 생성되고 토큰을 반환한다', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockPendingUser);
 
@@ -101,10 +101,17 @@ describe('AuthService', () => {
       });
 
       expect(result.message).toBeDefined();
+      expect(result.accessToken).toBeDefined();
+      expect(result.refreshToken).toBeDefined();
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: UserStatus.PENDING }),
         }),
+      );
+      // PENDING status로 토큰이 서명됐는지 확인
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ status: UserStatus.PENDING }),
+        expect.anything(),
       );
     });
 

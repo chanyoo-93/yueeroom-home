@@ -37,8 +37,18 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: '회원가입 신청 (PENDING 상태 생성)' })
-  register(@Body() dto: RegisterDto): Promise<{ message: string }> {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ message: string; accessToken: string }> {
+    const { message, accessToken, refreshToken } = await this.authService.register(dto);
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env['NODE_ENV'] === 'production',
+      sameSite: 'strict',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
+    return { message, accessToken };
   }
 
   @Public()

@@ -37,12 +37,14 @@ export class AuthService {
 
   // ── Register ────────────────────────────────────────────────────────────────
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(
+    dto: RegisterDto,
+  ): Promise<{ message: string; accessToken: string; refreshToken: string }> {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (exists) throw new ConflictException('이미 사용 중인 이메일입니다.');
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
-    await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         password: hashedPassword,
@@ -52,7 +54,26 @@ export class AuthService {
       },
     });
 
-    return { message: '회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인하실 수 있습니다.' };
+    // 가입 직후 PENDING 상태 토큰을 발급한다.
+    // 브라우저에 남은 이전 세션 쿠키와 혼용되지 않도록 신규 사용자 세션을 즉시 확립한다.
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: '7d',
+    });
+    await this.redisService.set(`refresh:${user.id}`, refreshToken, REFRESH_TOKEN_TTL_SECONDS);
+
+    return {
+      message: '회원가입 신청이 완료되었습니다. 관리자 승인 후 로그인하실 수 있습니다.',
+      accessToken,
+      refreshToken,
+    };
   }
 
   // ── Validate (local strategy) ────────────────────────────────────────────────
