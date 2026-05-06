@@ -71,3 +71,23 @@ output "waf_cloudwatch_log_group" {
   description = "WAF 로그 CloudWatch Logs 그룹명"
   value       = aws_cloudwatch_log_group.waf.name
 }
+
+output "backup_vault_name" {
+  description = "AWS Backup Vault 이름 (주간 스냅샷)"
+  value       = aws_backup_vault.rds.name
+}
+
+output "backup_vault_longterm_name" {
+  description = "AWS Backup 장기 보관 Vault 이름 (1년)"
+  value       = aws_backup_vault.rds_longterm.name
+}
+
+output "db_backup_s3_bucket" {
+  description = "RDS 스냅샷 S3 아카이브 버킷명"
+  value       = aws_s3_bucket.db_backup.bucket
+}
+
+output "backup_alarm_topic_arn" {
+  description = "백업 성공/실패 SNS 알람 Topic ARN"
+  value       = aws_sns_topic.backup_alarm.arn
+}

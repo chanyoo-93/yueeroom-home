@@ -34,7 +34,9 @@ resource "aws_db_instance" "main" {
   skip_final_snapshot       = false
   final_snapshot_identifier = "${var.project}-prod-final-snapshot"
 
-  backup_retention_period = 0
+  # Free Tier 계정 제한으로 최대 1일. 프로덕션 계정 업그레이드 후 7로 변경.
+  backup_retention_period = 1
+  backup_window           = "02:00-03:00"
   maintenance_window      = "Mon:03:00-Mon:04:00"
 
   performance_insights_enabled = false
