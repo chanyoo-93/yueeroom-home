@@ -43,7 +43,7 @@ describe('MobileNav', () => {
 
   it('마이페이지 탭이 렌더링된다', () => {
     render(<MobileNav />);
-    expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/mypage');
+    expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/my-page');
   });
 
   it('현재 경로에 해당하는 탭이 활성화 스타일을 갖는다', () => {

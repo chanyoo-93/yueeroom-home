@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { href: '/', label: '홈', icon: '🏠' },
   { href: '/categories', label: '카테고리', icon: '☰' },
   { href: '/cart', label: '장바구니', icon: '🛒' },
-  { href: '/mypage', label: '마이페이지', icon: '👤' },
+  { href: '/my-page', label: '마이페이지', icon: '👤' },
 ] as const;
 
 export default function MobileNav() {

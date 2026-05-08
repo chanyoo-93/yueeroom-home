@@ -52,7 +52,7 @@ describe('Header', () => {
 
   it('마이페이지 링크가 렌더링된다', () => {
     render(<Header />);
-    expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/mypage');
+    expect(screen.getByRole('link', { name: /마이페이지/ })).toHaveAttribute('href', '/my-page');
   });
 
   it('헤더 내비게이션에 aria-label이 있다', () => {
