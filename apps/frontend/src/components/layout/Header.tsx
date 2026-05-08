@@ -25,7 +25,7 @@ export default function Header() {
         <nav aria-label="주요 메뉴" className="flex shrink-0 items-center gap-4">
           <MiniCart />
           <Link
-            href="/mypage"
+            href="/my-page"
             aria-label="마이페이지"
             className="flex flex-col items-center text-xs text-gray-600 hover:text-blue-600"
           >
