@@ -1,34 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { decodeJwtPayload } from '@/lib/utils/jwt';
 
 const PUBLIC_PATHS = ['/login', '/register', '/pending', '/privacy', '/terms'];
-
-/**
- * JWT payload를 서명 검증 없이 디코딩한다.
- * TextDecoder를 사용해 Edge Runtime에서 UTF-8 멀티바이트 문자(한글 등)를 올바르게 처리한다.
- */
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const payloadPart = parts[1];
-    if (!payloadPart) return null;
-
-    // base64url → base64 변환 후 패딩 추가
-    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-
-    // TextDecoder로 UTF-8 멀티바이트 문자 안전하게 처리
-    const binary = atob(padded);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
