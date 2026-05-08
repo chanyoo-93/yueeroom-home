@@ -13,8 +13,12 @@ export const apiClient = axios.create({
 // ── 요청 인터셉터: Access Token 헤더 자동 추가 ────────────────────────────────
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 쿠키 기반 인증 사용 시 withCredentials로 처리되므로 별도 헤더 불필요
-    // Bearer 토큰 방식 병행 사용 시 여기에 추가
+    if (typeof window !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      if (match) {
+        config.headers['Authorization'] = `Bearer ${decodeURIComponent(match[1] ?? '')}`;
+      }
+    }
     return config;
   },
   (error: unknown) => Promise.reject(error),
