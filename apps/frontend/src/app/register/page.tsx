@@ -26,12 +26,15 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterForm) => {
     try {
-      await apiClient.post('/auth/register', {
+      const res = await apiClient.post<{ accessToken: string }>('/auth/register', {
         name: data.name,
         email: data.email,
         password: data.password,
         termsAgreed: data.termsAgreed,
       });
+      // 가입 직후 PENDING 토큰으로 쿠키를 갱신해 이전 세션을 덮어쓴다
+      const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+      document.cookie = `access_token=${res.data.accessToken}; path=/; SameSite=Strict${secure}`;
       router.push('/pending');
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 409) {

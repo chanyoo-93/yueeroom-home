@@ -6,7 +6,20 @@ import { apiClient } from '@/lib/api/client';
 
 type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS = 5_000;
+
+function decodeJwtStatus(token: string): UserStatus | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      status?: UserStatus;
+    };
+    return payload.status ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export default function PendingPage() {
   const router = useRouter();
@@ -16,15 +29,16 @@ export default function PendingPage() {
 
     const checkStatus = async () => {
       try {
-        const res = await apiClient.get<{ status: UserStatus }>('/auth/me');
-        const { status } = res.data;
+        // /auth/refresh는 @Public() 엔드포인트이며, DB에서 현재 status를 조회해 새 토큰을 발급한다.
+        // PENDING 사용자가 /users/me를 호출하면 UserStatusGuard에 의해 403이 반환되므로
+        // refresh를 통해 최신 status를 확인한다.
+        const refreshRes = await apiClient.post<{ accessToken: string }>('/auth/refresh');
+        const accessToken = refreshRes.data.accessToken;
+        const status = decodeJwtStatus(accessToken);
 
         if (status === 'APPROVED') {
-          // 미들웨어 JWT 상태 업데이트를 위해 새 access_token 발급 후 쿠키 갱신
-          // (기존 쿠키의 JWT payload는 PENDING 상태이므로 갱신하지 않으면 무한 리다이렉트 발생)
-          const refreshRes = await apiClient.post<{ accessToken: string }>('/auth/refresh');
           const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-          document.cookie = `access_token=${refreshRes.data.accessToken}; path=/; SameSite=Strict${secure}`;
+          document.cookie = `access_token=${accessToken}; path=/; SameSite=Strict${secure}`;
           router.replace('/');
           return;
         }
