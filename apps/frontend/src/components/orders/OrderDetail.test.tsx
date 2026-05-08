@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
+vi.mock('next/navigation', () => ({
+  useParams: vi.fn(() => ({ id: 'order-1' })),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     href,
@@ -122,7 +126,7 @@ describe('OrderDetail', () => {
         isLoading: true,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       const skeletons = document.querySelectorAll('.animate-pulse');
       expect(skeletons.length).toBeGreaterThan(0);
     });
@@ -137,7 +141,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: true,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByRole('alert')).toHaveTextContent('주문 정보를 불러오는 데 실패했습니다.');
     });
   });
@@ -151,7 +155,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText(/주문번호: order-1/)).toBeInTheDocument();
     });
 
@@ -161,7 +165,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByRole('generic', { name: '주문 상태: 배송 중' })).toBeInTheDocument();
     });
 
@@ -171,7 +175,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('베이비 롬퍼')).toBeInTheDocument();
     });
 
@@ -181,7 +185,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('블루 / 80 · 2개')).toBeInTheDocument();
     });
 
@@ -191,7 +195,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       // 27500 × 2 = 55000
       expect(screen.getAllByText('55,000원').length).toBeGreaterThanOrEqual(1);
     });
@@ -206,7 +210,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('홍길동 · 010-1234-5678')).toBeInTheDocument();
     });
 
@@ -216,7 +220,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText(/서울시 강남구 테헤란로 1/)).toBeInTheDocument();
     });
   });
@@ -230,7 +234,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('카카오페이')).toBeInTheDocument();
     });
 
@@ -240,7 +244,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       // "결제 완료"는 주문 상태 뱃지와 결제 상태 두 곳에 나타날 수 있으므로 getAllByText 사용
       expect(screen.getAllByText('결제 완료').length).toBeGreaterThanOrEqual(1);
     });
@@ -251,7 +255,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('결제 정보가 없습니다.')).toBeInTheDocument();
     });
 
@@ -261,7 +265,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByText('무료')).toBeInTheDocument();
     });
   });
@@ -275,7 +279,7 @@ describe('OrderDetail', () => {
         isLoading: false,
         isError: false,
       });
-      render(<OrderDetail orderId="order-1" />);
+      render(<OrderDetail />);
       expect(screen.getByRole('link', { name: '← 주문 내역으로 돌아가기' })).toHaveAttribute(
         'href',
         '/orders',

@@ -124,6 +124,20 @@ resource "aws_cloudfront_function" "url_rewrite" {
   code    = <<-EOT
     function handler(event) {
       var uri = event.request.uri;
+      var parts = uri.split('/');
+
+      // 동적 경로: /products/{id}/ → /products/_/index.html
+      if (parts.length === 4 && parts[1] === 'products' && parts[2] !== '_' && parts[3] === '') {
+        event.request.uri = '/products/_/index.html';
+        return event.request;
+      }
+
+      // 동적 경로: /orders/{id}/ → /orders/_/index.html
+      if (parts.length === 4 && parts[1] === 'orders' && parts[2] !== '_' && parts[3] === '') {
+        event.request.uri = '/orders/_/index.html';
+        return event.request;
+      }
+
       if (uri.endsWith('/')) {
         event.request.uri += 'index.html';
       } else if (!uri.split('/').pop().includes('.')) {

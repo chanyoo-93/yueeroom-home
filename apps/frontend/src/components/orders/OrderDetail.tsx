@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useOrderDetail } from '@/lib/hooks/useOrders';
 import { formatPrice } from '@/lib/utils/format';
 import { type PaymentStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from '@/lib/types/order';
@@ -20,11 +21,9 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   card: '신용/체크카드',
 };
 
-interface OrderDetailProps {
-  orderId: string;
-}
-
-export default function OrderDetail({ orderId }: OrderDetailProps) {
+export default function OrderDetail() {
+  const params = useParams<{ id: string }>();
+  const orderId = params.id ?? '';
   const { data: order, isLoading, isError } = useOrderDetail(orderId);
 
   if (isLoading) {

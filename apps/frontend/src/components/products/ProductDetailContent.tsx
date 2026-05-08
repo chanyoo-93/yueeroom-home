@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
 import {
@@ -16,11 +17,9 @@ import VariantSelector from './VariantSelector';
 
 const SizeGuideModal = dynamic(() => import('./SizeGuideModal'));
 
-interface Props {
-  productId: string;
-}
-
-export default function ProductDetailContent({ productId }: Props) {
+export default function ProductDetailContent() {
+  const params = useParams<{ id: string }>();
+  const productId = params.id ?? '';
   const { data: product, isLoading, isError } = useProductDetail(productId);
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);

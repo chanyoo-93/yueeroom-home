@@ -3,6 +3,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Next.js 모듈 모킹 (vi.mock은 호이스팅되어 import보다 먼저 실행됨)
+vi.mock('next/navigation', () => ({
+  useParams: vi.fn(() => ({ id: 'prod-1' })),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     href,
@@ -119,7 +123,7 @@ describe('ProductDetailContent', () => {
         isError: false,
       } as ReturnType<typeof useProductDetail>);
 
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       // animate-pulse 클래스가 포함된 요소가 있어야 한다
       const skeletons = document.querySelectorAll('.animate-pulse');
@@ -133,7 +137,7 @@ describe('ProductDetailContent', () => {
         isError: true,
       } as ReturnType<typeof useProductDetail>);
 
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       expect(screen.getByText(/상품 정보를 불러오는 데 실패했습니다/)).toBeInTheDocument();
       expect(screen.getByRole('link')).toHaveAttribute('href', '/products');
@@ -150,7 +154,7 @@ describe('ProductDetailContent', () => {
     });
 
     it('상품명, 가격, 설명을 렌더링한다', () => {
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       expect(screen.getByText('베이비 블루 롬퍼')).toBeInTheDocument();
       expect(screen.getByText('29,000원')).toBeInTheDocument();
@@ -158,7 +162,7 @@ describe('ProductDetailContent', () => {
     });
 
     it('카테고리 이름을 렌더링한다', () => {
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       expect(screen.getByText('상의')).toBeInTheDocument();
     });
@@ -174,7 +178,7 @@ describe('ProductDetailContent', () => {
     });
 
     it('옵션 미선택 시 장바구니 버튼이 비활성화된다', () => {
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       const cartButton = screen.getByRole('button', { name: /장바구니|옵션을 선택/ });
       expect(cartButton).toBeDisabled();
@@ -182,7 +186,7 @@ describe('ProductDetailContent', () => {
 
     it('색상만 선택 시 장바구니 버튼이 비활성화된다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
 
@@ -192,7 +196,7 @@ describe('ProductDetailContent', () => {
 
     it('재고 있는 색상+사이즈 선택 시 장바구니 버튼이 활성화된다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
       await user.click(screen.getByRole('button', { name: '사이즈 80' }));
@@ -203,7 +207,7 @@ describe('ProductDetailContent', () => {
 
     it('품절 변형(블루+90)은 색상 선택 후 사이즈 버튼이 비활성화된다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
 
@@ -223,7 +227,7 @@ describe('ProductDetailContent', () => {
 
     it('재고 있는 옵션 선택 후 수량 조절 버튼이 나타난다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
       await user.click(screen.getByRole('button', { name: '사이즈 80' }));
@@ -234,7 +238,7 @@ describe('ProductDetailContent', () => {
 
     it('수량 늘리기 버튼으로 수량이 증가한다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
       await user.click(screen.getByRole('button', { name: '사이즈 80' }));
@@ -245,7 +249,7 @@ describe('ProductDetailContent', () => {
 
     it('수량 줄이기 버튼은 1 미만으로 내려가지 않는다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
       await user.click(screen.getByRole('button', { name: '사이즈 80' }));
@@ -266,14 +270,14 @@ describe('ProductDetailContent', () => {
 
     it('위시리스트에 없는 상품은 추가 버튼이 렌더링된다', () => {
       mockUseWishlistStatus.mockReturnValue(false);
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       expect(screen.getByRole('button', { name: '위시리스트에 추가' })).toBeInTheDocument();
     });
 
     it('위시리스트에 있는 상품은 제거 버튼이 렌더링된다', () => {
       mockUseWishlistStatus.mockReturnValue(true);
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       expect(screen.getByRole('button', { name: '위시리스트에서 제거' })).toBeInTheDocument();
     });
@@ -286,7 +290,7 @@ describe('ProductDetailContent', () => {
       >);
 
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '위시리스트에 추가' }));
 
@@ -302,7 +306,7 @@ describe('ProductDetailContent', () => {
       } as unknown as ReturnType<typeof useRemoveWishlistItem>);
 
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '위시리스트에서 제거' }));
 
@@ -321,7 +325,7 @@ describe('ProductDetailContent', () => {
 
     it('사이즈 가이드 버튼 클릭 시 모달이 열린다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '사이즈 가이드 열기' }));
 
@@ -330,7 +334,7 @@ describe('ProductDetailContent', () => {
 
     it('닫기 버튼 클릭 시 모달이 닫힌다', async () => {
       const user = userEvent.setup();
-      render(<ProductDetailContent productId="prod-1" />);
+      render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '사이즈 가이드 열기' }));
       await user.click(screen.getByRole('button', { name: '닫기' }));

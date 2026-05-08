@@ -6,16 +6,10 @@ export function generateStaticParams() {
   return [{ id: '_' }];
 }
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
-export default async function ProductDetailPage({ params }: Props) {
-  const { id } = await params;
-
+export default function ProductDetailPage() {
   return (
     <Suspense fallback={null}>
-      <ProductDetailContent productId={id} />
+      <ProductDetailContent />
     </Suspense>
   );
 }
