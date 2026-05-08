@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import OrderDetail from '@/components/orders/OrderDetail';
 
@@ -5,8 +7,6 @@ import OrderDetail from '@/components/orders/OrderDetail';
 export function generateStaticParams() {
   return [{ id: '_' }];
 }
-
-export const metadata = { title: '주문 상세 | 유이룸' };
 
 export default function OrderDetailPage() {
   return (
