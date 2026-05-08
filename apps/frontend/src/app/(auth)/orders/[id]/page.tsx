@@ -1,5 +1,3 @@
-'use client';
-
 import { Suspense } from 'react';
 import OrderDetail from '@/components/orders/OrderDetail';
 
