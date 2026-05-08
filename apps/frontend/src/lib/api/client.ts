@@ -16,7 +16,7 @@ apiClient.interceptors.request.use(
     if (typeof window !== 'undefined') {
       const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
       if (match) {
-        config.headers['Authorization'] = `Bearer ${decodeURIComponent(match[1] ?? '')}`;
+        config.headers['Authorization'] = 'Bearer ' + (match[1] ?? '');
       }
     }
     return config;
