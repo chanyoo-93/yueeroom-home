@@ -115,7 +115,8 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_URL",    valueFrom = "/${var.project}/REDIS_URL" },
       { name = "JWT_SECRET",   valueFrom = "/${var.project}/JWT_SECRET" },
       { name = "JWT_REFRESH_SECRET", valueFrom = "/${var.project}/JWT_REFRESH_SECRET" },
-      { name = "SENTRY_DSN",   valueFrom = "/${var.project}/SENTRY_DSN" }
+      { name = "SENTRY_DSN",   valueFrom = "/${var.project}/SENTRY_DSN" },
+      { name = "FRONTEND_URL", valueFrom = "/${var.project}/FRONTEND_URL" }
     ]
 
     logConfiguration = {
