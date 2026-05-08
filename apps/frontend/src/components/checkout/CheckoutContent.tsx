@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import NaverPayButton from '@/components/payments/NaverPayButton';
+import StripePaymentForm from '@/components/payments/StripePaymentForm';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
@@ -29,6 +30,10 @@ export default function CheckoutContent() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [pendingNaverPayOrderId, setPendingNaverPayOrderId] = useState<string | null>(null);
+  const [pendingStripeOrder, setPendingStripeOrder] = useState<{
+    id: string;
+    amount: number;
+  } | null>(null);
 
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
@@ -90,6 +95,11 @@ export default function CheckoutContent() {
 
       if (selectedPayment === 'naverpay') {
         setPendingNaverPayOrderId((order as Order).id);
+        return;
+      }
+
+      if (selectedPayment === 'stripe') {
+        setPendingStripeOrder({ id: (order as Order).id, amount: totalPrice });
         return;
       }
 
@@ -265,6 +275,17 @@ export default function CheckoutContent() {
         {pendingNaverPayOrderId ? (
           <div className="mt-5">
             <NaverPayButton orderId={pendingNaverPayOrderId} />
+          </div>
+        ) : pendingStripeOrder ? (
+          <div className="mt-5">
+            <StripePaymentForm
+              orderId={pendingStripeOrder.id}
+              amount={pendingStripeOrder.amount}
+              onSuccess={() => {
+                clearCart();
+                setCompletedOrderId(pendingStripeOrder.id);
+              }}
+            />
           </div>
         ) : (
           <button
