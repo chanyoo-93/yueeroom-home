@@ -6,7 +6,7 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
-  brandId?: string;
+  brandId?: string | null;
 
   @IsString()
   name!: string;

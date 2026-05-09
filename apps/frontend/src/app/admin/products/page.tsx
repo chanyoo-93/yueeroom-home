@@ -266,7 +266,7 @@ export default function AdminProductsPage() {
     const payload = {
       name: values.name.trim(),
       categoryId: values.categoryId,
-      brandId: values.brandId || undefined,
+      brandId: values.brandId || null,
       description: values.description.trim() || undefined,
       basePrice: Number(values.basePrice),
       isActive: values.isActive,
@@ -280,7 +280,10 @@ export default function AdminProductsPage() {
             const variantPayloads: CreateVariantPayload[] = variantRows.map((row) => ({
               size: row.size,
               color: row.color,
-              price: Number(row.price) || Number(values.basePrice),
+              price:
+                row.price === '' || isNaN(Number(row.price))
+                  ? Number(values.basePrice)
+                  : Number(row.price),
               sku: row.sku.trim(),
             }));
             await Promise.all(
