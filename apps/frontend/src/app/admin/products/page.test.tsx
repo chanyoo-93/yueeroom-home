@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/hooks/useAdminProducts', () => ({
   useAdminProducts: vi.fn(),
+  useAdminProductDetail: vi.fn(),
   useCreateProduct: vi.fn(),
   useUpdateProduct: vi.fn(),
   useDeleteProduct: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('@/lib/hooks/useAdminBrands', () => ({
 import AdminProductsPage from './page';
 import {
   useAdminProducts,
+  useAdminProductDetail,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
@@ -98,6 +100,11 @@ const mockCategories = [
 beforeEach(() => {
   (useAdminProducts as ReturnType<typeof vi.fn>).mockReturnValue({
     data: { data: mockProducts, total: 2, page: 1, limit: 20, nextCursor: null },
+    isLoading: false,
+    isError: false,
+  });
+  (useAdminProductDetail as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: { ...mockProducts[0], variants: [], images: [] },
     isLoading: false,
     isError: false,
   });

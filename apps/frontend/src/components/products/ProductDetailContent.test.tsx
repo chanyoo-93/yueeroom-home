@@ -205,14 +205,16 @@ describe('ProductDetailContent', () => {
       expect(cartButton).toBeEnabled();
     });
 
-    it('품절 변형(블루+90)은 색상 선택 후 사이즈 버튼이 비활성화된다', async () => {
+    it('품절 변형(블루+90)을 선택하면 장바구니 버튼이 비활성화된다', async () => {
       const user = userEvent.setup();
       render(<ProductDetailContent />);
 
       await user.click(screen.getByRole('button', { name: '블루' }));
+      await user.click(screen.getByRole('button', { name: '사이즈 90' }));
 
-      const size90Button = screen.getByRole('button', { name: '사이즈 90' });
-      expect(size90Button).toBeDisabled();
+      // 품절 조합이 선택되면 장바구니 버튼이 비활성화(isCartEnabled=false)
+      const cartButton = screen.getByRole('button', { name: '장바구니 담기' });
+      expect(cartButton).toBeDisabled();
     });
   });
 

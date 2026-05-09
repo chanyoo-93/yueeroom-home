@@ -24,13 +24,16 @@ export default function VariantSelector({
   const colors = [...new Set(variants.map((v) => v.color))];
   const sizes = [...new Set(variants.map((v) => v.size))];
 
-  // 해당 색상의 재고가 하나라도 있으면 색상 선택 가능
-  const isColorAvailable = (color: string) =>
-    variants.some((v) => v.color === color && isInStock(v));
+  // 해당 색상 variant가 존재하면 선택 가능 (재고 유무와 무관)
+  const colorExists = (color: string) => variants.some((v) => v.color === color);
+  const isColorInStock = (color: string) => variants.some((v) => v.color === color && isInStock(v));
 
-  // 선택된 색상이 있으면 그 색상 + 해당 사이즈 조합으로 재고 확인,
-  // 색상 미선택 시 임의 색상과의 조합에 재고가 있으면 사이즈 활성화
-  const isSizeAvailable = (size: string) => {
+  // 선택된 색상이 있으면 그 색상 + 해당 사이즈 조합 존재 여부, 없으면 사이즈 variant 존재 여부
+  const sizeExists = (size: string) => {
+    if (selectedColor) return variants.some((v) => v.size === size && v.color === selectedColor);
+    return variants.some((v) => v.size === size);
+  };
+  const isSizeInStock = (size: string) => {
     if (selectedColor) {
       const variant = variants.find((v) => v.size === size && v.color === selectedColor);
       return variant ? isInStock(variant) : false;
@@ -50,24 +53,26 @@ export default function VariantSelector({
           </p>
           <div className="flex flex-wrap gap-2">
             {colors.map((color) => {
-              const available = isColorAvailable(color);
+              const exists = colorExists(color);
+              const inStock = isColorInStock(color);
               const selected = selectedColor === color;
               return (
                 <button
                   key={color}
-                  onClick={() => available && onColorChange(color)}
-                  disabled={!available}
+                  onClick={() => exists && onColorChange(color)}
+                  disabled={!exists}
                   aria-label={color}
                   aria-pressed={selected}
-                  className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                  className={`relative rounded-lg border px-4 py-2 text-sm transition-colors ${
                     selected
                       ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
-                      : available
+                      : exists
                         ? 'border-gray-200 text-gray-700 hover:border-indigo-400'
-                        : 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
+                        : 'cursor-not-allowed border-gray-100 text-gray-300'
                   }`}
                 >
                   {color}
+                  {exists && !inStock && <span className="ml-1 text-xs text-gray-400">(품절)</span>}
                 </button>
               );
             })}
@@ -84,24 +89,26 @@ export default function VariantSelector({
           </p>
           <div className="flex flex-wrap gap-2">
             {sizes.map((size) => {
-              const available = isSizeAvailable(size);
+              const exists = sizeExists(size);
+              const inStock = isSizeInStock(size);
               const selected = selectedSize === size;
               return (
                 <button
                   key={size}
-                  onClick={() => available && onSizeChange(size)}
-                  disabled={!available}
+                  onClick={() => exists && onSizeChange(size)}
+                  disabled={!exists}
                   aria-label={`사이즈 ${size}`}
                   aria-pressed={selected}
                   className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
                     selected
                       ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
-                      : available
+                      : exists
                         ? 'border-gray-200 text-gray-700 hover:border-indigo-400'
-                        : 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
+                        : 'cursor-not-allowed border-gray-100 text-gray-300'
                   }`}
                 >
                   {size}
+                  {exists && !inStock && <span className="ml-1 text-xs text-gray-400">(품절)</span>}
                 </button>
               );
             })}

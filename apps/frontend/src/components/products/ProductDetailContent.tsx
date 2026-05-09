@@ -90,12 +90,8 @@ export default function ProductDetailContent() {
     if (selectedSize) {
       const variant = variants.find((v) => v.color === color && v.size === selectedSize);
       const stock = variant?.inventory?.quantity ?? 0;
-      if (stock <= 0) {
-        setSelectedSize(null);
-        setQuantity(1);
-      } else {
-        setQuantity((q) => Math.min(q, stock));
-      }
+      if (stock > 0) setQuantity((q) => Math.min(q, stock));
+      else setQuantity(1);
     }
   };
 
@@ -104,9 +100,8 @@ export default function ProductDetailContent() {
     if (selectedColor) {
       const variant = variants.find((v) => v.color === selectedColor && v.size === size);
       const stock = variant?.inventory?.quantity ?? 0;
-      if (stock > 0) {
-        setQuantity((q) => Math.min(q, stock));
-      }
+      if (stock > 0) setQuantity((q) => Math.min(q, stock));
+      else setQuantity(1);
     }
   };
 
