@@ -122,19 +122,25 @@ resource "aws_cloudfront_function" "url_rewrite" {
   runtime = "cloudfront-js-2.0"
   publish = true
   code    = <<-EOT
+    var DYNAMIC_SEGMENTS = { 'products': true, 'orders': true };
+
     function handler(event) {
       var uri = event.request.uri;
       var parts = uri.split('/');
 
-      // 동적 경로: /products/{id}/ → /products/_/index.html
-      if (parts.length === 4 && parts[1] === 'products' && parts[2] !== '_' && parts[3] === '') {
-        event.request.uri = '/products/_/index.html';
-        return event.request;
-      }
-
-      // 동적 경로: /orders/{id}/ → /orders/_/index.html
-      if (parts.length === 4 && parts[1] === 'orders' && parts[2] !== '_' && parts[3] === '') {
-        event.request.uri = '/orders/_/index.html';
+      // 동적 경로: /products/{id}/... 또는 /orders/{id}/... → /_/ 로 치환
+      // ex) /products/{uuid}/         → /products/_/index.html
+      //     /products/{uuid}/index.txt → /products/_/index.txt  (RSC 페이로드)
+      if (parts.length >= 3 && DYNAMIC_SEGMENTS[parts[1]] && parts[2] !== '_' && parts[2] !== '') {
+        parts[2] = '_';
+        uri = parts.join('/');
+        if (uri.endsWith('/')) {
+          event.request.uri = uri + 'index.html';
+        } else if (!uri.split('/').pop().includes('.')) {
+          event.request.uri = uri + '/index.html';
+        } else {
+          event.request.uri = uri;
+        }
         return event.request;
       }
 
