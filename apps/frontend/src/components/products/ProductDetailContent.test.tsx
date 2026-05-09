@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 // Next.js 모듈 모킹 (vi.mock은 호이스팅되어 import보다 먼저 실행됨)
 vi.mock('next/navigation', () => ({
-  useParams: vi.fn(() => ({ id: 'prod-1' })),
+  usePathname: vi.fn(() => '/products/prod-1'),
 }));
 
 vi.mock('next/link', () => ({

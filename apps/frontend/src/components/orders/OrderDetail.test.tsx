@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
-  useParams: vi.fn(() => ({ id: 'order-1' })),
+  usePathname: vi.fn(() => '/orders/order-1'),
 }));
 
 vi.mock('next/link', () => ({

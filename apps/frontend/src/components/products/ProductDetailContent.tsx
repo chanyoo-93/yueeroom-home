@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
 import {
@@ -18,8 +18,8 @@ import VariantSelector from './VariantSelector';
 const SizeGuideModal = dynamic(() => import('./SizeGuideModal'));
 
 export default function ProductDetailContent() {
-  const params = useParams<{ id: string }>();
-  const productId = params.id ?? '';
+  const pathname = usePathname();
+  const productId = pathname.split('/')[2] ?? '';
   const { data: product, isLoading, isError } = useProductDetail(productId);
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
