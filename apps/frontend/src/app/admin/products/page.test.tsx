@@ -16,6 +16,10 @@ vi.mock('@/lib/hooks/useCategories', () => ({
   useCategories: vi.fn(),
 }));
 
+vi.mock('@/lib/hooks/useAdminBrands', () => ({
+  useBrands: vi.fn(),
+}));
+
 import AdminProductsPage from './page';
 import {
   useAdminProducts,
@@ -28,10 +32,16 @@ import {
   useDeleteImage,
 } from '@/lib/hooks/useAdminProducts';
 import { useCategories } from '@/lib/hooks/useCategories';
+import { useBrands } from '@/lib/hooks/useAdminBrands';
 
 const mockMutate = vi.fn();
+const mockMutateAsync = vi.fn().mockResolvedValue(undefined);
 
-const defaultMutation = { mutate: mockMutate, isPending: false };
+const defaultMutation = { mutate: mockMutate, mutateAsync: mockMutateAsync, isPending: false };
+
+const mockBrands = [
+  { id: 'b1', name: '마플', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
+];
 
 const mockProducts = [
   {
@@ -103,7 +113,13 @@ beforeEach(() => {
     isLoading: false,
     isError: false,
   });
+  (useBrands as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: mockBrands,
+    isLoading: false,
+    isError: false,
+  });
   mockMutate.mockReset();
+  mockMutateAsync.mockReset();
 });
 
 describe('AdminProductsPage', () => {

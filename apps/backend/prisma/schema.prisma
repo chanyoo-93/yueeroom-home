@@ -135,9 +135,21 @@ model Category {
   @@map("categories")
 }
 
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  products Product[]
+
+  @@map("brands")
+}
+
 model Product {
   id          String   @id @default(cuid())
   categoryId  String
+  brandId     String?
   name        String
   description String?
   basePrice   Int // KRW (원)
@@ -146,6 +158,7 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   category      Category         @relation(fields: [categoryId], references: [id])
+  brand         Brand?           @relation(fields: [brandId], references: [id])
   variants      ProductVariant[]
   images        ProductImage[]
   reviews       Review[]

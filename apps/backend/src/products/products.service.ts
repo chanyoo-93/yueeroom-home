@@ -46,7 +46,10 @@ export class ProductsService {
         skip: 1,
         cursor: { id: query.cursor },
         where,
-        include: { category: { select: { id: true, name: true, slug: true } } },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          brand: { select: { id: true, name: true } },
+        },
         orderBy,
       });
       const hasNext = rows.length > limit;
@@ -64,7 +67,10 @@ export class ProductsService {
         take: limit + 1,
         skip,
         where,
-        include: { category: { select: { id: true, name: true, slug: true } } },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          brand: { select: { id: true, name: true } },
+        },
         orderBy,
       }),
       this.prisma.product.count({ where }),
@@ -93,6 +99,7 @@ export class ProductsService {
       where: { id },
       include: {
         category: { select: { id: true, name: true, slug: true } },
+        brand: { select: { id: true, name: true } },
         images: { orderBy: { order: 'asc' } },
         variants: {
           include: { inventory: true },
@@ -108,9 +115,15 @@ export class ProductsService {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
 
+    if (dto.brandId) {
+      const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
+      if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
+    }
+
     return this.prisma.product.create({
       data: {
         categoryId: dto.categoryId,
+        brandId: dto.brandId ?? null,
         name: dto.name,
         description: dto.description,
         basePrice: dto.basePrice,
@@ -125,6 +138,11 @@ export class ProductsService {
     if (dto.categoryId) {
       const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
       if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
+    }
+
+    if (dto.brandId) {
+      const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
+      if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
     return this.prisma.product.update({ where: { id }, data: dto });
