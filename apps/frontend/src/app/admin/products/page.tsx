@@ -12,6 +12,7 @@ import {
 } from '@/lib/hooks/useAdminProducts';
 import { useCategories } from '@/lib/hooks/useCategories';
 import { useBrands } from '@/lib/hooks/useAdminBrands';
+import { formatPrice } from '@/lib/utils/format';
 import type { Product } from '@/lib/types/product';
 import type { CreateVariantPayload } from '@/lib/api/admin-products';
 
@@ -87,6 +88,15 @@ function buildVariants(sizes: string[], colors: string[], basePrice: string): Va
       sku: `${size}-${color}`.toUpperCase().replace(/\s+/g, '_'),
     })),
   );
+}
+
+function mapRowsToPayloads(rows: VariantRow[], basePrice: string): CreateVariantPayload[] {
+  return rows.map((row) => ({
+    size: row.size,
+    color: row.color,
+    price: row.price === '' || isNaN(Number(row.price)) ? Number(basePrice) : Number(row.price),
+    sku: row.sku.trim(),
+  }));
 }
 
 // ── Tag Input ─────────────────────────────────────────────────────────────────
@@ -284,15 +294,7 @@ export default function AdminProductsPage() {
         onSuccess: async (product) => {
           // variant 일괄 생성
           if (variantRows.length > 0) {
-            const variantPayloads: CreateVariantPayload[] = variantRows.map((row) => ({
-              size: row.size,
-              color: row.color,
-              price:
-                row.price === '' || isNaN(Number(row.price))
-                  ? Number(values.basePrice)
-                  : Number(row.price),
-              sku: row.sku.trim(),
-            }));
+            const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
             await Promise.all(
               variantPayloads.map((vp) => createVariant({ productId: product.id, payload: vp })),
             );
@@ -307,15 +309,7 @@ export default function AdminProductsPage() {
         {
           onSuccess: async () => {
             if (variantRows.length > 0) {
-              const variantPayloads: CreateVariantPayload[] = variantRows.map((row) => ({
-                size: row.size,
-                color: row.color,
-                price:
-                  row.price === '' || isNaN(Number(row.price))
-                    ? Number(values.basePrice)
-                    : Number(row.price),
-                sku: row.sku.trim(),
-              }));
+              const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
               await Promise.all(
                 variantPayloads.map((vp) => createVariant({ productId, payload: vp })),
               );
@@ -556,9 +550,7 @@ export default function AdminProductsPage() {
                             <tr key={v.id}>
                               <td className="px-3 py-1.5 text-gray-700">{v.size}</td>
                               <td className="px-3 py-1.5 text-gray-700">{v.color}</td>
-                              <td className="px-3 py-1.5 text-gray-700">
-                                {v.price.toLocaleString('ko-KR')}원
-                              </td>
+                              <td className="px-3 py-1.5 text-gray-700">{formatPrice(v.price)}</td>
                               <td className="px-3 py-1.5 text-gray-500">{v.sku}</td>
                               <td className="px-3 py-1.5 text-gray-500">
                                 {v.inventory?.quantity ?? 0}개
@@ -568,6 +560,7 @@ export default function AdminProductsPage() {
                                   type="button"
                                   onClick={() =>
                                     form.product &&
+                                    window.confirm('이 옵션을 삭제하시겠습니까?') &&
                                     deleteVariant({
                                       productId: form.product.id,
                                       variantId: v.id,
