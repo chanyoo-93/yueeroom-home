@@ -3,7 +3,7 @@ import type { Product, ProductDetail, ProductVariant } from '../types/product';
 
 export interface CreateProductPayload {
   categoryId: string;
-  brandId?: string;
+  brandId?: string | null;
   name: string;
   description?: string;
   basePrice: number;
