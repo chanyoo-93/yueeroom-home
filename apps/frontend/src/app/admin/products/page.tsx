@@ -3,13 +3,16 @@
 import { useState, useEffect } from 'react';
 import {
   useAdminProducts,
+  useAdminProductDetail,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
   useCreateVariant,
+  useDeleteVariant,
 } from '@/lib/hooks/useAdminProducts';
 import { useCategories } from '@/lib/hooks/useCategories';
 import { useBrands } from '@/lib/hooks/useAdminBrands';
+import { formatPrice } from '@/lib/utils/format';
 import type { Product } from '@/lib/types/product';
 import type { CreateVariantPayload } from '@/lib/api/admin-products';
 
@@ -87,6 +90,15 @@ function buildVariants(sizes: string[], colors: string[], basePrice: string): Va
   );
 }
 
+function mapRowsToPayloads(rows: VariantRow[], basePrice: string): CreateVariantPayload[] {
+  return rows.map((row) => ({
+    size: row.size,
+    color: row.color,
+    price: row.price === '' || isNaN(Number(row.price)) ? Number(basePrice) : Number(row.price),
+    sku: row.sku.trim(),
+  }));
+}
+
 // ── Tag Input ─────────────────────────────────────────────────────────────────
 
 function TagInput({
@@ -162,20 +174,23 @@ export default function AdminProductsPage() {
   const [colorOptions, setColorOptions] = useState<string[]>([]);
   const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [variantError, setVariantError] = useState('');
+  const [editProductId, setEditProductId] = useState('');
 
   const { data, isLoading, isError } = useAdminProducts();
+  const { data: editProductDetail, isLoading: isLoadingDetail } =
+    useAdminProductDetail(editProductId);
   const { data: categories } = useCategories();
   const { data: brands } = useBrands();
   const { mutate: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutate: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProduct();
   const { mutateAsync: createVariant } = useCreateVariant();
+  const { mutate: deleteVariant, isPending: isDeletingVariant } = useDeleteVariant();
 
-  const isMutating = isCreating || isUpdating || isDeleting;
+  const isMutating = isCreating || isUpdating || isDeleting || isDeletingVariant;
 
-  // 사이즈 또는 색상 변경 시 variant 테이블 자동 재생성
+  // 사이즈 또는 색상 변경 시 신규 추가할 variant 테이블 자동 재생성
   useEffect(() => {
-    if (form.mode !== 'create') return;
     if (sizeOptions.length === 0 || colorOptions.length === 0) {
       setVariantRows([]);
       return;
@@ -189,7 +204,7 @@ export default function AdminProductsPage() {
         return existing ?? row;
       });
     });
-  }, [sizeOptions, colorOptions, form.mode, values.basePrice]);
+  }, [sizeOptions, colorOptions, values.basePrice]);
 
   function openCreateForm() {
     setValues(EMPTY_FORM);
@@ -215,10 +230,12 @@ export default function AdminProductsPage() {
     setColorOptions([]);
     setVariantRows([]);
     setVariantError('');
+    setEditProductId(product.id);
     setForm({ open: true, mode: 'edit', product });
   }
 
   function closeForm() {
+    setEditProductId('');
     setForm({ open: false, mode: 'create', product: null });
   }
 
@@ -246,8 +263,8 @@ export default function AdminProductsPage() {
       return;
     }
 
-    // variant 유효성 검사 (create 모드에서 variant가 있을 때만)
-    if (form.mode === 'create' && variantRows.length > 0) {
+    // 신규 추가할 variant 유효성 검사
+    if (variantRows.length > 0) {
       const hasEmptySku = variantRows.some((r) => !r.sku.trim());
       const skus = variantRows.map((r) => r.sku.trim());
       const hasDuplicateSku = new Set(skus).size !== skus.length;
@@ -277,15 +294,7 @@ export default function AdminProductsPage() {
         onSuccess: async (product) => {
           // variant 일괄 생성
           if (variantRows.length > 0) {
-            const variantPayloads: CreateVariantPayload[] = variantRows.map((row) => ({
-              size: row.size,
-              color: row.color,
-              price:
-                row.price === '' || isNaN(Number(row.price))
-                  ? Number(values.basePrice)
-                  : Number(row.price),
-              sku: row.sku.trim(),
-            }));
+            const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
             await Promise.all(
               variantPayloads.map((vp) => createVariant({ productId: product.id, payload: vp })),
             );
@@ -294,7 +303,21 @@ export default function AdminProductsPage() {
         },
       });
     } else if (form.product) {
-      updateProduct({ id: form.product.id, payload }, { onSuccess: closeForm });
+      const productId = form.product.id;
+      updateProduct(
+        { id: productId, payload },
+        {
+          onSuccess: async () => {
+            if (variantRows.length > 0) {
+              const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
+              await Promise.all(
+                variantPayloads.map((vp) => createVariant({ productId, payload: vp })),
+              );
+            }
+            closeForm();
+          },
+        },
+      );
     }
   }
 
@@ -503,100 +526,155 @@ export default function AdminProductsPage() {
                 </label>
               </div>
 
-              {/* 옵션(Variant) 빌더 — 등록 모드에서만 */}
-              {isCreateMode && (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    옵션 설정 <span className="font-normal text-gray-400">(선택)</span>
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <TagInput
-                      label="사이즈"
-                      tags={sizeOptions}
-                      onAdd={(v) => setSizeOptions((prev) => [...prev, v])}
-                      onRemove={(v) => setSizeOptions((prev) => prev.filter((s) => s !== v))}
-                      placeholder="예: 80, 90, 100"
-                    />
-                    <TagInput
-                      label="색상"
-                      tags={colorOptions}
-                      onAdd={(v) => setColorOptions((prev) => [...prev, v])}
-                      onRemove={(v) => setColorOptions((prev) => prev.filter((c) => c !== v))}
-                      placeholder="예: 블루, 핑크"
-                    />
-                  </div>
-
-                  {variantRows.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs text-gray-500">
-                        옵션 조합 {variantRows.length}개 — 가격과 SKU를 확인·수정하세요. SKU는 전체
-                        상품에서 고유해야 합니다.
-                      </p>
-                      <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gray-50 text-gray-500">
-                            <tr>
-                              <th className="px-3 py-2 text-left">사이즈</th>
-                              <th className="px-3 py-2 text-left">색상</th>
-                              <th className="px-3 py-2 text-left">가격 (원)</th>
-                              <th className="px-3 py-2 text-left">SKU</th>
-                              <th className="px-3 py-2" />
+              {/* 기존 옵션 목록 — 수정 모드에서만 */}
+              {!isCreateMode && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-gray-700">등록된 옵션</h3>
+                  {isLoadingDetail ? (
+                    <p className="text-xs text-gray-400">불러오는 중...</p>
+                  ) : editProductDetail?.variants?.length ? (
+                    <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 text-gray-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left">사이즈</th>
+                            <th className="px-3 py-2 text-left">색상</th>
+                            <th className="px-3 py-2 text-left">가격</th>
+                            <th className="px-3 py-2 text-left">SKU</th>
+                            <th className="px-3 py-2 text-left">재고</th>
+                            <th className="px-3 py-2" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {editProductDetail.variants.map((v) => (
+                            <tr key={v.id}>
+                              <td className="px-3 py-1.5 text-gray-700">{v.size}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{v.color}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{formatPrice(v.price)}</td>
+                              <td className="px-3 py-1.5 text-gray-500">{v.sku}</td>
+                              <td className="px-3 py-1.5 text-gray-500">
+                                {v.inventory?.quantity ?? 0}개
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    form.product &&
+                                    window.confirm('이 옵션을 삭제하시겠습니까?') &&
+                                    deleteVariant({
+                                      productId: form.product.id,
+                                      variantId: v.id,
+                                    })
+                                  }
+                                  disabled={isDeletingVariant}
+                                  className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                                  aria-label="옵션 삭제"
+                                >
+                                  삭제
+                                </button>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {variantRows.map((row, i) => (
-                              <tr key={`${row.size}-${row.color}`}>
-                                <td className="px-3 py-1.5 text-gray-700">{row.size}</td>
-                                <td className="px-3 py-1.5 text-gray-700">{row.color}</td>
-                                <td className="px-3 py-1.5">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={row.price}
-                                    onChange={(e) => updateVariantRow(i, 'price', e.target.value)}
-                                    className="w-24 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
-                                  />
-                                </td>
-                                <td className="px-3 py-1.5">
-                                  <input
-                                    type="text"
-                                    value={row.sku}
-                                    onChange={(e) => updateVariantRow(i, 'sku', e.target.value)}
-                                    className="w-36 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
-                                  />
-                                </td>
-                                <td className="px-3 py-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => removeVariantRow(i)}
-                                    className="text-red-500 hover:text-red-700"
-                                    aria-label="옵션 삭제"
-                                  >
-                                    ×
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      {variantError && <p className="mt-1 text-xs text-red-500">{variantError}</p>}
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-
-                  {sizeOptions.length > 0 && colorOptions.length === 0 && (
-                    <p className="text-xs text-amber-600">
-                      색상도 입력하면 옵션 조합이 생성됩니다.
-                    </p>
-                  )}
-                  {colorOptions.length > 0 && sizeOptions.length === 0 && (
-                    <p className="text-xs text-amber-600">
-                      사이즈도 입력하면 옵션 조합이 생성됩니다.
-                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400">등록된 옵션이 없습니다.</p>
                   )}
                 </div>
               )}
+
+              {/* 옵션(Variant) 빌더 */}
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-700">
+                  {isCreateMode ? '옵션 설정' : '옵션 추가'}{' '}
+                  <span className="font-normal text-gray-400">(선택)</span>
+                </h3>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <TagInput
+                    label="사이즈"
+                    tags={sizeOptions}
+                    onAdd={(v) => setSizeOptions((prev) => [...prev, v])}
+                    onRemove={(v) => setSizeOptions((prev) => prev.filter((s) => s !== v))}
+                    placeholder="예: 80, 90, 100"
+                  />
+                  <TagInput
+                    label="색상"
+                    tags={colorOptions}
+                    onAdd={(v) => setColorOptions((prev) => [...prev, v])}
+                    onRemove={(v) => setColorOptions((prev) => prev.filter((c) => c !== v))}
+                    placeholder="예: 블루, 핑크"
+                  />
+                </div>
+
+                {variantRows.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs text-gray-500">
+                      옵션 조합 {variantRows.length}개 — 가격과 SKU를 확인·수정하세요. SKU는 전체
+                      상품에서 고유해야 합니다.
+                    </p>
+                    <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 text-gray-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left">사이즈</th>
+                            <th className="px-3 py-2 text-left">색상</th>
+                            <th className="px-3 py-2 text-left">가격 (원)</th>
+                            <th className="px-3 py-2 text-left">SKU</th>
+                            <th className="px-3 py-2" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {variantRows.map((row, i) => (
+                            <tr key={`${row.size}-${row.color}`}>
+                              <td className="px-3 py-1.5 text-gray-700">{row.size}</td>
+                              <td className="px-3 py-1.5 text-gray-700">{row.color}</td>
+                              <td className="px-3 py-1.5">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={row.price}
+                                  onChange={(e) => updateVariantRow(i, 'price', e.target.value)}
+                                  className="w-24 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <input
+                                  type="text"
+                                  value={row.sku}
+                                  onChange={(e) => updateVariantRow(i, 'sku', e.target.value)}
+                                  className="w-36 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                                />
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => removeVariantRow(i)}
+                                  className="text-red-500 hover:text-red-700"
+                                  aria-label="옵션 삭제"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {variantError && <p className="mt-1 text-xs text-red-500">{variantError}</p>}
+                  </div>
+                )}
+
+                {sizeOptions.length > 0 && colorOptions.length === 0 && (
+                  <p className="text-xs text-amber-600">색상도 입력하면 옵션 조합이 생성됩니다.</p>
+                )}
+                {colorOptions.length > 0 && sizeOptions.length === 0 && (
+                  <p className="text-xs text-amber-600">
+                    사이즈도 입력하면 옵션 조합이 생성됩니다.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="mt-6 flex gap-3">
