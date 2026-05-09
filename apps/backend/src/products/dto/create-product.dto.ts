@@ -5,6 +5,10 @@ export class CreateProductDto {
   categoryId!: string;
 
   @IsString()
+  @IsOptional()
+  brandId?: string;
+
+  @IsString()
   name!: string;
 
   @IsString()

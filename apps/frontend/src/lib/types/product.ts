@@ -28,9 +28,15 @@ export interface ProductVariant {
   inventory: InventoryInfo | null;
 }
 
+export interface ProductBrand {
+  id: string;
+  name: string;
+}
+
 export interface Product {
   id: string;
   categoryId: string;
+  brandId?: string | null;
   name: string;
   description: string | null;
   basePrice: number;
@@ -38,6 +44,7 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   category: ProductCategory;
+  brand?: ProductBrand | null;
   images?: ProductImage[];
 }
 
