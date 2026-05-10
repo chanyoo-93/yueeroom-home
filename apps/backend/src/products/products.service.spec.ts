@@ -40,11 +40,7 @@ const mockPrisma = {
   productImage: {
     findMany: jest.fn(),
   },
-  productVariant: {
-    create: jest.fn(),
-  },
   $queryRaw: jest.fn(),
-  $transaction: jest.fn(),
 };
 
 const mockFilesService = {
@@ -244,29 +240,19 @@ describe('ProductsService', () => {
         basePrice: 25000,
       });
 
-      expect(mockPrisma.product.create).toHaveBeenCalled();
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ name: '아동 티셔츠' }) }),
+      );
       expect(result).toEqual(mockProduct);
     });
 
-    it('variants를 포함하면 단일 트랜잭션으로 상품+variant를 생성한다', async () => {
+    it('variants를 포함하면 중첩 create로 상품+variant를 원자적으로 생성한다', async () => {
       const mockProductWithVariants = {
         ...mockProduct,
         variants: [{ id: 'var-1', size: '80', color: '블루', price: 25000, sku: '80-BLUE' }],
       };
-      const mockTx = {
-        product: {
-          create: jest.fn().mockResolvedValue(mockProduct),
-          findUnique: jest.fn().mockResolvedValue(mockProductWithVariants),
-        },
-        productVariant: {
-          create: jest.fn().mockResolvedValue({ id: 'var-1' }),
-        },
-      };
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
-      mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockTx) => Promise<unknown>) =>
-        cb(mockTx),
-      );
+      mockPrisma.product.create.mockResolvedValue(mockProductWithVariants);
 
       const result = await service.create({
         categoryId: 'cat-1',
@@ -275,13 +261,19 @@ describe('ProductsService', () => {
         variants: [{ size: '80', color: '블루', price: 25000, sku: '80-BLUE' }],
       });
 
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockTx.product.create).toHaveBeenCalled();
-      expect(mockTx.productVariant.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            variants: {
+              create: expect.arrayContaining([expect.objectContaining({ sku: '80-BLUE' })]),
+            },
+          }),
+        }),
+      );
       expect(result).toEqual(mockProductWithVariants);
     });
 
-    it('빈 variants 배열은 트랜잭션 없이 상품만 생성한다', async () => {
+    it('빈 variants 배열은 variants 중첩 create 없이 상품만 생성한다', async () => {
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
       mockPrisma.product.create.mockResolvedValue(mockProduct);
 
@@ -292,8 +284,11 @@ describe('ProductsService', () => {
         variants: [],
       });
 
-      expect(mockPrisma.product.create).toHaveBeenCalled();
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ variants: undefined }),
+        }),
+      );
       expect(result).toEqual(mockProduct);
     });
 

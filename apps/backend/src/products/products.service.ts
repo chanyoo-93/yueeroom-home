@@ -111,7 +111,7 @@ export class ProductsService {
     return product;
   }
 
-  async create(dto: CreateProductDto): Promise<Product> {
+  async create(dto: CreateProductDto) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
 
@@ -120,45 +120,33 @@ export class ProductsService {
       if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
-    const productData = {
-      categoryId: dto.categoryId,
-      brandId: dto.brandId ?? null,
-      name: dto.name,
-      description: dto.description,
-      basePrice: dto.basePrice,
-      isActive: dto.isActive ?? true,
-    };
-
-    if (!dto.variants || dto.variants.length === 0) {
-      return this.prisma.product.create({ data: productData });
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.create({ data: productData });
-      await Promise.all(
-        dto.variants!.map((v) =>
-          tx.productVariant.create({
-            data: {
-              productId: product.id,
-              size: v.size,
-              color: v.color,
-              price: v.price,
-              sku: v.sku,
-              inventory: { create: { quantity: 0 } },
-            },
-          }),
-        ),
-      );
-      return tx.product.findUnique({
-        where: { id: product.id },
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          brand: { select: { id: true, name: true } },
-          images: { orderBy: { order: 'asc' } },
-          variants: { include: { inventory: true }, orderBy: { createdAt: 'asc' } },
-        },
-      });
-    }) as Promise<Product>;
+    return this.prisma.product.create({
+      data: {
+        categoryId: dto.categoryId,
+        brandId: dto.brandId ?? null,
+        name: dto.name,
+        description: dto.description,
+        basePrice: dto.basePrice,
+        isActive: dto.isActive ?? true,
+        variants: dto.variants?.length
+          ? {
+              create: dto.variants.map((v) => ({
+                size: v.size,
+                color: v.color,
+                price: v.price,
+                sku: v.sku,
+                inventory: { create: { quantity: 0 } },
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        brand: { select: { id: true, name: true } },
+        images: { orderBy: { order: 'asc' } },
+        variants: { include: { inventory: true }, orderBy: { createdAt: 'asc' } },
+      },
+    });
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
@@ -174,17 +162,7 @@ export class ProductsService {
       if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        categoryId: dto.categoryId,
-        brandId: dto.brandId,
-        name: dto.name,
-        description: dto.description,
-        basePrice: dto.basePrice,
-        isActive: dto.isActive,
-      },
-    });
+    return this.prisma.product.update({ where: { id }, data: dto });
   }
 
   async search(q: string): Promise<{ data: Product[]; total: number }> {
