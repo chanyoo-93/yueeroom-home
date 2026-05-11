@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import NaverPayButton from '@/components/payments/NaverPayButton';
@@ -42,6 +42,15 @@ export default function CheckoutContent() {
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
   const totalPrice = effectiveItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const clearOrderState = () => {
+    if (buyNow) clearBuyNow();
+    else clearCart();
+  };
+
+  useEffect(() => {
+    return () => clearBuyNow();
+  }, [clearBuyNow]);
 
   // 주문 완료 화면 — 별도 페이지 이동 없이 즉시 결과 표시
   if (completedOrderId) {
@@ -110,8 +119,7 @@ export default function CheckoutContent() {
         return;
       }
 
-      if (buyNow) clearBuyNow();
-      else clearCart();
+      clearOrderState();
       setCompletedOrderId((order as Order).id);
     } catch {
       setErrorMessage('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -290,8 +298,7 @@ export default function CheckoutContent() {
               orderId={pendingStripeOrder.id}
               amount={pendingStripeOrder.amount}
               onSuccess={() => {
-                if (buyNow) clearBuyNow();
-                else clearCart();
+                clearOrderState();
                 setCompletedOrderId(pendingStripeOrder.id);
               }}
             />

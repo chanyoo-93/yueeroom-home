@@ -71,6 +71,9 @@ export const useCartStore = create<CartState>()(
       setBuyNow: (item) => set({ buyNow: item }),
       clearBuyNow: () => set({ buyNow: null }),
     }),
-    { name: 'yueeroom-cart' },
+    {
+      name: 'yueeroom-cart',
+      partialize: (state) => ({ items: state.items }),
+    },
   ),
 );

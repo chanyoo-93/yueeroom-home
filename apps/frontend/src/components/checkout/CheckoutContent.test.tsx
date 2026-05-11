@@ -93,11 +93,18 @@ function mockAddress(overrides: Partial<Address> = {}): Address {
 
 function setMockItems(items: LocalCartItem[]) {
   const clearCartFn = vi.fn();
+  const clearBuyNowFn = vi.fn();
   (
     useCartStore as unknown as { mockImplementation: (...args: unknown[]) => void }
   ).mockImplementation(
-    (selector: (state: { items: LocalCartItem[]; clearCart: () => void }) => unknown) =>
-      selector({ items, clearCart: clearCartFn }),
+    (
+      selector: (state: {
+        items: LocalCartItem[];
+        clearCart: () => void;
+        buyNow: null;
+        clearBuyNow: () => void;
+      }) => unknown,
+    ) => selector({ items, clearCart: clearCartFn, buyNow: null, clearBuyNow: clearBuyNowFn }),
   );
 }
 
