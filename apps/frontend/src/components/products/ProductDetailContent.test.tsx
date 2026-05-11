@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 // Next.js 모듈 모킹 (vi.mock은 호이스팅되어 import보다 먼저 실행됨)
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/products/prod-1'),
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
 }));
 
 vi.mock('next/link', () => ({
@@ -33,6 +34,12 @@ vi.mock('@/lib/hooks/useProductDetail');
 
 vi.mock('@/lib/hooks/useCart', () => ({
   useAddCartItem: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
+
+vi.mock('@/lib/stores/cart', () => ({
+  useCartStore: vi.fn((selector: (s: { setBuyNow: ReturnType<typeof vi.fn> }) => unknown) =>
+    selector({ setBuyNow: vi.fn() }),
+  ),
 }));
 
 vi.mock('@/lib/hooks/useWishlist', () => ({

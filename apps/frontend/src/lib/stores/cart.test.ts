@@ -1,4 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import type * as ZustandMiddleware from 'zustand/middleware';
+
+vi.mock('zustand/middleware', async (importOriginal) => {
+  const actual = await importOriginal<typeof ZustandMiddleware>();
+  return {
+    ...actual,
+    persist: (fn: Parameters<typeof actual.persist>[0]) => fn,
+  };
+});
+
 import { useCartStore, type LocalCartItem } from './cart';
 
 function makeItem(overrides: Partial<LocalCartItem> = {}): LocalCartItem {
@@ -19,8 +30,7 @@ function makeItem(overrides: Partial<LocalCartItem> = {}): LocalCartItem {
 
 describe('useCartStore', () => {
   beforeEach(() => {
-    // 각 테스트 전에 스토어 초기화
-    useCartStore.setState({ items: [] });
+    useCartStore.setState({ items: [], buyNow: null });
   });
 
   describe('addItem', () => {

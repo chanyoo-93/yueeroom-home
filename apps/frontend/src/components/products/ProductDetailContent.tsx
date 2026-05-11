@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
+import { useCartStore } from '@/lib/stores/cart';
 import {
   useAddWishlistItem,
   useRemoveWishlistItem,
@@ -19,6 +20,7 @@ const SizeGuideModal = dynamic(() => import('./SizeGuideModal'));
 
 export default function ProductDetailContent() {
   const pathname = usePathname();
+  const router = useRouter();
   const productId = pathname.split('/')[2] ?? '';
   const { data: product, isLoading, isError } = useProductDetail(productId);
 
@@ -29,6 +31,7 @@ export default function ProductDetailContent() {
   const [addedToCart, setAddedToCart] = useState(false);
 
   const addCartItemMutation = useAddCartItem();
+  const setBuyNow = useCartStore((s) => s.setBuyNow);
   const isWishlisted = useWishlistStatus(productId);
   const addWishlistMutation = useAddWishlistItem();
   const removeWishlistMutation = useRemoveWishlistItem();
@@ -121,6 +124,23 @@ export default function ProductDetailContent() {
     );
   };
 
+  const handleBuyNow = () => {
+    if (!selectedVariant || !product) return;
+    setBuyNow({
+      id: `buynow-${selectedVariant.id}`,
+      variantId: selectedVariant.id,
+      productId: product.id,
+      productName: product.name,
+      productImageUrl: product.images[0]?.url ?? null,
+      color: selectedVariant.color,
+      size: selectedVariant.size,
+      price: selectedVariant.price ?? product.basePrice,
+      quantity,
+      stock: selectedVariantStock,
+    });
+    router.push('/checkout');
+  };
+
   return (
     <>
       <div className="grid gap-8 lg:grid-cols-2">
@@ -196,42 +216,57 @@ export default function ProductDetailContent() {
           )}
 
           {/* 버튼 영역 */}
-          <div className="flex gap-3 pt-2">
+          <div className="space-y-2 pt-2">
+            <div className="flex gap-3">
+              <button
+                aria-label="장바구니 담기"
+                onClick={handleAddToCart}
+                disabled={!isCartEnabled || addCartItemMutation.isPending}
+                className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors ${
+                  isCartEnabled && !addCartItemMutation.isPending
+                    ? addedToCart
+                      ? 'bg-green-500 text-white'
+                      : 'border border-indigo-600 bg-white text-indigo-600 hover:bg-indigo-50'
+                    : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                }`}
+              >
+                {selectedVariant && selectedVariantStock === 0
+                  ? '품절된 옵션입니다'
+                  : addCartItemMutation.isPending
+                    ? '담는 중...'
+                    : addedToCart
+                      ? '장바구니에 담겼어요 ✓'
+                      : isCartEnabled
+                        ? '장바구니 담기'
+                        : '옵션을 선택해 주세요'}
+              </button>
+
+              <button
+                onClick={handleToggleWishlist}
+                disabled={addWishlistMutation.isPending || removeWishlistMutation.isPending}
+                aria-label={isWishlisted ? '위시리스트에서 제거' : '위시리스트에 추가'}
+                aria-pressed={isWishlisted}
+                className={`rounded-xl border px-4 py-3 transition-colors disabled:opacity-50 ${
+                  isWishlisted
+                    ? 'border-red-200 bg-red-50 text-red-500'
+                    : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400'
+                }`}
+              >
+                {isWishlisted ? '♥' : '♡'}
+              </button>
+            </div>
+
             <button
-              aria-label="장바구니 담기"
-              onClick={handleAddToCart}
-              disabled={!isCartEnabled || addCartItemMutation.isPending}
-              className={`flex-1 rounded-xl py-3 text-sm font-semibold transition-colors ${
-                isCartEnabled && !addCartItemMutation.isPending
-                  ? addedToCart
-                    ? 'bg-green-500 text-white'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              aria-label="바로 주문하기"
+              onClick={handleBuyNow}
+              disabled={!isCartEnabled}
+              className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors ${
+                isCartEnabled
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                   : 'cursor-not-allowed bg-gray-100 text-gray-400'
               }`}
             >
-              {selectedVariant && selectedVariantStock === 0
-                ? '품절된 옵션입니다'
-                : addCartItemMutation.isPending
-                  ? '담는 중...'
-                  : addedToCart
-                    ? '장바구니에 담겼어요 ✓'
-                    : isCartEnabled
-                      ? '장바구니 담기'
-                      : '옵션을 선택해 주세요'}
-            </button>
-
-            <button
-              onClick={handleToggleWishlist}
-              disabled={addWishlistMutation.isPending || removeWishlistMutation.isPending}
-              aria-label={isWishlisted ? '위시리스트에서 제거' : '위시리스트에 추가'}
-              aria-pressed={isWishlisted}
-              className={`rounded-xl border px-4 py-3 transition-colors disabled:opacity-50 ${
-                isWishlisted
-                  ? 'border-red-200 bg-red-50 text-red-500'
-                  : 'border-gray-200 text-gray-400 hover:border-red-200 hover:text-red-400'
-              }`}
-            >
-              {isWishlisted ? '♥' : '♡'}
+              {isCartEnabled ? '바로 주문하기' : '옵션을 선택해 주세요'}
             </button>
           </div>
         </div>
