@@ -20,6 +20,10 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 export default function CheckoutContent() {
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+  const buyNow = useCartStore((s) => s.buyNow);
+  const clearBuyNow = useCartStore((s) => s.clearBuyNow);
+
+  const effectiveItems = buyNow ? [buyNow] : items;
 
   const { data: addresses, isLoading: isAddressLoading } = useAddresses();
   const createOrderMutation = useCreateOrder();
@@ -37,7 +41,7 @@ export default function CheckoutContent() {
 
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
-  const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPrice = effectiveItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   // 주문 완료 화면 — 별도 페이지 이동 없이 즉시 결과 표시
   if (completedOrderId) {
@@ -64,7 +68,7 @@ export default function CheckoutContent() {
     );
   }
 
-  if (items.length === 0) {
+  if (effectiveItems.length === 0) {
     return (
       <div className="py-20 text-center">
         <p className="text-4xl">🛒</p>
@@ -90,7 +94,10 @@ export default function CheckoutContent() {
     try {
       const order = await createOrderMutation.mutateAsync({
         addressId: resolvedAddressId,
-        items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+        items: effectiveItems.map((item) => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
       });
 
       if (selectedPayment === 'naverpay') {
@@ -103,7 +110,8 @@ export default function CheckoutContent() {
         return;
       }
 
-      clearCart();
+      if (buyNow) clearBuyNow();
+      else clearCart();
       setCompletedOrderId((order as Order).id);
     } catch {
       setErrorMessage('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -117,10 +125,10 @@ export default function CheckoutContent() {
         {/* 주문 상품 */}
         <section>
           <h2 className="mb-3 text-base font-semibold text-gray-800">
-            주문 상품 ({items.length}종)
+            주문 상품 ({effectiveItems.length}종)
           </h2>
           <ul className="space-y-3">
-            {items.map((item) => (
+            {effectiveItems.map((item) => (
               <li
                 key={item.variantId}
                 className="flex gap-4 rounded-xl border border-gray-100 p-4 shadow-sm"
@@ -282,7 +290,8 @@ export default function CheckoutContent() {
               orderId={pendingStripeOrder.id}
               amount={pendingStripeOrder.amount}
               onSuccess={() => {
-                clearCart();
+                if (buyNow) clearBuyNow();
+                else clearCart();
                 setCompletedOrderId(pendingStripeOrder.id);
               }}
             />
@@ -299,10 +308,10 @@ export default function CheckoutContent() {
         )}
 
         <Link
-          href="/cart"
+          href={buyNow ? `/products/${buyNow.productId}` : '/cart'}
           className="mt-3 block text-center text-xs text-gray-400 hover:text-indigo-500"
         >
-          장바구니로 돌아가기
+          {buyNow ? '상품으로 돌아가기' : '장바구니로 돌아가기'}
         </Link>
       </div>
     </div>

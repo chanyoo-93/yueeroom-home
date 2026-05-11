@@ -23,6 +23,10 @@ interface CartState {
   clearCart: () => void;
   /** 서버에서 받아온 장바구니 데이터로 스토어를 전체 갱신 */
   syncFromServer: (items: LocalCartItem[]) => void;
+  /** 바로 주문: 장바구니를 거치지 않고 단일 상품을 즉시 결제 */
+  buyNow: LocalCartItem | null;
+  setBuyNow: (item: LocalCartItem) => void;
+  clearBuyNow: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -62,6 +66,10 @@ export const useCartStore = create<CartState>()(
       clearCart: () => set({ items: [] }),
 
       syncFromServer: (items) => set({ items }),
+
+      buyNow: null,
+      setBuyNow: (item) => set({ buyNow: item }),
+      clearBuyNow: () => set({ buyNow: null }),
     }),
     { name: 'yueeroom-cart' },
   ),
