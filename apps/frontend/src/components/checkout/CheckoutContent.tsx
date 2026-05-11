@@ -33,6 +33,7 @@ export default function CheckoutContent() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('kakaopay');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [pendingNaverPayOrderId, setPendingNaverPayOrderId] = useState<string | null>(null);
   const [pendingStripeOrder, setPendingStripeOrder] = useState<{
     id: string;
@@ -51,6 +52,10 @@ export default function CheckoutContent() {
   useEffect(() => {
     return () => clearBuyNow();
   }, [clearBuyNow]);
+
+  useEffect(() => {
+    setPendingOrderId(null);
+  }, [resolvedAddressId]);
 
   // 주문 완료 화면 — 별도 페이지 이동 없이 즉시 결과 표시
   if (completedOrderId) {
@@ -101,26 +106,31 @@ export default function CheckoutContent() {
     setErrorMessage(null);
 
     try {
-      const order = await createOrderMutation.mutateAsync({
-        addressId: resolvedAddressId,
-        items: effectiveItems.map((item) => ({
-          variantId: item.variantId,
-          quantity: item.quantity,
-        })),
-      });
+      let orderId = pendingOrderId;
+      if (!orderId) {
+        const order = await createOrderMutation.mutateAsync({
+          addressId: resolvedAddressId,
+          items: effectiveItems.map((item) => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+        });
+        orderId = (order as Order).id;
+        setPendingOrderId(orderId);
+      }
 
       if (selectedPayment === 'naverpay') {
-        setPendingNaverPayOrderId((order as Order).id);
+        setPendingNaverPayOrderId(orderId);
         return;
       }
 
       if (selectedPayment === 'stripe') {
-        setPendingStripeOrder({ id: (order as Order).id, amount: totalPrice });
+        setPendingStripeOrder({ id: orderId, amount: totalPrice });
         return;
       }
 
       clearOrderState();
-      setCompletedOrderId((order as Order).id);
+      setCompletedOrderId(orderId);
     } catch {
       setErrorMessage('주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
@@ -290,7 +300,10 @@ export default function CheckoutContent() {
 
         {pendingNaverPayOrderId ? (
           <div className="mt-5">
-            <NaverPayButton orderId={pendingNaverPayOrderId} />
+            <NaverPayButton
+              orderId={pendingNaverPayOrderId}
+              onBack={() => setPendingNaverPayOrderId(null)}
+            />
           </div>
         ) : pendingStripeOrder ? (
           <div className="mt-5">

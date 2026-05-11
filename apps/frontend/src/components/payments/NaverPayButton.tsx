@@ -5,9 +5,10 @@ import { naverPayPrepare } from '@/lib/api/payments';
 
 interface NaverPayButtonProps {
   orderId: string;
+  onBack: () => void;
 }
 
-export default function NaverPayButton({ orderId }: NaverPayButtonProps) {
+export default function NaverPayButton({ orderId, onBack }: NaverPayButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -47,6 +48,14 @@ export default function NaverPayButton({ orderId }: NaverPayButtonProps) {
         <p role="alert" className="text-sm text-red-600">
           {errorMessage}
         </p>
+      )}
+      {!isProcessing && (
+        <button
+          onClick={onBack}
+          className="w-full rounded-xl border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:border-gray-400"
+        >
+          다른 결제 방법으로 변경
+        </button>
       )}
     </div>
   );
