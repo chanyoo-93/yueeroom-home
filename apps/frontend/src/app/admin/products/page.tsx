@@ -280,6 +280,9 @@ export default function AdminProductsPage() {
     }
     setVariantError('');
 
+    const variantPayloads =
+      variantRows.length > 0 ? mapRowsToPayloads(variantRows, values.basePrice) : undefined;
+
     const payload = {
       name: values.name.trim(),
       categoryId: values.categoryId,
@@ -290,26 +293,14 @@ export default function AdminProductsPage() {
     };
 
     if (form.mode === 'create') {
-      createProduct(payload, {
-        onSuccess: async (product) => {
-          // variant 일괄 생성
-          if (variantRows.length > 0) {
-            const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
-            await Promise.all(
-              variantPayloads.map((vp) => createVariant({ productId: product.id, payload: vp })),
-            );
-          }
-          closeForm();
-        },
-      });
+      createProduct({ ...payload, variants: variantPayloads }, { onSuccess: () => closeForm() });
     } else if (form.product) {
       const productId = form.product.id;
       updateProduct(
         { id: productId, payload },
         {
           onSuccess: async () => {
-            if (variantRows.length > 0) {
-              const variantPayloads = mapRowsToPayloads(variantRows, values.basePrice);
+            if (variantPayloads) {
               await Promise.all(
                 variantPayloads.map((vp) => createVariant({ productId, payload: vp })),
               );

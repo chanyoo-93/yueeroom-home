@@ -8,6 +8,7 @@ export interface CreateProductPayload {
   description?: string;
   basePrice: number;
   isActive?: boolean;
+  variants?: CreateVariantPayload[];
 }
 
 export interface UpdateProductPayload {

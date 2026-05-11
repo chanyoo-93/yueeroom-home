@@ -111,7 +111,7 @@ export class ProductsService {
     return product;
   }
 
-  async create(dto: CreateProductDto): Promise<Product> {
+  async create(dto: CreateProductDto) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
 
@@ -128,6 +128,23 @@ export class ProductsService {
         description: dto.description,
         basePrice: dto.basePrice,
         isActive: dto.isActive ?? true,
+        variants: dto.variants?.length
+          ? {
+              create: dto.variants.map((v) => ({
+                size: v.size,
+                color: v.color,
+                price: v.price,
+                sku: v.sku,
+                inventory: { create: { quantity: 0 } },
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        brand: { select: { id: true, name: true } },
+        images: { orderBy: { order: 'asc' } },
+        variants: { include: { inventory: true }, orderBy: { createdAt: 'asc' } },
       },
     });
   }
