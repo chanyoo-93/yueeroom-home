@@ -53,6 +53,10 @@ export default function CheckoutContent() {
     return () => clearBuyNow();
   }, [clearBuyNow]);
 
+  useEffect(() => {
+    setPendingOrderId(null);
+  }, [resolvedAddressId]);
+
   // 주문 완료 화면 — 별도 페이지 이동 없이 즉시 결과 표시
   if (completedOrderId) {
     return (

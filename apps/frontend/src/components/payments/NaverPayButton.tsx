@@ -45,17 +45,17 @@ export default function NaverPayButton({ orderId, onBack }: NaverPayButtonProps)
       </button>
 
       {errorMessage && (
-        <div className="space-y-2">
-          <p role="alert" className="text-sm text-red-600">
-            {errorMessage}
-          </p>
-          <button
-            onClick={onBack}
-            className="w-full rounded-xl border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:border-gray-400"
-          >
-            다른 결제 방법으로 변경
-          </button>
-        </div>
+        <p role="alert" className="text-sm text-red-600">
+          {errorMessage}
+        </p>
+      )}
+      {!isProcessing && (
+        <button
+          onClick={onBack}
+          className="w-full rounded-xl border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:border-gray-400"
+        >
+          다른 결제 방법으로 변경
+        </button>
       )}
     </div>
   );
