@@ -26,6 +26,11 @@ vi.mock('./MiniCart', () => ({
   ),
 }));
 
+// UserMenu는 별도 테스트에서 검증하므로 여기서는 간단히 모킹
+vi.mock('./UserMenu', () => ({
+  default: () => <a href="/my-page">마이페이지</a>,
+}));
+
 import Header from './Header';
 
 describe('Header', () => {
