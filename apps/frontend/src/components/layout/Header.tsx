@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import MiniCart from './MiniCart';
+import UserMenu from './UserMenu';
 
 export default function Header() {
   return (
@@ -24,14 +25,7 @@ export default function Header() {
         {/* 우측 아이콘/링크 */}
         <nav aria-label="주요 메뉴" className="flex shrink-0 items-center gap-4">
           <MiniCart />
-          <Link
-            href="/my-page"
-            aria-label="마이페이지"
-            className="flex flex-col items-center text-xs text-gray-600 hover:text-blue-600"
-          >
-            <span className="text-lg">👤</span>
-            <span className="hidden sm:inline">마이페이지</span>
-          </Link>
+          <UserMenu />
         </nav>
       </div>
     </header>
