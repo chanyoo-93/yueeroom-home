@@ -719,8 +719,9 @@ export default function AdminProductsPage() {
               </button>
               {isPostCreate ? (
                 <button
-                  onClick={closeForm}
-                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                  onClick={handleSubmit}
+                  disabled={isMutating}
+                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   완료
                 </button>
