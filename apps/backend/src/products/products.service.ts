@@ -158,7 +158,13 @@ export class ProductsService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('상품 코드 충돌이 발생했습니다. 다시 시도해주세요.');
+        const target = e.meta?.target as string[];
+        if (target?.includes('productCode')) {
+          throw new ConflictException('상품 코드 충돌이 발생했습니다. 다시 시도해주세요.');
+        }
+        if (target?.includes('sku')) {
+          throw new ConflictException('이미 동일한 사이즈/색상 옵션이 포함되어 있습니다.');
+        }
       }
       throw e;
     }
