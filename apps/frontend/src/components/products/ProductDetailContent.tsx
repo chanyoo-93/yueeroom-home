@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 import { usePathname, useRouter } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
@@ -276,7 +276,25 @@ export default function ProductDetailContent() {
           {product.description && (
             <div
               className="prose prose-sm max-w-none text-gray-700"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(product.description, {
+                  allowedTags: [
+                    'p',
+                    'strong',
+                    'em',
+                    'u',
+                    'h2',
+                    'h3',
+                    'ul',
+                    'ol',
+                    'li',
+                    'a',
+                    'img',
+                    'br',
+                  ],
+                  allowedAttributes: { a: ['href', 'target'], img: ['src', 'alt'] },
+                }),
+              }}
             />
           )}
           {product.images.slice(1).map((img) => (
