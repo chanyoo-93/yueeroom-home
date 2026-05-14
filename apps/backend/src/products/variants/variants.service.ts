@@ -28,8 +28,8 @@ export class VariantsService {
         },
       });
     } catch (error: unknown) {
-      const prismaError = error as { code?: string };
-      if (prismaError.code === 'P2002') {
+      const prismaError = error as { code?: string; meta?: { target?: string[] } };
+      if (prismaError.code === 'P2002' && prismaError.meta?.target?.includes('sku')) {
         throw new ConflictException(`이미 사용 중인 SKU입니다: ${dto.sku}`);
       }
       if (prismaError.code === 'P2025') {
@@ -50,8 +50,8 @@ export class VariantsService {
     try {
       return await this.prisma.productVariant.update({ where: { id: variantId }, data: dto });
     } catch (error: unknown) {
-      const prismaError = error as { code?: string };
-      if (prismaError.code === 'P2002') {
+      const prismaError = error as { code?: string; meta?: { target?: string[] } };
+      if (prismaError.code === 'P2002' && prismaError.meta?.target?.includes('sku')) {
         throw new ConflictException(`이미 사용 중인 SKU입니다: ${dto.sku ?? ''}`);
       }
       throw error;

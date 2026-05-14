@@ -93,7 +93,10 @@ describe('VariantsService', () => {
     });
 
     it('중복 SKU로 생성 시 ConflictException을 던진다 (P2002)', async () => {
-      mockPrisma.productVariant.create.mockRejectedValue({ code: 'P2002' });
+      mockPrisma.productVariant.create.mockRejectedValue({
+        code: 'P2002',
+        meta: { target: ['sku'] },
+      });
 
       await expect(
         service.create('prod-1', { size: 'L', color: '블랙', sku: 'TSH-M-WHITE', price: 25000 }),
@@ -123,7 +126,10 @@ describe('VariantsService', () => {
 
     it('다른 변형이 사용 중인 SKU로 수정 시 ConflictException을 던진다 (P2002)', async () => {
       mockPrisma.productVariant.findUnique.mockResolvedValue(mockVariant);
-      mockPrisma.productVariant.update.mockRejectedValue({ code: 'P2002' });
+      mockPrisma.productVariant.update.mockRejectedValue({
+        code: 'P2002',
+        meta: { target: ['sku'] },
+      });
 
       await expect(service.update('prod-1', 'var-1', { sku: 'DUPLICATE' })).rejects.toThrow(
         ConflictException,

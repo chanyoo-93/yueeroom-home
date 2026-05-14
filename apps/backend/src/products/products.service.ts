@@ -155,7 +155,12 @@ export class ProductsService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new ConflictException('이미 사용 중인 SKU가 포함되어 있습니다. SKU를 변경해주세요.');
+        const target = e.meta?.target as string[];
+        if (target?.includes('sku')) {
+          throw new ConflictException(
+            '이미 사용 중인 SKU가 포함되어 있습니다. SKU를 변경해주세요.',
+          );
+        }
       }
       throw e;
     }
