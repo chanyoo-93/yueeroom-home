@@ -28,7 +28,14 @@ export default function ProductImageManager({ productId, images }: Props) {
       return;
     }
     Array.from(files).forEach((file) => {
-      uploadImage({ productId, file });
+      uploadImage(
+        { productId, file },
+        {
+          onError: () => {
+            setUploadError(`'${file.name}' 파일 업로드에 실패했습니다.`);
+          },
+        },
+      );
     });
   }
 

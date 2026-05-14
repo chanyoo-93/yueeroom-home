@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -16,6 +16,7 @@ interface Props {
 
 export default function RichTextEditor({ content, onChange, productId }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageError, setImageError] = useState('');
 
   const editor = useEditor({
     extensions: [
@@ -32,11 +33,12 @@ export default function RichTextEditor({ content, onChange, productId }: Props) 
 
   async function handleImageFile(file: File) {
     if (!productId) return;
+    setImageError('');
     try {
       const { url } = await adminUploadImage(productId, file);
       editor?.chain().focus().setImage({ src: url }).run();
     } catch {
-      // 업로드 실패 시 조용히 무시
+      setImageError('이미지 업로드에 실패했습니다. 다시 시도해주세요.');
     }
   }
 
@@ -120,6 +122,10 @@ export default function RichTextEditor({ content, onChange, productId }: Props) 
           </button>
         )}
       </div>
+
+      {imageError && (
+        <p className="border-b border-gray-200 px-3 py-1 text-xs text-red-500">{imageError}</p>
+      )}
 
       {/* 에디터 영역 */}
       <EditorContent
