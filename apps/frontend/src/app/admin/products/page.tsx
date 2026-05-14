@@ -178,6 +178,7 @@ export default function AdminProductsPage() {
   const [variantError, setVariantError] = useState('');
   const [editProductId, setEditProductId] = useState('');
   const [isPostCreate, setIsPostCreate] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const imagesSectionRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError } = useAdminProducts();
@@ -224,6 +225,7 @@ export default function AdminProductsPage() {
     setVariantRows([]);
     setVariantError('');
     setIsPostCreate(false);
+    setSubmitError('');
     setForm({ open: true, mode: 'create', product: null });
   }
 
@@ -241,14 +243,21 @@ export default function AdminProductsPage() {
     setColorOptions([]);
     setVariantRows([]);
     setVariantError('');
+    setSubmitError('');
     setEditProductId(product.id);
     setForm({ open: true, mode: 'edit', product });
   }
 
   function closeForm() {
     setIsPostCreate(false);
+    setSubmitError('');
     setEditProductId('');
     setForm({ open: false, mode: 'create', product: null });
+  }
+
+  function handleApiError(error: unknown) {
+    const axiosErr = error as { response?: { data?: { message?: string } } };
+    setSubmitError(axiosErr.response?.data?.message ?? '오류가 발생했습니다. 다시 시도해주세요.');
   }
 
   function handleChange(field: keyof FormValues, value: string | boolean) {
@@ -309,9 +318,11 @@ export default function AdminProductsPage() {
         { ...payload, variants: variantPayloads },
         {
           onSuccess: (newProduct) => {
+            setSubmitError('');
             setIsPostCreate(true);
             openEditForm(newProduct);
           },
+          onError: handleApiError,
         },
       );
     } else if (form.product) {
@@ -327,6 +338,7 @@ export default function AdminProductsPage() {
             }
             closeForm();
           },
+          onError: handleApiError,
         },
       );
     }
@@ -710,7 +722,13 @@ export default function AdminProductsPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
+            {submitError && (
+              <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+                {submitError}
+              </p>
+            )}
+
+            <div className="mt-4 flex gap-3">
               <button
                 onClick={closeForm}
                 className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
