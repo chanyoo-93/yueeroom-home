@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import sanitizeHtml from 'sanitize-html';
 import { usePathname, useRouter } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
@@ -156,11 +158,6 @@ export default function ProductDetailContent() {
             <p className="text-2xl font-bold text-indigo-600">{formatPrice(displayPrice)}</p>
           </div>
 
-          {/* 상품 설명 */}
-          {product.description && (
-            <p className="text-sm leading-relaxed text-gray-600">{product.description}</p>
-          )}
-
           {/* 변형 선택 */}
           {variants.length > 0 && (
             <div className="space-y-1">
@@ -271,6 +268,49 @@ export default function ProductDetailContent() {
           </div>
         </div>
       </div>
+
+      {/* 상품 상세 */}
+      {(product.description || product.images.length > 1) && (
+        <section className="mt-12 border-t border-gray-100 pt-8">
+          <h2 className="mb-6 text-lg font-semibold text-gray-800">상품 상세</h2>
+          {product.description && (
+            <div
+              className="prose prose-sm max-w-none text-gray-700"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(product.description, {
+                  allowedTags: [
+                    'p',
+                    'strong',
+                    'em',
+                    'u',
+                    'h2',
+                    'h3',
+                    'ul',
+                    'ol',
+                    'li',
+                    'a',
+                    'img',
+                    'br',
+                  ],
+                  allowedAttributes: { a: ['href', 'target'], img: ['src', 'alt'] },
+                }),
+              }}
+            />
+          )}
+          {product.images.slice(1).map((img) => (
+            <Image
+              key={img.id}
+              src={img.url}
+              alt={product.name}
+              width={0}
+              height={0}
+              sizes="100vw"
+              style={{ width: '100%', height: 'auto' }}
+              className="mt-4"
+            />
+          ))}
+        </section>
+      )}
 
       {/* 사이즈 가이드 모달 */}
       <SizeGuideModal isOpen={isSizeGuideOpen} onClose={() => setIsSizeGuideOpen(false)} />
