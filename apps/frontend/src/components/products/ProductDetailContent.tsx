@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import DOMPurify from 'isomorphic-dompurify';
 import { usePathname, useRouter } from 'next/navigation';
 import { useProductDetail } from '@/lib/hooks/useProductDetail';
 import { useAddCartItem } from '@/lib/hooks/useCart';
@@ -275,7 +276,7 @@ export default function ProductDetailContent() {
           {product.description && (
             <div
               className="prose prose-sm max-w-none text-gray-700"
-              dangerouslySetInnerHTML={{ __html: product.description }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }}
             />
           )}
           {product.images.slice(1).map((img) => (
@@ -286,7 +287,8 @@ export default function ProductDetailContent() {
               width={0}
               height={0}
               sizes="100vw"
-              className="mt-4 h-auto w-full"
+              style={{ width: '100%', height: 'auto' }}
+              className="mt-4"
             />
           ))}
         </section>
