@@ -256,8 +256,13 @@ export default function AdminProductsPage() {
   }
 
   function handleApiError(error: unknown) {
-    const axiosErr = error as { response?: { data?: { message?: string } } };
-    setSubmitError(axiosErr.response?.data?.message ?? '오류가 발생했습니다. 다시 시도해주세요.');
+    const axiosErr = error as { response?: { data?: { message?: string | string[] } } };
+    const message = axiosErr.response?.data?.message;
+    setSubmitError(
+      Array.isArray(message)
+        ? message.join(', ')
+        : (message ?? '오류가 발생했습니다. 다시 시도해주세요.'),
+    );
   }
 
   function handleChange(field: keyof FormValues, value: string | boolean) {
@@ -331,12 +336,16 @@ export default function AdminProductsPage() {
         { id: productId, payload },
         {
           onSuccess: async () => {
-            if (variantPayloads) {
-              await Promise.all(
-                variantPayloads.map((vp) => createVariant({ productId, payload: vp })),
-              );
+            try {
+              if (variantPayloads) {
+                await Promise.all(
+                  variantPayloads.map((vp) => createVariant({ productId, payload: vp })),
+                );
+              }
+              closeForm();
+            } catch (error) {
+              handleApiError(error);
             }
-            closeForm();
           },
           onError: handleApiError,
         },
