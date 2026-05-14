@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const mockProduct = { id: 'prod-1', name: '티셔츠' };
+const mockProduct = { id: 'prod-1', name: '티셔츠', productCode: 'PRD000001' };
 
 const mockVariant = {
   id: 'var-1',
@@ -72,34 +72,40 @@ describe('VariantsService', () => {
 
   describe('create', () => {
     it('변형을 생성하고 반환한다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
       mockPrisma.productVariant.create.mockResolvedValue(mockVariant);
 
       const result = await service.create('prod-1', {
         size: 'M',
         color: '화이트',
-        sku: 'TSH-M-WHITE',
         price: 25000,
       });
 
       expect(result).toEqual(mockVariant);
+      expect(mockPrisma.productVariant.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sku: 'PRD000001-M-화이트' }),
+        }),
+      );
     });
 
-    it('존재하지 않는 상품에 변형 생성 시 NotFoundException을 던진다 (P2025)', async () => {
-      mockPrisma.productVariant.create.mockRejectedValue({ code: 'P2025' });
+    it('존재하지 않는 상품에 변형 생성 시 NotFoundException을 던진다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.create('nonexistent', { size: 'M', color: '화이트', sku: 'SKU-1', price: 10000 }),
+        service.create('nonexistent', { size: 'M', color: '화이트', price: 10000 }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('중복 SKU로 생성 시 ConflictException을 던진다 (P2002)', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
       mockPrisma.productVariant.create.mockRejectedValue({
         code: 'P2002',
         meta: { target: ['sku'] },
       });
 
       await expect(
-        service.create('prod-1', { size: 'L', color: '블랙', sku: 'TSH-M-WHITE', price: 25000 }),
+        service.create('prod-1', { size: 'L', color: '블랙', price: 25000 }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -121,18 +127,6 @@ describe('VariantsService', () => {
 
       await expect(service.update('prod-1', 'nonexistent', { price: 10000 })).rejects.toThrow(
         NotFoundException,
-      );
-    });
-
-    it('다른 변형이 사용 중인 SKU로 수정 시 ConflictException을 던진다 (P2002)', async () => {
-      mockPrisma.productVariant.findUnique.mockResolvedValue(mockVariant);
-      mockPrisma.productVariant.update.mockRejectedValue({
-        code: 'P2002',
-        meta: { target: ['sku'] },
-      });
-
-      await expect(service.update('prod-1', 'var-1', { sku: 'DUPLICATE' })).rejects.toThrow(
-        ConflictException,
       );
     });
   });

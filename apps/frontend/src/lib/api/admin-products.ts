@@ -23,7 +23,6 @@ export interface UpdateProductPayload {
 export interface CreateVariantPayload {
   size: string;
   color: string;
-  sku: string;
   price: number;
 }
 

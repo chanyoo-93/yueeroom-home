@@ -17,12 +17,17 @@ export class VariantsService {
     });
   }
 
-  // [리뷰 반영] 단일 쿼리 + Inventory 동시 초기화, P2002/P2025 에러 핸들링으로 원자성 보장
   async create(productId: string, dto: CreateVariantDto): Promise<ProductVariant> {
+    const product = await this.findProductOrFail(productId);
+    const sku = this.buildSku(product.productCode, dto.size, dto.color);
+
     try {
       return await this.prisma.productVariant.create({
         data: {
-          ...dto,
+          size: dto.size,
+          color: dto.color,
+          price: dto.price,
+          sku,
           product: { connect: { id: productId } },
           inventory: { create: { quantity: 0 } },
         },
@@ -30,13 +35,16 @@ export class VariantsService {
     } catch (error: unknown) {
       const prismaError = error as { code?: string; meta?: { target?: string[] } };
       if (prismaError.code === 'P2002' && prismaError.meta?.target?.includes('sku')) {
-        throw new ConflictException(`이미 사용 중인 SKU입니다: ${dto.sku}`);
-      }
-      if (prismaError.code === 'P2025') {
-        throw new NotFoundException(`상품을 찾을 수 없습니다: ${productId}`);
+        throw new ConflictException(
+          `이미 동일한 사이즈/색상 옵션이 존재합니다: ${dto.size}/${dto.color}`,
+        );
       }
       throw error;
     }
+  }
+
+  private buildSku(productCode: string, size: string, color: string): string {
+    return `${productCode}-${size}-${color}`.toUpperCase().replace(/\s+/g, '_');
   }
 
   // [리뷰 반영] 사전 SKU 조회 제거, P2002 캐치로 대체 (쿼리 1개 절감)
@@ -52,7 +60,7 @@ export class VariantsService {
     } catch (error: unknown) {
       const prismaError = error as { code?: string; meta?: { target?: string[] } };
       if (prismaError.code === 'P2002' && prismaError.meta?.target?.includes('sku')) {
-        throw new ConflictException(`이미 사용 중인 SKU입니다: ${dto.sku ?? ''}`);
+        throw new ConflictException('이미 사용 중인 SKU입니다.');
       }
       throw error;
     }

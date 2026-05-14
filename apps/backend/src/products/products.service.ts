@@ -125,9 +125,12 @@ export class ProductsService {
       if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
+    const productCode = await this.generateProductCode();
+
     try {
       return await this.prisma.product.create({
         data: {
+          productCode,
           categoryId: dto.categoryId,
           brandId: dto.brandId ?? null,
           name: dto.name,
@@ -140,7 +143,7 @@ export class ProductsService {
                   size: v.size,
                   color: v.color,
                   price: v.price,
-                  sku: v.sku,
+                  sku: this.buildSku(productCode, v.size, v.color),
                   inventory: { create: { quantity: 0 } },
                 })),
               }
@@ -155,15 +158,23 @@ export class ProductsService {
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        const target = e.meta?.target as string[];
-        if (target?.includes('sku')) {
-          throw new ConflictException(
-            '이미 사용 중인 SKU가 포함되어 있습니다. SKU를 변경해주세요.',
-          );
-        }
+        throw new ConflictException('상품 코드 충돌이 발생했습니다. 다시 시도해주세요.');
       }
       throw e;
     }
+  }
+
+  private async generateProductCode(): Promise<string> {
+    const last = await this.prisma.product.findFirst({
+      orderBy: { productCode: 'desc' },
+      select: { productCode: true },
+    });
+    const next = last ? parseInt(last.productCode.slice(3), 10) + 1 : 1;
+    return `PRD${String(next).padStart(6, '0')}`;
+  }
+
+  private buildSku(productCode: string, size: string, color: string): string {
+    return `${productCode}-${size}-${color}`.toUpperCase().replace(/\s+/g, '_');
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {

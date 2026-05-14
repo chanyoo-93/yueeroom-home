@@ -7,9 +7,6 @@ export class CreateVariantDto {
   @IsString()
   color!: string;
 
-  @IsString()
-  sku!: string;
-
   @IsInt()
   @Min(0)
   price!: number;
