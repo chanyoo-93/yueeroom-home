@@ -199,7 +199,7 @@ describe('AdminProductsPage', () => {
       render(<AdminProductsPage />);
       fireEvent.click(screen.getByRole('button', { name: '상품 등록' }));
       const dialog = screen.getByRole('dialog');
-      fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
       await waitFor(() => {
         expect(screen.getByText('상품명을 입력해주세요.')).toBeInTheDocument();
       });
@@ -212,7 +212,7 @@ describe('AdminProductsPage', () => {
       fireEvent.change(within(dialog).getByLabelText('상품명'), {
         target: { value: '테스트 상품' },
       });
-      fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
       await waitFor(() => {
         expect(screen.getByText('카테고리를 선택해주세요.')).toBeInTheDocument();
       });
@@ -227,7 +227,7 @@ describe('AdminProductsPage', () => {
       });
       fireEvent.change(within(dialog).getByLabelText('카테고리'), { target: { value: 'c1' } });
       fireEvent.change(within(dialog).getByLabelText('기본 가격 (원)'), { target: { value: '' } });
-      fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
       await waitFor(() => {
         expect(screen.getByText('가격을 입력해주세요.')).toBeInTheDocument();
       });
@@ -244,7 +244,7 @@ describe('AdminProductsPage', () => {
       fireEvent.change(within(dialog).getByLabelText('기본 가격 (원)'), {
         target: { value: '-1000' },
       });
-      fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
       await waitFor(() => {
         expect(screen.getByText('가격은 0 이상이어야 합니다.')).toBeInTheDocument();
       });
@@ -259,7 +259,7 @@ describe('AdminProductsPage', () => {
       fireEvent.change(within(dialog).getByLabelText('기본 가격 (원)'), {
         target: { value: '20000' },
       });
-      fireEvent.click(within(dialog).getByRole('button', { name: '저장' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: '등록' }));
       await waitFor(() => {
         expect(mockMutate).toHaveBeenCalledWith(
           expect.objectContaining({ name: '새 상품', categoryId: 'c1', basePrice: 20000 }),

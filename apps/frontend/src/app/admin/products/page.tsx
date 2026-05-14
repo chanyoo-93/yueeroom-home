@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   useAdminProducts,
   useAdminProductDetail,
@@ -177,6 +177,8 @@ export default function AdminProductsPage() {
   const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [variantError, setVariantError] = useState('');
   const [editProductId, setEditProductId] = useState('');
+  const [isPostCreate, setIsPostCreate] = useState(false);
+  const imagesSectionRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isError } = useAdminProducts();
   const { data: editProductDetail, isLoading: isLoadingDetail } =
@@ -208,6 +210,12 @@ export default function AdminProductsPage() {
     });
   }, [sizeOptions, colorOptions, values.basePrice]);
 
+  useEffect(() => {
+    if (isPostCreate && imagesSectionRef.current) {
+      imagesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [isPostCreate]);
+
   function openCreateForm() {
     setValues(EMPTY_FORM);
     setErrors({});
@@ -215,6 +223,7 @@ export default function AdminProductsPage() {
     setColorOptions([]);
     setVariantRows([]);
     setVariantError('');
+    setIsPostCreate(false);
     setForm({ open: true, mode: 'create', product: null });
   }
 
@@ -237,6 +246,7 @@ export default function AdminProductsPage() {
   }
 
   function closeForm() {
+    setIsPostCreate(false);
     setEditProductId('');
     setForm({ open: false, mode: 'create', product: null });
   }
@@ -297,7 +307,12 @@ export default function AdminProductsPage() {
     if (form.mode === 'create') {
       createProduct(
         { ...payload, variants: variantPayloads },
-        { onSuccess: (newProduct) => openEditForm(newProduct) },
+        {
+          onSuccess: (newProduct) => {
+            setIsPostCreate(true);
+            openEditForm(newProduct);
+          },
+        },
       );
     } else if (form.product) {
       const productId = form.product.id;
@@ -410,14 +425,28 @@ export default function AdminProductsPage() {
             className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
           >
             <h2 className="mb-4 text-lg font-bold text-gray-900">
-              {isCreateMode ? '상품 등록' : '상품 수정'}
+              {isCreateMode
+                ? '상품 등록'
+                : isPostCreate
+                  ? '상품 등록 완료 — 이미지 추가'
+                  : '상품 수정'}
             </h2>
 
             <div className="space-y-4">
-              {/* 이미지 관리 — 수정 모드에서만 */}
+              {/* 이미지 관리 — 수정 모드에서만 (상품 등록 직후 post-create 포함) */}
               {!isCreateMode && form.product && (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                  <h3 className="mb-3 text-sm font-semibold text-gray-700">상품 이미지</h3>
+                <div
+                  ref={imagesSectionRef}
+                  className={`rounded-lg border p-4 ${
+                    isPostCreate ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <h3 className="mb-1 text-sm font-semibold text-gray-700">상품 이미지</h3>
+                  {isPostCreate && (
+                    <p className="mb-3 text-xs text-green-700">
+                      상품이 등록되었습니다. 이미지를 추가하고 완료 버튼을 눌러주세요.
+                    </p>
+                  )}
                   <ProductImageManager
                     productId={form.product.id}
                     images={editProductDetail?.images ?? []}
@@ -686,15 +715,24 @@ export default function AdminProductsPage() {
                 onClick={closeForm}
                 className="flex-1 rounded-lg border border-gray-300 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                취소
+                {isPostCreate ? '나중에 추가' : '취소'}
               </button>
-              <button
-                onClick={handleSubmit}
-                disabled={isMutating}
-                className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                저장
-              </button>
+              {isPostCreate ? (
+                <button
+                  onClick={closeForm}
+                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  완료
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={isMutating}
+                  className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isCreateMode ? '등록' : '저장'}
+                </button>
+              )}
             </div>
           </div>
         </div>
