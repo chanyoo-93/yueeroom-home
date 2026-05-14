@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -120,33 +125,40 @@ export class ProductsService {
       if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
-    return this.prisma.product.create({
-      data: {
-        categoryId: dto.categoryId,
-        brandId: dto.brandId ?? null,
-        name: dto.name,
-        description: dto.description,
-        basePrice: dto.basePrice,
-        isActive: dto.isActive ?? true,
-        variants: dto.variants?.length
-          ? {
-              create: dto.variants.map((v) => ({
-                size: v.size,
-                color: v.color,
-                price: v.price,
-                sku: v.sku,
-                inventory: { create: { quantity: 0 } },
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        category: { select: { id: true, name: true, slug: true } },
-        brand: { select: { id: true, name: true } },
-        images: { orderBy: { order: 'asc' } },
-        variants: { include: { inventory: true }, orderBy: { createdAt: 'asc' } },
-      },
-    });
+    try {
+      return await this.prisma.product.create({
+        data: {
+          categoryId: dto.categoryId,
+          brandId: dto.brandId ?? null,
+          name: dto.name,
+          description: dto.description,
+          basePrice: dto.basePrice,
+          isActive: dto.isActive ?? true,
+          variants: dto.variants?.length
+            ? {
+                create: dto.variants.map((v) => ({
+                  size: v.size,
+                  color: v.color,
+                  price: v.price,
+                  sku: v.sku,
+                  inventory: { create: { quantity: 0 } },
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          category: { select: { id: true, name: true, slug: true } },
+          brand: { select: { id: true, name: true } },
+          images: { orderBy: { order: 'asc' } },
+          variants: { include: { inventory: true }, orderBy: { createdAt: 'asc' } },
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('이미 사용 중인 SKU가 포함되어 있습니다. SKU를 변경해주세요.');
+      }
+      throw e;
+    }
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
