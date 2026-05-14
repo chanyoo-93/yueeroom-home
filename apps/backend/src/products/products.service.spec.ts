@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const mockProduct = {
   id: 'prod-1',
+  productCode: 'PRD000001',
   categoryId: 'cat-1',
   name: '아동 티셔츠',
   description: '편안한 면 소재',
@@ -29,6 +30,7 @@ const mockPrisma = {
   product: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
@@ -232,6 +234,7 @@ describe('ProductsService', () => {
   describe('create', () => {
     it('variants 없이 상품을 생성하고 반환한다', async () => {
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
       mockPrisma.product.create.mockResolvedValue(mockProduct);
 
       const result = await service.create({
@@ -241,7 +244,9 @@ describe('ProductsService', () => {
       });
 
       expect(mockPrisma.product.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ name: '아동 티셔츠' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ name: '아동 티셔츠', productCode: 'PRD000001' }),
+        }),
       );
       expect(result).toEqual(mockProduct);
     });
@@ -249,23 +254,29 @@ describe('ProductsService', () => {
     it('variants를 포함하면 중첩 create로 상품+variant를 원자적으로 생성한다', async () => {
       const mockProductWithVariants = {
         ...mockProduct,
-        variants: [{ id: 'var-1', size: '80', color: '블루', price: 25000, sku: '80-BLUE' }],
+        variants: [
+          { id: 'var-1', size: '80', color: '블루', price: 25000, sku: 'PRD000001-80-블루' },
+        ],
       };
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
       mockPrisma.product.create.mockResolvedValue(mockProductWithVariants);
 
       const result = await service.create({
         categoryId: 'cat-1',
         name: '아동 티셔츠',
         basePrice: 25000,
-        variants: [{ size: '80', color: '블루', price: 25000, sku: '80-BLUE' }],
+        variants: [{ size: '80', color: '블루', price: 25000 }],
       });
 
       expect(mockPrisma.product.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            productCode: 'PRD000001',
             variants: {
-              create: expect.arrayContaining([expect.objectContaining({ sku: '80-BLUE' })]),
+              create: expect.arrayContaining([
+                expect.objectContaining({ sku: 'PRD000001-80-블루' }),
+              ]),
             },
           }),
         }),
@@ -273,8 +284,23 @@ describe('ProductsService', () => {
       expect(result).toEqual(mockProductWithVariants);
     });
 
+    it('두 번째 상품 생성 시 productCode가 PRD000002로 증가한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue({ productCode: 'PRD000001' });
+      mockPrisma.product.create.mockResolvedValue({ ...mockProduct, productCode: 'PRD000002' });
+
+      await service.create({ categoryId: 'cat-1', name: '두 번째 상품', basePrice: 10000 });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ productCode: 'PRD000002' }),
+        }),
+      );
+    });
+
     it('빈 variants 배열은 variants 중첩 create 없이 상품만 생성한다', async () => {
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
       mockPrisma.product.create.mockResolvedValue(mockProduct);
 
       const result = await service.create({

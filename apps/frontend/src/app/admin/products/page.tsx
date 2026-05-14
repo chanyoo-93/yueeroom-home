@@ -39,7 +39,6 @@ interface VariantRow {
   size: string;
   color: string;
   price: string;
-  sku: string;
 }
 
 interface FormState {
@@ -87,7 +86,6 @@ function buildVariants(sizes: string[], colors: string[], basePrice: string): Va
       size,
       color,
       price,
-      sku: `${size}-${color}`.toUpperCase().replace(/\s+/g, '_'),
     })),
   );
 }
@@ -97,7 +95,6 @@ function mapRowsToPayloads(rows: VariantRow[], basePrice: string): CreateVariant
     size: row.size,
     color: row.color,
     price: row.price === '' || isNaN(Number(row.price)) ? Number(basePrice) : Number(row.price),
-    sku: row.sku.trim(),
   }));
 }
 
@@ -203,7 +200,7 @@ export default function AdminProductsPage() {
 
     setVariantRows((prev) => {
       const next = buildVariants(sizeOptions, colorOptions, values.basePrice);
-      // 기존 행의 가격/SKU 보존
+      // 기존 행의 가격 보존
       return next.map((row) => {
         const existing = prev.find((p) => p.size === row.size && p.color === row.color);
         return existing ?? row;
@@ -289,21 +286,6 @@ export default function AdminProductsPage() {
       return;
     }
 
-    // 신규 추가할 variant 유효성 검사
-    if (variantRows.length > 0) {
-      const hasEmptySku = variantRows.some((r) => !r.sku.trim());
-      const skus = variantRows.map((r) => r.sku.trim());
-      const hasDuplicateSku = new Set(skus).size !== skus.length;
-
-      if (hasEmptySku) {
-        setVariantError('모든 옵션의 SKU를 입력해주세요.');
-        return;
-      }
-      if (hasDuplicateSku) {
-        setVariantError('SKU가 중복되었습니다. 각 옵션의 SKU는 고유해야 합니다.');
-        return;
-      }
-    }
     setVariantError('');
 
     const variantPayloads =
@@ -665,8 +647,7 @@ export default function AdminProductsPage() {
                 {variantRows.length > 0 && (
                   <div>
                     <p className="mb-2 text-xs text-gray-500">
-                      옵션 조합 {variantRows.length}개 — 가격과 SKU를 확인·수정하세요. SKU는 전체
-                      상품에서 고유해야 합니다.
+                      옵션 조합 {variantRows.length}개 — 가격을 확인·수정하세요.
                     </p>
                     <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
                       <table className="w-full text-xs">
@@ -675,7 +656,6 @@ export default function AdminProductsPage() {
                             <th className="px-3 py-2 text-left">사이즈</th>
                             <th className="px-3 py-2 text-left">색상</th>
                             <th className="px-3 py-2 text-left">가격 (원)</th>
-                            <th className="px-3 py-2 text-left">SKU</th>
                             <th className="px-3 py-2" />
                           </tr>
                         </thead>
@@ -691,14 +671,6 @@ export default function AdminProductsPage() {
                                   value={row.price}
                                   onChange={(e) => updateVariantRow(i, 'price', e.target.value)}
                                   className="w-24 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
-                                />
-                              </td>
-                              <td className="px-3 py-1.5">
-                                <input
-                                  type="text"
-                                  value={row.sku}
-                                  onChange={(e) => updateVariantRow(i, 'sku', e.target.value)}
-                                  className="w-36 rounded border border-gray-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
                                 />
                               </td>
                               <td className="px-3 py-1.5">
