@@ -10,6 +10,8 @@ import {
   useCreateVariant,
   useDeleteVariant,
 } from '@/lib/hooks/useAdminProducts';
+import ProductImageManager from '@/components/admin/ProductImageManager';
+import RichTextEditor from '@/components/admin/RichTextEditor';
 import { useCategories } from '@/lib/hooks/useCategories';
 import { useBrands } from '@/lib/hooks/useAdminBrands';
 import { formatPrice } from '@/lib/utils/format';
@@ -293,7 +295,10 @@ export default function AdminProductsPage() {
     };
 
     if (form.mode === 'create') {
-      createProduct({ ...payload, variants: variantPayloads }, { onSuccess: () => closeForm() });
+      createProduct(
+        { ...payload, variants: variantPayloads },
+        { onSuccess: (newProduct) => openEditForm(newProduct) },
+      );
     } else if (form.product) {
       const productId = form.product.id;
       updateProduct(
@@ -409,6 +414,17 @@ export default function AdminProductsPage() {
             </h2>
 
             <div className="space-y-4">
+              {/* 이미지 관리 — 수정 모드에서만 */}
+              {!isCreateMode && form.product && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-gray-700">상품 이미지</h3>
+                  <ProductImageManager
+                    productId={form.product.id}
+                    images={editProductDetail?.images ?? []}
+                  />
+                </div>
+              )}
+
               {/* 상품명 */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -490,17 +506,14 @@ export default function AdminProductsPage() {
 
               {/* 설명 */}
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                  설명 (선택)
-                </label>
-                <textarea
-                  id="description"
-                  rows={3}
-                  value={values.description}
-                  onChange={(e) => handleChange('description', e.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                  placeholder="상품 설명을 입력하세요"
-                />
+                <label className="block text-sm font-medium text-gray-700">상세 설명 (선택)</label>
+                <div className="mt-1">
+                  <RichTextEditor
+                    content={values.description}
+                    onChange={(html) => handleChange('description', html)}
+                    productId={isCreateMode ? undefined : form.product?.id}
+                  />
+                </div>
               </div>
 
               {/* 판매 상태 */}
