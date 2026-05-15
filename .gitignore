@@ -141,6 +141,7 @@ apps/frontend/public/uploads/
 *.tfvars
 !*.tfvars.example
 *.tfplan
+tfplan
 .terraform.lock.hcl
 
 # ──────────────────────────────────────────────────────────
