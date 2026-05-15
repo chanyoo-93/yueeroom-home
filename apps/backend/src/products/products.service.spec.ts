@@ -52,6 +52,7 @@ const mockPrisma = {
     deleteMany: jest.fn(),
   },
   $queryRaw: jest.fn(),
+  $transaction: jest.fn().mockImplementation((fn) => fn(mockPrisma)),
 };
 
 const mockFilesService = {
