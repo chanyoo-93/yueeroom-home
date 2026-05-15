@@ -463,5 +463,14 @@ describe('ProductsService', () => {
       expect(result).toEqual({ data: [], total: 0 });
       expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
     });
+
+    it('isActive 파라미터를 전달하면 $queryRaw를 호출한다', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([mockProduct]);
+
+      const result = await service.search('티셔츠', false);
+
+      expect(result.data).toHaveLength(1);
+      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+    });
   });
 });
