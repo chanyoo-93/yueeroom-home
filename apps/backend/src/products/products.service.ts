@@ -18,6 +18,12 @@ export class ProductsService {
     private readonly filesService: FilesService,
   ) {}
 
+  private readonly listInclude = {
+    category: { select: { id: true, name: true, slug: true } },
+    brand: { select: { id: true, name: true } },
+    images: { orderBy: { order: 'asc' as const }, take: 1, select: { url: true } },
+  };
+
   async findAll(query: ProductQueryDto) {
     if (
       query.minPrice !== undefined &&
@@ -51,11 +57,7 @@ export class ProductsService {
         skip: 1,
         cursor: { id: query.cursor },
         where,
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          brand: { select: { id: true, name: true } },
-          images: { orderBy: { order: 'asc' }, take: 1 },
-        },
+        include: this.listInclude,
         orderBy,
       });
       const hasNext = rows.length > limit;
@@ -73,11 +75,7 @@ export class ProductsService {
         take: limit + 1,
         skip,
         where,
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          brand: { select: { id: true, name: true } },
-          images: { orderBy: { order: 'asc' }, take: 1 },
-        },
+        include: this.listInclude,
         orderBy,
       }),
       this.prisma.product.count({ where }),
