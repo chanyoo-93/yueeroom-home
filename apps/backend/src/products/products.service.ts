@@ -37,7 +37,7 @@ export class ProductsService {
     const orderBy = this.resolveOrderBy(query.sort);
 
     const where: Prisma.ProductWhereInput = {
-      isActive: query.isActive ?? true,
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
       ...(query.categoryId && { categoryId: query.categoryId }),
       ...(query.minPrice !== undefined || query.maxPrice !== undefined
         ? {

@@ -115,6 +115,19 @@ describe('ProductsService', () => {
       );
     });
 
+    it('isActive 미지정 시 isActive 필터 없이 전체 상품 조회한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockPrisma.product.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ isActive: expect.anything() }),
+        }),
+      );
+    });
+
     it('categoryId 필터를 쿼리에 반영한다', async () => {
       mockPrisma.product.findMany.mockResolvedValue([mockProduct]);
       mockPrisma.product.count.mockResolvedValue(1);
