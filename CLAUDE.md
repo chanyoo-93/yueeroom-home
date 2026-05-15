@@ -79,25 +79,54 @@ pnpm --filter @yueeroom/backend prisma:studio     # Prisma Studio
 ```
 apps/frontend/src/
 ├── app/
-│   ├── (auth)/layout.tsx      # 인증된 회원 공통 레이아웃 (Header + Footer + MobileNav)
+│   ├── (auth)/                # 인증된 회원 공통 레이아웃 (Header + Footer + MobileNav)
+│   │   ├── layout.tsx
+│   │   ├── page.tsx           # 홈
+│   │   ├── products/[id]/     # 상품 상세
+│   │   ├── cart/              # 장바구니
+│   │   ├── checkout/          # 결제 (kakao-pay/, naver-pay/ 하위 경로)
+│   │   ├── orders/            # 주문 내역
+│   │   └── my-page/           # 마이페이지
+│   ├── admin/                 # 관리자 전용 (AdminGuard로 보호)
+│   │   ├── layout.tsx
+│   │   ├── brands/
+│   │   ├── categories/
+│   │   ├── inventory/
+│   │   ├── orders/
+│   │   ├── products/
+│   │   └── users/
 │   ├── login/                 # 공개 경로
 │   ├── register/              # 공개 경로
 │   ├── pending/               # 공개 경로 (승인 대기 폴링 페이지)
-│   └── page.tsx               # 홈 (인증 필요)
-├── components/layout/         # Header, Footer, MobileNav
-├── lib/api/
-│   ├── client.ts              # Axios 인스턴스 (401 자동 재발급 + 큐 패턴)
-│   └── query-client.ts        # TanStack Query — React cache()로 SSR 격리
+│   ├── privacy/               # 공개 경로
+│   └── terms/                 # 공개 경로
+├── components/
+│   ├── layout/                # Header, Footer, MobileNav
+│   ├── admin/                 # 관리자 전용 컴포넌트
+│   └── products/              # 상품 관련 컴포넌트 (ProductCard, SidebarFilter 등)
+├── lib/
+│   ├── api/
+│   │   ├── client.ts          # Axios 인스턴스 (401 자동 재발급 + 큐 패턴)
+│   │   ├── query-client.ts    # TanStack Query — React cache()로 SSR 격리
+│   │   ├── query-keys.ts      # 모든 queryKey 중앙 관리
+│   │   └── *.ts               # 도메인별 API 함수 (products, cart, orders, payments…)
+│   ├── hooks/                 # 도메인별 커스텀 훅 (useProducts, useCart, useOrders…)
+│   ├── stores/
+│   │   └── cart.ts            # Zustand 장바구니 스토어 (persist 미들웨어)
+│   ├── types/                 # 프론트엔드 전용 타입 정의
+│   └── utils/                 # format.ts (가격·날짜), jwt.ts
 ├── middleware.ts               # Edge Runtime 라우트 보호
 └── test/setup.ts              # @testing-library/jest-dom
 ```
 
 **라우트 보호 흐름 (middleware.ts)**  
-공개 경로: `/login`, `/register`, `/pending` (정확한 경로 또는 `path/` 하위만 허용)  
+공개 경로: `/login`, `/register`, `/pending`, `/privacy`, `/terms`  
 보호된 경로: `access_token` 쿠키의 JWT payload를 `atob` + `TextDecoder`로 디코딩 (Edge Runtime에서 서명 검증 없이)
 
 - `status === 'PENDING'` → `/pending`
 - `status !== 'APPROVED'` → `/login`
+
+관리자 경로(`/admin`): `AdminGuard` 컴포넌트에서 클라이언트 사이드로 `role === 'ADMIN'` 검사.
 
 **JWT 쿠키 설계 (의도된 결정)**
 
@@ -110,28 +139,47 @@ apps/frontend/src/
 ```typescript
 // query-client.ts — SSR 요청마다 격리된 인스턴스 생성
 export const getQueryClient = cache(() => new QueryClient({ ... }));
+
+// query-keys.ts — 모든 쿼리 키를 한 곳에서 관리
+import { queryKeys } from '@/lib/api/query-keys';
+queryClient.invalidateQueries({ queryKey: queryKeys.cart.all });
 ```
+
+**Zustand 장바구니 스토어**  
+`lib/stores/cart.ts`는 `persist` 미들웨어로 localStorage에 저장된다. 서버 장바구니와 동기화할 때는 `syncFromServer(items)`를 호출한다. "바로 구매" 플로우는 `buyNow` 필드를 사용한다.
 
 ### Backend (NestJS)
 
 ```
 apps/backend/src/
-├── auth/          # 인증 (local, JWT, Naver, Kakao)
-├── users/
+├── auth/          # 인증 (local, JWT, Naver OAuth, Kakao OAuth)
+├── users/         # 회원 정보·주소·자녀 프로필
 ├── admin/         # 회원 승인·관리 (관리자 전용)
-├── categories/
-├── products/
-├── inventory/
-├── orders/        # (예정)
-├── common/guards/ # JwtAuthGuard, UserStatusGuard (전역 적용)
+├── categories/    # 카테고리 트리 (self-referencing)
+├── brands/        # 브랜드 CRUD
+├── products/      # 상품·이미지·옵션(variants) CRUD
+├── inventory/     # 재고 관리
+├── cart/          # 장바구니
+├── orders/        # 주문
+├── payments/      # 결제 (KakaoPay, NaverPay)
+├── wishlists/     # 위시리스트
+├── files/         # S3 이미지 업로드·삭제 (AWS SDK v3)
+├── email/         # 이메일 발송
+├── common/
+│   ├── guards/    # JwtAuthGuard, UserStatusGuard, RolesGuard, AdminGuard
+│   └── decorators/ # @Public(), @Roles(), @CurrentUser()
 ├── prisma/        # PrismaService
 └── redis/         # RedisService (refresh token 저장)
 ```
 
-- **전역 가드**: `JwtAuthGuard` → `UserStatusGuard` 순서로 적용. 컨트롤러/엔드포인트에서 `@Public()` 데코레이터로 인증 우회 가능.
+- **전역 가드**: `JwtAuthGuard` → `UserStatusGuard` 순서로 적용. `@Public()`으로 인증 우회 가능.
+- **역할 제한**: `@Roles('ADMIN')`과 `RolesGuard`를 함께 사용. 또는 `AdminGuard`(단독 적용 가능).
 - **API prefix**: 모든 엔드포인트는 `/api`로 시작한다. 예: `POST /api/auth/login`
 - **Swagger**: `http://localhost:4000/api/docs`
 - **ValidationPipe**: `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`
+- **파일 업로드**: `FilesService`가 AWS SDK v3(`@aws-sdk/client-s3`)로 S3에 업로드/삭제. `S3_BUCKET_NAME`, `AWS_REGION` 등 환경 변수 필요.
+- **소셜 로그인**: NaverStrategy(`passport-naver-v2`), KakaoStrategy. 소셜 회원도 `status: PENDING`으로 생성된다.
+- **관리자 MFA**: `User.mfaSecret`(TOTP)·`User.mfaEnabled` 필드로 관리한다.
 
 ### Shared Types (`packages/shared`)
 
@@ -140,37 +188,42 @@ apps/backend/src/
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type UserRole = 'CUSTOMER' | 'ADMIN';
 export interface User {
-  id: string;
-  email: string;
-  name: string;
-  status: UserStatus;
-  role: UserRole;
-  createdAt: string;
-  updatedAt: string;
+  id;
+  email;
+  name;
+  status;
+  role;
+  createdAt;
+  updatedAt;
 }
 
 // packages/shared/src/types/common.ts
 export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
+  success;
+  data;
+  message?;
 }
 export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  items;
+  total;
+  page;
+  limit;
+  totalPages;
 }
 ```
 
-프론트엔드에서 `UserStatus` 같은 공유 타입을 사용할 때는 `packages/shared`에서 import한다. 아직 해당 패키지를 import하지 않은 파일에서는 로컬 union type으로 정의해도 무방하지만, 추후 통일한다.
+프론트엔드에서 `UserStatus` 같은 공유 타입을 사용할 때는 `packages/shared`에서 import한다.
 
 ### Prisma Schema
 
 - 위치: `apps/backend/prisma/schema.prisma`
-- 핵심 enum: `UserStatus`, `UserRole`, `AuthProvider`, `OrderStatus`, `PaymentStatus`
+- **Enum**: `UserStatus`, `UserRole`, `AuthProvider`, `OrderStatus`, `PaymentStatus`, `RefundStatus`
 - `User.status` 기본값: `PENDING`
+- **주요 모델**: `User` → `Address`, `ChildProfile`, `Order`, `Cart`, `WishlistItem`  
+  `Product` → `ProductVariant` → `Inventory`, `CartItem`, `OrderItem`  
+  `Order` → `Payment` → `Refund` → `RefundItem`
+- `Product.basePrice`, `ProductVariant.price` 단위: KRW(원) 정수
+- `Payment.paymentKey`: 게이트웨이 토큰 (카드 정보 아님, PCI DSS 범위 밖)
 
 ---
 
