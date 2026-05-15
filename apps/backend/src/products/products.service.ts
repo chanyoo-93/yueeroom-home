@@ -235,10 +235,27 @@ export class ProductsService {
   async remove(id: string): Promise<void> {
     await this.findOneOrFail(id);
 
-    const images = await this.prisma.productImage.findMany({ where: { productId: id } });
-    await Promise.allSettled(images.map((img) => this.filesService.deleteFile(img.key)));
+    const [hasOrders, images] = await Promise.all([
+      this.prisma.orderItem.findFirst({
+        where: { variant: { productId: id } },
+        select: { id: true },
+      }),
+      this.prisma.productImage.findMany({ where: { productId: id } }),
+    ]);
 
-    await this.prisma.product.delete({ where: { id } });
+    if (hasOrders) {
+      throw new ConflictException(
+        '주문 내역이 있는 상품은 삭제할 수 없습니다. 비활성화만 가능합니다.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.cartItem.deleteMany({ where: { variant: { productId: id } } });
+      await tx.review.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
+    });
+
+    await Promise.allSettled(images.map((img) => this.filesService.deleteFile(img.key)));
   }
 
   private async findOneOrFail(id: string): Promise<Product> {
