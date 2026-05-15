@@ -54,6 +54,7 @@ export class ProductsService {
         include: {
           category: { select: { id: true, name: true, slug: true } },
           brand: { select: { id: true, name: true } },
+          images: { orderBy: { order: 'asc' }, take: 1 },
         },
         orderBy,
       });
@@ -75,6 +76,7 @@ export class ProductsService {
         include: {
           category: { select: { id: true, name: true, slug: true } },
           brand: { select: { id: true, name: true } },
+          images: { orderBy: { order: 'asc' }, take: 1 },
         },
         orderBy,
       }),
