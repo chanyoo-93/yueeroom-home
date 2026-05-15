@@ -37,7 +37,7 @@ export class ProductsService {
     const orderBy = this.resolveOrderBy(query.sort);
 
     const where: Prisma.ProductWhereInput = {
-      isActive: query.isActive ?? true,
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
       ...(query.categoryId && { categoryId: query.categoryId }),
       ...(query.minPrice !== undefined || query.maxPrice !== undefined
         ? {
@@ -199,8 +199,11 @@ export class ProductsService {
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
-  async search(q: string): Promise<{ data: Product[]; total: number }> {
+  async search(q: string, isActive?: boolean): Promise<{ data: Product[]; total: number }> {
     if (!q || q.trim().length === 0) return { data: [], total: 0 };
+
+    const activeFilter =
+      isActive !== undefined ? Prisma.sql`AND is_active = ${isActive}` : Prisma.empty;
 
     // rank을 SELECT에서 한 번만 계산하고 ORDER BY에서 재사용
     const data = await this.prisma.$queryRaw<Product[]>(
@@ -222,7 +225,7 @@ export class ProductsService {
           FROM   products
           WHERE  to_tsvector('simple', name || ' ' || COALESCE(description, '')) @@
                  plainto_tsquery('simple', ${q})
-                 AND is_active = true
+                 ${activeFilter}
         ) ranked
         ORDER BY rank DESC
         LIMIT  20

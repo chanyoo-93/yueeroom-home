@@ -31,7 +31,7 @@ export class ProductsController {
 
   @Get('search')
   search(@Query() dto: SearchProductDto) {
-    return this.productsService.search(dto.q);
+    return this.productsService.search(dto.q, dto.isActive);
   }
 
   @Get(':id')

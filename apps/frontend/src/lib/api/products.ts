@@ -14,14 +14,14 @@ export interface ProductListParams {
 
 export async function getProducts(params: ProductListParams = {}): Promise<ProductsListResponse> {
   const res = await apiClient.get<ProductsListResponse>('/products', {
-    params: { limit: 20, ...params },
+    params: { limit: 20, isActive: true, ...params },
   });
   return res.data;
 }
 
 export async function getNewArrivals(): Promise<ProductsListResponse> {
   const res = await apiClient.get<ProductsListResponse>('/products', {
-    params: { limit: 8, sort: 'latest' },
+    params: { limit: 8, sort: 'latest', isActive: true },
   });
   return res.data;
 }
