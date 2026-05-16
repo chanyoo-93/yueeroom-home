@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 현재 개발 환경 상태 (2026-05-16 기준)
+
+> **AWS 호스팅 일시 중단 중** — 내부 보수 테스트 기간. 모든 작업은 로컬에서 진행한다.
+
+| 서비스                  | 상태                                      |
+| ----------------------- | ----------------------------------------- |
+| ECS Fargate             | `desired-count 0` (중단)                  |
+| RDS PostgreSQL          | 중지 중 (7일 후 자동 재시작 주의)         |
+| ElastiCache Redis       | 삭제됨 — 재배포 시 `terraform apply` 필요 |
+| 로컬 PostgreSQL / Redis | `docker compose up -d` 실행 중            |
+
+**로컬 실행**: `docker compose up -d` → `pnpm dev`  
+**소셜 로그인 테스트**: 배포 후 진행 예정 (로컬 redirect URI 미등록)  
+**재배포 순서**: ElastiCache(terraform) → RDS start → ECS desired-count 2
+
+---
+
 ## Repository Overview
 
 유이룸(Yu-ee Room) — 완전 비공개 유아/아동복 쇼핑몰. 회원은 관리자 승인 후에만 서비스를 이용할 수 있다.
