@@ -4,6 +4,7 @@ import { OrderStatus, UserRole, UserStatus, AuthProvider } from '@prisma/client'
 import { AdminService } from './admin.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { USER_SAFE_SELECT } from '../users/users.service';
 
 const base = {
   phone: null,
@@ -34,6 +35,25 @@ const mockPendingUser = {
   status: UserStatus.PENDING,
 };
 const mockApprovedUser = { ...mockPendingUser, id: 'user-2', status: UserStatus.APPROVED };
+const mockSafePendingUser = {
+  id: mockPendingUser.id,
+  email: mockPendingUser.email,
+  name: mockPendingUser.name,
+  phone: mockPendingUser.phone,
+  status: mockPendingUser.status,
+  role: mockPendingUser.role,
+  provider: mockPendingUser.provider,
+  mfaEnabled: mockPendingUser.mfaEnabled,
+  consentAt: null,
+  deletedAt: null,
+  createdAt: mockPendingUser.createdAt,
+  updatedAt: mockPendingUser.updatedAt,
+};
+const mockSafeApprovedUser = {
+  ...mockSafePendingUser,
+  id: mockApprovedUser.id,
+  status: mockApprovedUser.status,
+};
 
 const mockPrisma = {
   user: {
@@ -86,18 +106,19 @@ describe('AdminService', () => {
 
   describe('listUsers', () => {
     it('status 없이 호출하면 전체 회원 목록을 반환한다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser, mockApprovedUser]);
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser, mockSafeApprovedUser]);
 
       const result = await service.listUsers();
       expect(result).toHaveLength(2);
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: {},
         orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
       });
     });
 
     it('status 필터로 PENDING 회원만 반환한다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser]);
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
 
       const result = await service.listUsers(UserStatus.PENDING);
       expect(result).toHaveLength(1);
@@ -105,7 +126,67 @@ describe('AdminService', () => {
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: { status: UserStatus.PENDING },
         orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
       });
+    });
+
+    it('응답에 민감 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listUsers();
+
+      expect(result[0]).not.toHaveProperty('password');
+      expect(result[0]).not.toHaveProperty('mfaSecret');
+      expect(result[0]).not.toHaveProperty('providerId');
+    });
+  });
+
+  // ── listPendingUsers ─────────────────────────────────────────────────────────
+
+  describe('listPendingUsers', () => {
+    it('PENDING 회원 목록을 반환한다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe(UserStatus.PENDING);
+    });
+
+    it('select: USER_SAFE_SELECT로 호출된다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      await service.listPendingUsers();
+
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+        where: { status: UserStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
+      });
+    });
+
+    it('응답에 password 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      expect(result[0]).not.toHaveProperty('password');
+    });
+
+    it('응답에 mfaSecret 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      expect(result[0]).not.toHaveProperty('mfaSecret');
+    });
+
+    it('응답에 providerId 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      expect(result[0]).not.toHaveProperty('providerId');
     });
   });
 
