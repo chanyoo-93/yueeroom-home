@@ -4,6 +4,7 @@ import { OrderStatus, UserRole, UserStatus, AuthProvider } from '@prisma/client'
 import { AdminService } from './admin.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { USER_SAFE_SELECT } from '../users/users.service';
 
 const base = {
   phone: null,
@@ -11,6 +12,8 @@ const base = {
   providerId: null,
   mfaSecret: null,
   mfaEnabled: false,
+  consentAt: null,
+  deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -34,6 +37,17 @@ const mockPendingUser = {
   status: UserStatus.PENDING,
 };
 const mockApprovedUser = { ...mockPendingUser, id: 'user-2', status: UserStatus.APPROVED };
+const SENSITIVE_USER_FIELDS = ['password', 'mfaSecret', 'providerId'] as const;
+type SafeUserFixture = Record<keyof typeof USER_SAFE_SELECT, unknown>;
+
+function pickSafeUser<T extends SafeUserFixture>(user: T) {
+  return Object.fromEntries(
+    Object.keys(USER_SAFE_SELECT).map((key) => [key, user[key as keyof typeof user]]),
+  );
+}
+
+const mockSafePendingUser = pickSafeUser(mockPendingUser);
+const mockSafeApprovedUser = pickSafeUser(mockApprovedUser);
 
 const mockPrisma = {
   user: {
@@ -86,18 +100,19 @@ describe('AdminService', () => {
 
   describe('listUsers', () => {
     it('status 없이 호출하면 전체 회원 목록을 반환한다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser, mockApprovedUser]);
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser, mockSafeApprovedUser]);
 
       const result = await service.listUsers();
       expect(result).toHaveLength(2);
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: {},
         orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
       });
     });
 
     it('status 필터로 PENDING 회원만 반환한다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockPendingUser]);
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
 
       const result = await service.listUsers(UserStatus.PENDING);
       expect(result).toHaveLength(1);
@@ -105,7 +120,53 @@ describe('AdminService', () => {
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
         where: { status: UserStatus.PENDING },
         orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
       });
+    });
+
+    it('응답에 민감 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listUsers();
+
+      for (const field of SENSITIVE_USER_FIELDS) {
+        expect(result[0]).not.toHaveProperty(field);
+      }
+    });
+  });
+
+  // ── listPendingUsers ─────────────────────────────────────────────────────────
+
+  describe('listPendingUsers', () => {
+    it('PENDING 회원 목록을 반환한다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe(UserStatus.PENDING);
+    });
+
+    it('select: USER_SAFE_SELECT로 호출된다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      await service.listPendingUsers();
+
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith({
+        where: { status: UserStatus.PENDING },
+        orderBy: { createdAt: 'asc' },
+        select: USER_SAFE_SELECT,
+      });
+    });
+
+    it('응답에 민감 필드가 없다', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
+
+      const result = await service.listPendingUsers();
+
+      for (const field of SENSITIVE_USER_FIELDS) {
+        expect(result[0]).not.toHaveProperty(field);
+      }
     });
   });
 

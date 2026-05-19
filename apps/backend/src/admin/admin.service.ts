@@ -214,17 +214,19 @@ export class AdminService {
     return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async listPendingUsers(): Promise<User[]> {
+  async listPendingUsers(): Promise<SafeUser[]> {
     return this.prisma.user.findMany({
       where: { status: UserStatus.PENDING },
       orderBy: { createdAt: 'asc' },
+      select: USER_SAFE_SELECT,
     });
   }
 
-  async listUsers(status?: UserStatus): Promise<User[]> {
+  async listUsers(status?: UserStatus): Promise<SafeUser[]> {
     return this.prisma.user.findMany({
       where: status ? { status } : {},
       orderBy: { createdAt: 'asc' },
+      select: USER_SAFE_SELECT,
     });
   }
 

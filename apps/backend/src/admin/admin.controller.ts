@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { User, Order, UserStatus } from '@prisma/client';
+import { Order, UserStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
@@ -31,13 +31,13 @@ export class AdminController {
   @Get('users')
   @ApiOperation({ summary: '회원 목록 조회 (상태 필터 가능)' })
   @ApiQuery({ name: 'status', enum: UserStatus, required: false })
-  listUsers(@Query('status') status?: UserStatus): Promise<User[]> {
+  listUsers(@Query('status') status?: UserStatus): Promise<SafeUser[]> {
     return this.adminService.listUsers(status);
   }
 
   @Get('users/pending')
   @ApiOperation({ summary: '승인 대기 회원 목록 조회' })
-  listPendingUsers(): Promise<User[]> {
+  listPendingUsers(): Promise<SafeUser[]> {
     return this.adminService.listPendingUsers();
   }
 
