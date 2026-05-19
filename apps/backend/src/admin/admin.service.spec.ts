@@ -12,6 +12,8 @@ const base = {
   providerId: null,
   mfaSecret: null,
   mfaEnabled: false,
+  consentAt: null,
+  deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -35,25 +37,17 @@ const mockPendingUser = {
   status: UserStatus.PENDING,
 };
 const mockApprovedUser = { ...mockPendingUser, id: 'user-2', status: UserStatus.APPROVED };
-const mockSafePendingUser = {
-  id: mockPendingUser.id,
-  email: mockPendingUser.email,
-  name: mockPendingUser.name,
-  phone: mockPendingUser.phone,
-  status: mockPendingUser.status,
-  role: mockPendingUser.role,
-  provider: mockPendingUser.provider,
-  mfaEnabled: mockPendingUser.mfaEnabled,
-  consentAt: null,
-  deletedAt: null,
-  createdAt: mockPendingUser.createdAt,
-  updatedAt: mockPendingUser.updatedAt,
-};
-const mockSafeApprovedUser = {
-  ...mockSafePendingUser,
-  id: mockApprovedUser.id,
-  status: mockApprovedUser.status,
-};
+const SENSITIVE_USER_FIELDS = ['password', 'mfaSecret', 'providerId'] as const;
+type SafeUserFixture = Record<keyof typeof USER_SAFE_SELECT, unknown>;
+
+function pickSafeUser<T extends SafeUserFixture>(user: T) {
+  return Object.fromEntries(
+    Object.keys(USER_SAFE_SELECT).map((key) => [key, user[key as keyof typeof user]]),
+  );
+}
+
+const mockSafePendingUser = pickSafeUser(mockPendingUser);
+const mockSafeApprovedUser = pickSafeUser(mockApprovedUser);
 
 const mockPrisma = {
   user: {
@@ -135,9 +129,9 @@ describe('AdminService', () => {
 
       const result = await service.listUsers();
 
-      expect(result[0]).not.toHaveProperty('password');
-      expect(result[0]).not.toHaveProperty('mfaSecret');
-      expect(result[0]).not.toHaveProperty('providerId');
+      for (const field of SENSITIVE_USER_FIELDS) {
+        expect(result[0]).not.toHaveProperty(field);
+      }
     });
   });
 
@@ -165,28 +159,14 @@ describe('AdminService', () => {
       });
     });
 
-    it('응답에 password 필드가 없다', async () => {
+    it('응답에 민감 필드가 없다', async () => {
       mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
 
       const result = await service.listPendingUsers();
 
-      expect(result[0]).not.toHaveProperty('password');
-    });
-
-    it('응답에 mfaSecret 필드가 없다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
-
-      const result = await service.listPendingUsers();
-
-      expect(result[0]).not.toHaveProperty('mfaSecret');
-    });
-
-    it('응답에 providerId 필드가 없다', async () => {
-      mockPrisma.user.findMany.mockResolvedValue([mockSafePendingUser]);
-
-      const result = await service.listPendingUsers();
-
-      expect(result[0]).not.toHaveProperty('providerId');
+      for (const field of SENSITIVE_USER_FIELDS) {
+        expect(result[0]).not.toHaveProperty(field);
+      }
     });
   });
 
