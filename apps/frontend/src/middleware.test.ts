@@ -29,6 +29,29 @@ describe('middleware', () => {
     );
   });
 
+  describe('/login 경로 - 인증 사용자', () => {
+    it('APPROVED access_token이 있으면 홈으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'user-1', status: 'APPROVED' });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBe('http://localhost:3000/');
+    });
+
+    it('PENDING access_token이 있으면 /pending으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'user-1', status: 'PENDING' });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBe('http://localhost:3000/pending');
+    });
+
+    it.each(['REJECTED', 'SUSPENDED'])('%s access_token이면 /login에 머문다', (status) => {
+      const token = makeJwt({ sub: 'user-1', status });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBeNull();
+    });
+  });
+
   describe('보호 경로 - access_token 없음', () => {
     it('쿠키가 없으면 /login으로 리다이렉트한다', () => {
       const req = createRequest('/');

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -24,18 +23,9 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>();
 
-  // 이미 로그인 상태이면 홈으로 리다이렉트
-  useEffect(() => {
-    if (document.cookie.split(';').some((item) => item.trim().startsWith('access_token='))) {
-      router.replace('/');
-    }
-  }, [router]);
-
   const onSubmit = async (data: LoginForm) => {
     try {
-      const res = await apiClient.post<{ accessToken: string }>('/auth/login', data);
-      const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-      document.cookie = `access_token=${res.data.accessToken}; path=/; SameSite=Strict${secure}`;
+      await apiClient.post('/auth/login', data);
 
       // 로컬 장바구니가 있으면 서버에 병합하고 초기화
       const localItems = useCartStore.getState().items;

@@ -44,10 +44,10 @@ describe('API Client', () => {
     );
   });
 
-  it('요청 인터셉터가 등록된다', async () => {
+  it('요청 인터셉터를 등록하지 않는다', async () => {
     await import('./client');
 
-    expect(mockRequestUse).toHaveBeenCalledWith(expect.any(Function), expect.any(Function));
+    expect(mockRequestUse).not.toHaveBeenCalled();
   });
 
   it('응답 인터셉터가 등록된다', async () => {
@@ -64,7 +64,7 @@ describe('API Client', () => {
   });
 });
 
-describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
+describe('401 인터셉터 — refresh 후 원 요청 재시도', () => {
   let errorHandler: (error: unknown) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -80,13 +80,11 @@ describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
   });
 
-  it('refresh 성공 시 새 accessToken을 access_token 쿠키에 저장한다', async () => {
-    const newToken = 'new.jwt.token';
+  it('refresh 성공 시 쿠키를 직접 저장하지 않고 원 요청을 재시도한다', async () => {
     // refresh 성공 → retry 성공
-    mockPost.mockResolvedValueOnce({ data: { accessToken: newToken } });
+    mockPost.mockResolvedValueOnce({ data: { status: 'APPROVED' } });
     mockApiClientInstance.mockResolvedValueOnce({ data: [] });
 
     const mockError = {
@@ -98,10 +96,10 @@ describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
     await errorHandler(mockError);
 
     expect(mockPost).toHaveBeenCalledWith('/auth/refresh');
-    expect(document.cookie).toContain(`access_token=${newToken}`);
+    expect(mockApiClientInstance).toHaveBeenCalledWith(mockError.config);
   });
 
-  it('refresh 실패 시 access_token 쿠키를 만료 처리한다', async () => {
+  it('refresh 실패 시 /login으로 이동한다', async () => {
     mockPost.mockRejectedValueOnce(new Error('refresh failed'));
 
     const replaceFn = vi.fn();
@@ -109,8 +107,6 @@ describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
       value: { replace: replaceFn },
       writable: true,
     });
-
-    document.cookie = 'access_token=old.token; path=/';
 
     const mockError = {
       response: { status: 401 },
@@ -124,7 +120,6 @@ describe('401 인터셉터 — refresh 후 access_token 쿠키 저장', () => {
       // 예상된 reject
     }
 
-    expect(document.cookie).not.toContain('access_token=old.token');
     expect(replaceFn).toHaveBeenCalledWith('/login');
   });
 });
