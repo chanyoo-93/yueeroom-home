@@ -3,10 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockPush = vi.fn();
-const mockReplace = vi.fn();
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush, replace: mockReplace }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 vi.mock('@/lib/api/client', () => ({
@@ -30,19 +29,9 @@ import LoginPage from './page';
 import { apiClient } from '@/lib/api/client';
 import { mergeCart } from '@/lib/api/cart';
 
-function clearCookies() {
-  document.cookie.split(';').forEach((cookie) => {
-    const name = cookie.split('=')[0]?.trim();
-    if (name) {
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-    }
-  });
-}
-
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    clearCookies();
     // 기본값: 로컬 장바구니 비어 있음
     mockGetState.mockReturnValue({ items: [], clearCart: mockClearCart });
   });
@@ -83,7 +72,7 @@ describe('LoginPage', () => {
 
   it('유효한 입력 제출 시 로그인 API를 호출한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     render(<LoginPage />);
 
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
@@ -100,7 +89,7 @@ describe('LoginPage', () => {
 
   it('로그인 성공 시 홈으로 리다이렉트한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     render(<LoginPage />);
 
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
@@ -129,18 +118,9 @@ describe('LoginPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('이미 로그인된 상태에서 /login 접근 시 홈으로 리다이렉트한다', async () => {
-    document.cookie = 'access_token=existing-token; path=/';
-    render(<LoginPage />);
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/');
-    });
-  });
-
   it('로그인 성공 시 로컬 장바구니가 있으면 mergeCart를 호출한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     vi.mocked(mergeCart).mockResolvedValueOnce({ id: 'cart-1', userId: 'user-1', items: [] });
     mockGetState.mockReturnValue({
       items: [
@@ -172,7 +152,7 @@ describe('LoginPage', () => {
 
   it('로그인 성공 시 mergeCart 완료 후 로컬 장바구니를 초기화한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     vi.mocked(mergeCart).mockResolvedValueOnce({ id: 'cart-1', userId: 'user-1', items: [] });
     mockGetState.mockReturnValue({
       items: [
@@ -204,7 +184,7 @@ describe('LoginPage', () => {
 
   it('로그인 성공 시 로컬 장바구니가 비어 있으면 mergeCart를 호출하지 않는다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     // mockGetState는 beforeEach에서 items: [] 로 설정됨
     render(<LoginPage />);
 
@@ -220,7 +200,7 @@ describe('LoginPage', () => {
 
   it('mergeCart 실패 시에도 홈으로 리다이렉트한다', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { accessToken: 'tok' } });
+    vi.mocked(apiClient.post).mockResolvedValueOnce({ data: {} });
     vi.mocked(mergeCart).mockRejectedValueOnce(new Error('network error'));
     mockGetState.mockReturnValue({
       items: [

@@ -127,7 +127,7 @@ export class AuthService {
 
   // ── Refresh ─────────────────────────────────────────────────────────────────
 
-  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+  async refresh(refreshToken: string): Promise<{ accessToken: string; status: UserStatus }> {
     let payload: JwtPayload;
     try {
       payload = this.jwtService.verify<JwtPayload>(refreshToken, {
@@ -155,7 +155,7 @@ export class AuthService {
       status: user.status,
     });
 
-    return { accessToken };
+    return { accessToken, status: user.status };
   }
 
   // ── Logout ──────────────────────────────────────────────────────────────────

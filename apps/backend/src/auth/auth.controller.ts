@@ -13,8 +13,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { User } from '@prisma/client';
-import type { Request, Response } from 'express';
+import { UserStatus, type User } from '@prisma/client';
+import type { CookieOptions, Request, Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -26,6 +26,16 @@ import { RegisterDto } from './dto/register.dto';
 
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15분
 const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일
+
+function makeCookieOptions(maxAge?: number): CookieOptions {
+  return {
+    httpOnly: true,
+    secure: process.env['NODE_ENV'] === 'production',
+    sameSite: 'strict',
+    path: '/',
+    ...(maxAge === undefined ? {} : { maxAge }),
+  };
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -40,15 +50,11 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ message: string; accessToken: string }> {
+  ): Promise<{ message: string }> {
     const { message, accessToken, refreshToken } = await this.authService.register(dto);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env['NODE_ENV'] === 'production',
-      sameSite: 'strict',
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    });
-    return { message, accessToken };
+    res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
+    res.cookie('refresh_token', refreshToken, makeCookieOptions(REFRESH_TOKEN_MAX_AGE));
+    return { message };
   }
 
   @Public()
@@ -61,25 +67,26 @@ export class AuthController {
     @Req() req: Request & { user: User },
     @Res({ passthrough: true }) res: Response,
     @Body() _dto: LoginDto,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<Record<string, never>> {
     const { accessToken, refreshToken } = await this.authService.login(req.user);
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env['NODE_ENV'] === 'production',
-      sameSite: 'strict',
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    });
+    res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
+    res.cookie('refresh_token', refreshToken, makeCookieOptions(REFRESH_TOKEN_MAX_AGE));
     this.logger.log(`로그인 성공: userId=${req.user.id}`);
-    return { accessToken };
+    return {};
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Access Token 재발급' })
-  refresh(@Req() req: Request): Promise<{ accessToken: string }> {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ status: UserStatus }> {
     const token = (req.cookies as Record<string, string>)['refresh_token'] ?? '';
-    return this.authService.refresh(token);
+    const { accessToken, status } = await this.authService.refresh(token);
+    res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
+    return { status };
   }
 
   @Post('logout')
@@ -89,7 +96,9 @@ export class AuthController {
     @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    res.clearCookie('refresh_token');
+    const clearOptions = makeCookieOptions();
+    res.clearCookie('access_token', clearOptions);
+    res.clearCookie('refresh_token', clearOptions);
     return this.authService.logout(user.sub);
   }
 
@@ -145,22 +154,10 @@ export class AuthController {
 
   private async setSocialLoginCookiesAndRedirect(user: User, res: Response): Promise<void> {
     const { accessToken, refreshToken } = await this.authService.login(user);
-    const secure = process.env['NODE_ENV'] === 'production';
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
 
-    // access_token: non-httpOnly (Edge Runtime 미들웨어에서 JWT payload 직접 읽기 위해)
-    res.cookie('access_token', accessToken, {
-      httpOnly: false,
-      secure,
-      sameSite: 'strict',
-      maxAge: ACCESS_TOKEN_MAX_AGE,
-    });
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    });
+    res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
+    res.cookie('refresh_token', refreshToken, makeCookieOptions(REFRESH_TOKEN_MAX_AGE));
 
     this.logger.log(`소셜 로그인 성공: userId=${user.id}`);
     res.redirect(frontendUrl);

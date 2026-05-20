@@ -211,6 +211,7 @@ describe('AuthService', () => {
 
       const result = await service.refresh('valid.refresh.token');
       expect(result.accessToken).toBeDefined();
+      expect(result.status).toBe(UserStatus.APPROVED);
     });
 
     it('PENDING → APPROVED 승인 후 refresh 시 APPROVED status가 담긴 토큰을 반환한다', async () => {
@@ -226,6 +227,7 @@ describe('AuthService', () => {
 
       const result = await service.refresh('valid.refresh.token');
       expect(result.accessToken).toBeDefined();
+      expect(result.status).toBe(UserStatus.APPROVED);
       // sign 호출 시 DB에서 읽은 APPROVED status가 사용됐는지 확인
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ status: UserStatus.APPROVED }),

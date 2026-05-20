@@ -28,7 +28,6 @@ export default function UserMenu() {
     try {
       await apiClient.post('/auth/logout');
     } finally {
-      document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
       queryClient.clear();
       router.push('/login');
     }

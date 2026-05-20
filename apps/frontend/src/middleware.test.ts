@@ -18,6 +18,9 @@ function createRequest(pathname: string, cookies: Record<string, string> = {}): 
 }
 
 describe('middleware', () => {
+  const futureExp = Math.floor(Date.now() / 1000) + 3600;
+  const pastExp = Math.floor(Date.now() / 1000) - 3600;
+
   describe('공개 경로', () => {
     it.each(['/login', '/register', '/pending', '/privacy', '/terms'])(
       '%s 경로는 인증 없이 접근 가능하다',
@@ -27,6 +30,36 @@ describe('middleware', () => {
         expect(res.headers.get('location')).toBeNull();
       },
     );
+  });
+
+  describe('/login 경로 - 인증 사용자', () => {
+    it('APPROVED access_token이 있으면 홈으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'user-1', status: 'APPROVED', exp: futureExp });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBe('http://localhost:3000/');
+    });
+
+    it('PENDING access_token이 있으면 /pending으로 리다이렉트한다', () => {
+      const token = makeJwt({ sub: 'user-1', status: 'PENDING', exp: futureExp });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBe('http://localhost:3000/pending');
+    });
+
+    it('만료된 access_token이면 /login에 머문다', () => {
+      const token = makeJwt({ sub: 'user-1', status: 'APPROVED', exp: pastExp });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBeNull();
+    });
+
+    it.each(['REJECTED', 'SUSPENDED'])('%s access_token이면 /login에 머문다', (status) => {
+      const token = makeJwt({ sub: 'user-1', status, exp: futureExp });
+      const req = createRequest('/login', { access_token: token });
+      const res = middleware(req);
+      expect(res.headers.get('location')).toBeNull();
+    });
   });
 
   describe('보호 경로 - access_token 없음', () => {

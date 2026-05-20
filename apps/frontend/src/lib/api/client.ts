@@ -10,20 +10,6 @@ export const apiClient = axios.create({
   withCredentials: true, // JWT 쿠키 전송
 });
 
-// ── 요청 인터셉터: Access Token 헤더 자동 추가 ────────────────────────────────
-apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== 'undefined') {
-      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      if (match) {
-        config.headers['Authorization'] = 'Bearer ' + (match[1] ?? '');
-      }
-    }
-    return config;
-  },
-  (error: unknown) => Promise.reject(error),
-);
-
 // ── 응답 인터셉터: 401 시 토큰 재발급 후 재시도 ──────────────────────────────
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -66,17 +52,12 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshRes = await apiClient.post<{ accessToken: string }>('/auth/refresh');
-        if (typeof window !== 'undefined') {
-          const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-          document.cookie = `access_token=${refreshRes.data.accessToken}; path=/; SameSite=Strict${secure}`;
-        }
+        await apiClient.post<{ status: string }>('/auth/refresh');
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
         if (typeof window !== 'undefined') {
-          document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
           window.location.replace('/login');
         }
         return Promise.reject(refreshError);
