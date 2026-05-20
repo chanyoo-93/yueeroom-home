@@ -341,6 +341,87 @@ describe('ProductsService', () => {
       expect(result).toEqual(mockProduct);
     });
 
+    it('description 저장 시 script 태그를 제거한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.product.create.mockResolvedValue(mockProduct);
+
+      await service.create({
+        categoryId: 'cat-1',
+        name: '아동 티셔츠',
+        description: '<p>상세 설명</p><script>alert("xss")</script>',
+        basePrice: 25000,
+      });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ description: '<p>상세 설명</p>' }),
+        }),
+      );
+    });
+
+    it('description 저장 시 허용 태그는 유지한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.product.create.mockResolvedValue(mockProduct);
+
+      await service.create({
+        categoryId: 'cat-1',
+        name: '아동 티셔츠',
+        description: '<p>편안한 <strong>면</strong> 소재</p>',
+        basePrice: 25000,
+      });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: '<p>편안한 <strong>면</strong> 소재</p>',
+          }),
+        }),
+      );
+    });
+
+    it('description 저장 시 이벤트 핸들러 속성을 제거한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.product.create.mockResolvedValue(mockProduct);
+
+      await service.create({
+        categoryId: 'cat-1',
+        name: '아동 티셔츠',
+        description:
+          '<p onclick="alert(1)">설명</p><img src="https://example.com/a.jpg" onerror="alert(1)" />',
+        basePrice: 25000,
+      });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            description: '<p>설명</p><img src="https://example.com/a.jpg" />',
+          }),
+        }),
+      );
+    });
+
+    it('description 저장 시 img javascript scheme을 차단한다', async () => {
+      mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.product.create.mockResolvedValue(mockProduct);
+
+      await service.create({
+        categoryId: 'cat-1',
+        name: '아동 티셔츠',
+        description: '<img src="javascript:alert(1)" alt="상품 이미지" />',
+        basePrice: 25000,
+      });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ description: '<img alt="상품 이미지" />' }),
+        }),
+      );
+    });
+
     it('존재하지 않는 categoryId로 생성 시 NotFoundException을 던진다', async () => {
       mockPrisma.category.findUnique.mockResolvedValue(null);
 
@@ -360,6 +441,35 @@ describe('ProductsService', () => {
       const result = await service.update('prod-1', { name: '수정된 티셔츠' });
 
       expect(result.name).toBe('수정된 티셔츠');
+    });
+
+    it('description 수정 시 sanitize된 값으로 저장한다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrisma.product.update.mockResolvedValue({
+        ...mockProduct,
+        description: '<p>수정 설명</p>',
+      });
+
+      await service.update('prod-1', {
+        description: '<p>수정 설명</p><script>alert("xss")</script>',
+      });
+
+      expect(mockPrisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { description: '<p>수정 설명</p>' },
+      });
+    });
+
+    it('description 없이 수정할 때 description을 data에 추가하지 않는다', async () => {
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
+      mockPrisma.product.update.mockResolvedValue({ ...mockProduct, name: '수정된 티셔츠' });
+
+      await service.update('prod-1', { name: '수정된 티셔츠' });
+
+      expect(mockPrisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'prod-1' },
+        data: { name: '수정된 티셔츠' },
+      });
     });
 
     it('존재하지 않는 상품 수정 시 NotFoundException을 던진다', async () => {

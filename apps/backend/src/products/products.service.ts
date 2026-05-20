@@ -7,6 +7,7 @@ import {
 import { Prisma, Product } from '@prisma/client';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { sanitizeProductDescription } from '../common/utils/html-sanitize';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto, SortOrder } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -134,7 +135,7 @@ export class ProductsService {
           categoryId: dto.categoryId,
           brandId: dto.brandId ?? null,
           name: dto.name,
-          description: dto.description,
+          description: sanitizeProductDescription(dto.description),
           basePrice: dto.basePrice,
           isActive: dto.isActive ?? true,
           variants: dto.variants?.length
@@ -196,7 +197,14 @@ export class ProductsService {
       if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
     }
 
-    return this.prisma.product.update({ where: { id }, data: dto });
+    const data: UpdateProductDto = {
+      ...dto,
+      ...(dto.description !== undefined && {
+        description: sanitizeProductDescription(dto.description),
+      }),
+    };
+
+    return this.prisma.product.update({ where: { id }, data });
   }
 
   async search(q: string, isActive?: boolean): Promise<{ data: Product[]; total: number }> {
