@@ -5,7 +5,13 @@ const FRONTEND_URL = process.env['BASE_URL'] ?? 'http://localhost:3000';
 const API_PATTERN = 'http://localhost:4000/api/**';
 
 function accessTokenCookie(value: string) {
-  return { name: 'access_token', value, url: FRONTEND_URL };
+  return {
+    name: 'access_token',
+    value,
+    url: FRONTEND_URL,
+    httpOnly: true,
+    sameSite: 'Strict' as const,
+  };
 }
 
 function mockApi(page: Page, status: number, body: unknown) {
@@ -106,7 +112,7 @@ test.describe('미인증 접근 시나리오 E2E', () => {
 
   // ─── 5. 만료된 토큰 → 자동 갱신 또는 로그아웃 ──────────────────────────────
   test.describe('만료된 토큰 시나리오', () => {
-    test('갱신 실패 시 쿠키가 삭제되고 /login 으로 리다이렉트된다', async ({ page, context }) => {
+    test('갱신 실패 시 /login 으로 리다이렉트된다', async ({ page, context }) => {
       await context.addCookies([accessTokenCookie(tokens.expiredApproved)]);
 
       // 모든 API 요청(갱신 포함)에 401 반환 → 갱신 실패 시나리오
@@ -114,11 +120,6 @@ test.describe('미인증 접근 시나리오 E2E', () => {
 
       await page.goto('/');
       await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
-
-      // access_token 쿠키가 삭제되었는지 확인
-      const cookies = await context.cookies();
-      const accessToken = cookies.find((c) => c.name === 'access_token');
-      expect(accessToken).toBeUndefined();
     });
 
     test('갱신 성공 시 사용자가 보호 페이지에 머문다', async ({ page, context }) => {

@@ -3,6 +3,10 @@ import { decodeJwtPayload } from '@/lib/utils/jwt';
 
 const PUBLIC_PATHS = ['/login', '/register', '/pending', '/privacy', '/terms'];
 
+function isExpired(payload: Record<string, unknown>): boolean {
+  return typeof payload.exp === 'number' && payload.exp <= Math.floor(Date.now() / 1000);
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -16,10 +20,12 @@ export function middleware(request: NextRequest) {
     if (!accessToken) return NextResponse.next();
 
     const payload = decodeJwtPayload(accessToken);
-    if (payload?.status === 'APPROVED') {
+    if (!payload || isExpired(payload)) return NextResponse.next();
+
+    if (payload.status === 'APPROVED') {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    if (payload?.status === 'PENDING') {
+    if (payload.status === 'PENDING') {
       return NextResponse.redirect(new URL('/pending', request.url));
     }
     return NextResponse.next();
