@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -78,17 +79,80 @@ export class PaymentsService {
     };
   }
 
-  async getUserPayments(userId: string, page: number, limit: number) {
+  async getUserPayments(
+    userId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaymentListResponseDto> {
     const skip = (page - 1) * limit;
     const [payments, total] = await Promise.all([
       this.prisma.payment.findMany({
         where: { order: { userId } },
-        include: {
+        select: {
+          id: true,
+          orderId: true,
+          status: true,
+          amount: true,
+          paymentMethod: true,
+          paidAt: true,
+          createdAt: true,
+          updatedAt: true,
           order: {
-            include: {
+            select: {
+              id: true,
+              userId: true,
+              addressId: true,
+              status: true,
+              totalAmount: true,
+              shippingFee: true,
+              carrier: true,
+              trackingNumber: true,
+              createdAt: true,
+              updatedAt: true,
               items: {
-                include: {
-                  variant: { include: { product: { include: { images: true } } } },
+                select: {
+                  id: true,
+                  orderId: true,
+                  variantId: true,
+                  quantity: true,
+                  unitPrice: true,
+                  createdAt: true,
+                  variant: {
+                    select: {
+                      id: true,
+                      productId: true,
+                      size: true,
+                      color: true,
+                      sku: true,
+                      price: true,
+                      createdAt: true,
+                      updatedAt: true,
+                      product: {
+                        select: {
+                          id: true,
+                          productCode: true,
+                          categoryId: true,
+                          brandId: true,
+                          name: true,
+                          description: true,
+                          basePrice: true,
+                          isActive: true,
+                          createdAt: true,
+                          updatedAt: true,
+                          images: {
+                            select: {
+                              id: true,
+                              productId: true,
+                              url: true,
+                              key: true,
+                              order: true,
+                              createdAt: true,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -103,7 +167,11 @@ export class PaymentsService {
     return { items: payments, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async requestRefund(userId: string, paymentId: string, reason: string) {
+  async requestRefund(
+    userId: string,
+    paymentId: string,
+    reason: string,
+  ): Promise<RefundResponseDto> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { order: true },

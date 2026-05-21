@@ -9,13 +9,18 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreateAddressDto, UpdateAddressDto } from './dto/address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateChildProfileDto, UpdateChildProfileDto } from './dto/child-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import {
+  AddressResponseDto,
+  ChildProfileResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -27,12 +32,14 @@ export class UsersController {
 
   @Get('me')
   @ApiOperation({ summary: '내 프로필 조회' })
+  @ApiOkResponse({ type: UserResponseDto })
   getMe(@CurrentUser() user: JwtPayload) {
     return this.usersService.getProfile(user.sub);
   }
 
   @Patch('me')
   @ApiOperation({ summary: '프로필 수정 (이름, 전화번호)' })
+  @ApiOkResponse({ type: UserResponseDto })
   updateProfile(@CurrentUser() user: JwtPayload, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.sub, dto);
   }
@@ -55,18 +62,21 @@ export class UsersController {
 
   @Get('me/children')
   @ApiOperation({ summary: '자녀 정보 목록 조회' })
+  @ApiOkResponse({ type: [ChildProfileResponseDto] })
   getChildren(@CurrentUser() user: JwtPayload) {
     return this.usersService.getChildren(user.sub);
   }
 
   @Post('me/children')
   @ApiOperation({ summary: '자녀 정보 추가' })
+  @ApiCreatedResponse({ type: ChildProfileResponseDto })
   addChild(@CurrentUser() user: JwtPayload, @Body() dto: CreateChildProfileDto) {
     return this.usersService.addChild(user.sub, dto);
   }
 
   @Patch('me/children/:childId')
   @ApiOperation({ summary: '자녀 정보 수정' })
+  @ApiOkResponse({ type: ChildProfileResponseDto })
   updateChild(
     @CurrentUser() user: JwtPayload,
     @Param('childId') childId: string,
@@ -86,18 +96,21 @@ export class UsersController {
 
   @Get('me/addresses')
   @ApiOperation({ summary: '배송지 목록 조회' })
+  @ApiOkResponse({ type: [AddressResponseDto] })
   getAddresses(@CurrentUser() user: JwtPayload) {
     return this.usersService.getAddresses(user.sub);
   }
 
   @Post('me/addresses')
   @ApiOperation({ summary: '배송지 추가' })
+  @ApiCreatedResponse({ type: AddressResponseDto })
   addAddress(@CurrentUser() user: JwtPayload, @Body() dto: CreateAddressDto) {
     return this.usersService.addAddress(user.sub, dto);
   }
 
   @Patch('me/addresses/:addressId')
   @ApiOperation({ summary: '배송지 수정' })
+  @ApiOkResponse({ type: AddressResponseDto })
   updateAddress(
     @CurrentUser() user: JwtPayload,
     @Param('addressId') addressId: string,

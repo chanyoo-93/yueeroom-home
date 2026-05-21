@@ -9,7 +9,7 @@ import {
   RawBodyRequest,
   Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -21,6 +21,7 @@ import { KakaoPayApproveDto } from './dto/kakao-pay-approve.dto';
 import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
 import { NaverPayPrepareDto } from './dto/naver-pay-prepare.dto';
+import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
 import { KakaoPayService } from './kakao-pay.service';
 import { NaverPayService } from './naver-pay.service';
 import { PaymentsService } from './payments.service';
@@ -36,12 +37,14 @@ export class PaymentsController {
 
   @Get('me')
   @ApiOperation({ summary: '내 결제 내역 조회' })
+  @ApiOkResponse({ type: PaymentListResponseDto })
   getMyPayments(@CurrentUser() user: JwtPayload, @Query() query: GetPaymentsQueryDto) {
     return this.paymentsService.getUserPayments(user.sub, query.page, query.limit);
   }
 
   @Post(':paymentId/refund')
   @ApiOperation({ summary: '환불 신청' })
+  @ApiCreatedResponse({ type: RefundResponseDto })
   requestRefund(
     @CurrentUser() user: JwtPayload,
     @Param('paymentId') paymentId: string,

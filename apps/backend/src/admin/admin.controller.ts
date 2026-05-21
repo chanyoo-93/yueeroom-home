@@ -1,11 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { Order, UserStatus } from '@prisma/client';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { UserStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService, OrderStatsResponse, SalesStatsResponse } from './admin.service';
 import { SafeUser } from '../users/users.service';
+import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
 import { GetAdminOrdersQueryDto } from './dto/get-admin-orders-query.dto';
@@ -55,21 +56,23 @@ export class AdminController {
 
   @Patch('orders/:id/status')
   @ApiOperation({ summary: '주문 상태 및 배송 정보 업데이트' })
+  @ApiOkResponse({ type: AdminOrderResponseDto })
   updateOrderStatus(
     @CurrentUser() admin: JwtPayload,
     @Param('id') orderId: string,
     @Body() dto: UpdateOrderStatusDto,
-  ): Promise<Order> {
+  ): Promise<AdminOrderResponseDto> {
     return this.adminService.updateOrderStatus(admin.sub, orderId, dto);
   }
 
   @Patch('orders/:id/tracking')
   @ApiOperation({ summary: '송장번호 입력/수정' })
+  @ApiOkResponse({ type: AdminOrderResponseDto })
   updateOrderTracking(
     @CurrentUser() admin: JwtPayload,
     @Param('id') orderId: string,
     @Body() dto: UpdateOrderTrackingDto,
-  ): Promise<Order> {
+  ): Promise<AdminOrderResponseDto> {
     return this.adminService.updateOrderTracking(admin.sub, orderId, dto);
   }
 

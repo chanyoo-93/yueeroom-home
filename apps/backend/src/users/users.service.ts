@@ -12,6 +12,11 @@ import { CreateAddressDto, UpdateAddressDto } from './dto/address.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateChildProfileDto, UpdateChildProfileDto } from './dto/child-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import {
+  AddressResponseDto,
+  ChildProfileResponseDto,
+  UserResponseDto,
+} from './dto/user-response.dto';
 
 // 클라이언트에 노출해도 안전한 사용자 타입 (password, mfaSecret, providerId 제외)
 export type SafeUser = Omit<User, 'password' | 'mfaSecret' | 'providerId'>;
@@ -45,7 +50,7 @@ export class UsersService {
   }
 
   /** API 응답용 — 민감 필드(password, mfaSecret, providerId) 제외 */
-  async getProfile(userId: string): Promise<SafeUser> {
+  async getProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: USER_SAFE_SELECT,
@@ -60,7 +65,7 @@ export class UsersService {
 
   // ── 프로필 수정 ────────────────────────────────────────────────────────────
 
-  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<SafeUser> {
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<UserResponseDto> {
     await this.findById(userId);
     return this.prisma.user.update({
       where: { id: userId },
@@ -93,14 +98,14 @@ export class UsersService {
 
   // ── 자녀 정보 ──────────────────────────────────────────────────────────────
 
-  async getChildren(userId: string): Promise<ChildProfile[]> {
+  async getChildren(userId: string): Promise<ChildProfileResponseDto[]> {
     return this.prisma.childProfile.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async addChild(userId: string, dto: CreateChildProfileDto): Promise<ChildProfile> {
+  async addChild(userId: string, dto: CreateChildProfileDto): Promise<ChildProfileResponseDto> {
     return this.prisma.childProfile.create({
       data: { ...dto, birthDate: new Date(dto.birthDate), userId },
     });
@@ -110,7 +115,7 @@ export class UsersService {
     userId: string,
     childId: string,
     dto: UpdateChildProfileDto,
-  ): Promise<ChildProfile> {
+  ): Promise<ChildProfileResponseDto> {
     await this.findChildOrFail(userId, childId);
     return this.prisma.childProfile.update({
       where: { id: childId },
@@ -133,14 +138,14 @@ export class UsersService {
 
   // ── 배송지 ─────────────────────────────────────────────────────────────────
 
-  async getAddresses(userId: string): Promise<Address[]> {
+  async getAddresses(userId: string): Promise<AddressResponseDto[]> {
     return this.prisma.address.findMany({
       where: { userId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
   }
 
-  async addAddress(userId: string, dto: CreateAddressDto): Promise<Address> {
+  async addAddress(userId: string, dto: CreateAddressDto): Promise<AddressResponseDto> {
     return this.prisma.$transaction(async (tx) => {
       // 첫 배송지는 자동으로 기본 배송지
       const count = await tx.address.count({ where: { userId } });
@@ -157,7 +162,11 @@ export class UsersService {
     });
   }
 
-  async updateAddress(userId: string, addressId: string, dto: UpdateAddressDto): Promise<Address> {
+  async updateAddress(
+    userId: string,
+    addressId: string,
+    dto: UpdateAddressDto,
+  ): Promise<AddressResponseDto> {
     await this.findAddressOrFail(userId, addressId);
 
     return this.prisma.$transaction(async (tx) => {
