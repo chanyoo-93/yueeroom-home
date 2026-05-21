@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { GetOrdersQueryDto } from './dto/get-orders-query.dto';
+import { OrderListResponseDto, OrderResponseDto } from './dto/order-response.dto';
 import { PartialRefundDto } from './dto/partial-refund.dto';
 import { RefundDto } from './dto/refund.dto';
 import { OrdersService } from './orders.service';
@@ -15,18 +16,21 @@ export class OrdersController {
 
   @Post()
   @ApiOperation({ summary: '주문 생성' })
+  @ApiCreatedResponse({ type: OrderResponseDto })
   createOrder(@CurrentUser() user: JwtPayload, @Body() dto: CreateOrderDto) {
     return this.ordersService.createOrder(user.sub, dto);
   }
 
   @Get()
   @ApiOperation({ summary: '내 주문 목록 조회 (페이지네이션)' })
+  @ApiOkResponse({ type: OrderListResponseDto })
   getOrders(@CurrentUser() user: JwtPayload, @Query() query: GetOrdersQueryDto) {
     return this.ordersService.getOrders(user.sub, query.page, query.limit);
   }
 
   @Get(':id')
   @ApiOperation({ summary: '주문 상세 조회' })
+  @ApiOkResponse({ type: OrderResponseDto })
   getOrder(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.ordersService.getOrder(user.sub, id);
   }

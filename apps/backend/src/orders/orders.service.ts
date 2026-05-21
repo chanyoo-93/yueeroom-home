@@ -4,12 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { KakaoPayService } from '../payments/kakao-pay.service';
 import { NaverPayService } from '../payments/naver-pay.service';
 import { PaymentsService } from '../payments/payments.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderListResponseDto, OrderResponseDto } from './dto/order-response.dto';
 import { PartialRefundDto } from './dto/partial-refund.dto';
 
 @Injectable()
@@ -21,10 +21,7 @@ export class OrdersService {
     private readonly kakaoPayService: KakaoPayService,
   ) {}
 
-  async createOrder(
-    userId: string,
-    dto: CreateOrderDto,
-  ): Promise<Prisma.OrderGetPayload<{ include: { items: true; address: true } }>> {
+  async createOrder(userId: string, dto: CreateOrderDto): Promise<OrderResponseDto> {
     // 배송지 소유권 확인
     const address = await this.prisma.address.findUnique({
       where: { id: dto.addressId },
@@ -93,7 +90,7 @@ export class OrdersService {
     });
   }
 
-  async getOrder(userId: string, orderId: string) {
+  async getOrder(userId: string, orderId: string): Promise<OrderResponseDto> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -109,7 +106,6 @@ export class OrdersService {
           },
         },
         address: true,
-        payment: true,
       },
     });
 
@@ -121,10 +117,14 @@ export class OrdersService {
       throw new ForbiddenException('접근 권한이 없습니다.');
     }
 
-    return order;
+    return this.toOrderResponse(order);
   }
 
-  async getOrders(userId: string, page: number = 1, limit: number = 10) {
+  async getOrders(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<OrderListResponseDto> {
     const skip = (page - 1) * limit;
     const include = {
       items: {
@@ -164,7 +164,7 @@ export class OrdersService {
     };
   }
 
-  async refundOrder(userId: string, orderId: string, reason: string) {
+  async refundOrder(userId: string, orderId: string, reason: string): Promise<OrderResponseDto> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { payment: true, items: true },
@@ -209,10 +209,11 @@ export class OrdersService {
         data: { status: 'REFUNDED' },
       });
 
-      return tx.order.update({
+      const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: { status: 'REFUNDED' },
       });
+      return this.toOrderResponse(updatedOrder);
     });
   }
 
@@ -313,5 +314,11 @@ export class OrdersService {
       default:
         throw new BadRequestException(`지원하지 않는 결제 수단입니다: ${payment.paymentMethod}`);
     }
+  }
+
+  private toOrderResponse(order: OrderResponseDto & { payment?: unknown }): OrderResponseDto {
+    const { payment, ...response } = order;
+    void payment;
+    return response;
   }
 }

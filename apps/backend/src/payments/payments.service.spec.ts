@@ -37,6 +37,8 @@ const mockPrisma = {
     upsert: jest.fn(),
     update: jest.fn(),
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -79,6 +81,85 @@ describe('PaymentsService', () => {
 
     service = module.get<PaymentsService>(PaymentsService);
     jest.clearAllMocks();
+  });
+
+  // ── getUserPayments ─────────────────────────────────────────────────────────
+
+  describe('getUserPayments', () => {
+    it('paymentKey 필드를 응답에서 제외한다', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([
+        {
+          id: 'payment-1',
+          orderId: 'order-1',
+          status: 'COMPLETED',
+          amount: 50000,
+          paymentMethod: 'stripe',
+          paidAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          order: {
+            id: 'order-1',
+            userId: 'user-1',
+            addressId: 'address-1',
+            status: 'DELIVERED',
+            totalAmount: 50000,
+            shippingFee: 0,
+            carrier: null,
+            trackingNumber: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            items: [],
+          },
+        },
+      ]);
+      mockPrisma.payment.count.mockResolvedValue(1);
+
+      const result = await service.getUserPayments('user-1', 1, 10);
+
+      expect(result.items[0]).not.toHaveProperty('paymentKey');
+      expect(result.total).toBe(1);
+      expect(result.totalPages).toBe(1);
+    });
+
+    it('findMany 쿼리가 include 없이 select를 사용한다', async () => {
+      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockPrisma.payment.count.mockResolvedValue(0);
+
+      await service.getUserPayments('user-1', 1, 10);
+
+      const arg = mockPrisma.payment.findMany.mock.calls[0][0];
+      expect(arg.include).toBeUndefined();
+      expect(arg.select).toBeDefined();
+      expect(arg.select.paymentKey).toBeUndefined();
+      const variantSelect = arg.select.order.select.items.select.variant.select;
+      expect(variantSelect).toEqual(
+        expect.objectContaining({
+          id: true,
+          productId: true,
+          size: true,
+          color: true,
+          sku: true,
+          price: true,
+          createdAt: true,
+          updatedAt: true,
+        }),
+      );
+      expect(variantSelect.product.select).toEqual(
+        expect.objectContaining({
+          id: true,
+          productCode: true,
+          categoryId: true,
+          brandId: true,
+          name: true,
+          description: true,
+          basePrice: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          images: expect.any(Object),
+        }),
+      );
+    });
   });
 
   // ── createPaymentIntent ───────────────────────────────────────────────────────

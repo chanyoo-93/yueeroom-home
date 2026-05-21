@@ -260,15 +260,18 @@ describe('OrdersService', () => {
   // ── getOrder ──────────────────────────────────────────────────────────────────
 
   describe('getOrder', () => {
-    it('주문 상세를 반환한다', async () => {
-      mockPrisma.order.findUnique.mockResolvedValue(mockOrder);
+    it('주문 상세를 paymentKey 없이 반환한다', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({ ...mockOrder, payment: mockPayment });
 
       const result = await service.getOrder('user-1', 'order-1');
 
       expect(result).toEqual(mockOrder);
+      expect(result).not.toHaveProperty('payment');
       expect(mockPrisma.order.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'order-1' } }),
       );
+      const arg = mockPrisma.order.findUnique.mock.calls[0][0];
+      expect(arg.include.payment).toBeUndefined();
     });
 
     it('존재하지 않는 주문 → NotFoundException', async () => {
@@ -353,12 +356,13 @@ describe('OrdersService', () => {
       mockPrisma.inventory.update.mockResolvedValue({});
       mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
-      const updatedOrder = { ...mockPaidOrder, status: 'REFUNDED' };
+      const updatedOrder = { ...mockOrder, status: 'REFUNDED', payment: mockPayment };
       mockPrisma.order.update.mockResolvedValue(updatedOrder);
 
       const result = await service.refundOrder('user-1', 'order-1', '고객 요청');
 
-      expect(result).toEqual(updatedOrder);
+      expect(result).toEqual({ ...mockOrder, status: 'REFUNDED' });
+      expect(result).not.toHaveProperty('payment');
 
       // REQUESTED 상태로 먼저 Refund 레코드 생성 (트랜잭션 외부)
       expect(mockPrisma.refund.create).toHaveBeenCalledWith({

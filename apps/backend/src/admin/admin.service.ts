@@ -5,10 +5,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, OrderStatus, Prisma, User, UserRole, UserStatus } from '@prisma/client';
+import { OrderStatus, Prisma, User, UserRole, UserStatus } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SafeUser, USER_SAFE_SELECT } from '../users/users.service';
+import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
 
@@ -136,7 +137,7 @@ export class AdminService {
     adminId: string,
     orderId: string,
     dto: UpdateOrderStatusDto,
-  ): Promise<Order> {
+  ): Promise<AdminOrderResponseDto> {
     await this.assertAdmin(adminId);
 
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
@@ -175,7 +176,7 @@ export class AdminService {
     adminId: string,
     orderId: string,
     dto: UpdateOrderTrackingDto,
-  ): Promise<Order> {
+  ): Promise<AdminOrderResponseDto> {
     await this.assertAdmin(adminId);
 
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
