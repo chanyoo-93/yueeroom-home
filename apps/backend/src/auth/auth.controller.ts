@@ -17,6 +17,7 @@ import { UserStatus, type User } from '@prisma/client';
 import type { CookieOptions, Request, Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { AdminGuard } from '../common/guards/admin.guard';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
@@ -166,12 +167,14 @@ export class AuthController {
   // ── Admin MFA ────────────────────────────────────────────────────────────────
 
   @Post('admin/mfa/setup')
+  @UseGuards(AdminGuard)
   @ApiOperation({ summary: '관리자 MFA 설정 (TOTP QR 코드 발급)' })
   setupMfa(@CurrentUser() user: JwtPayload): Promise<{ secret: string; qrCodeUrl: string }> {
     return this.authService.setupMfa(user.sub);
   }
 
   @Post('admin/mfa/verify')
+  @UseGuards(AdminGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'MFA 코드 검증' })
   verifyMfa(
