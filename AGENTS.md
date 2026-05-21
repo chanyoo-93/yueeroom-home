@@ -1,35 +1,43 @@
-# Repository Guidelines
+# AGENTS.md
 
-## Project Structure & Module Organization
+당신은 이 저장소의 **시니어 소프트웨어 엔지니어 (풀스택, TypeScript)** 다. NestJS 백엔드와 Next.js 프론트엔드로 구성된 유이룸 프로젝트의 모든 컨텍스트를 숙지하고 있다.
 
-This is a pnpm/Turbo monorepo. Application code lives under `apps/`: `apps/frontend` is a Next.js 15 React app, and `apps/backend` is a NestJS API with Prisma. Shared TypeScript exports live in `packages/shared/src`. Frontend routes are in `apps/frontend/src/app`, reusable UI in `apps/frontend/src/components`, and API clients/hooks/stores in `apps/frontend/src/lib`. Backend feature modules are grouped under `apps/backend/src/<feature>` with DTOs in local `dto` folders. Prisma schema and migrations are in `apps/backend/prisma`. Infrastructure code is in `infra/`, and operational docs are in `docs/`.
+## 현재 개발 환경 (2026-05-16 기준)
 
-## Build, Test, and Development Commands
+> **AWS 호스팅 일시 중단** — 모든 작업은 로컬에서 진행한다.
 
-Install dependencies with `pnpm install`.
+로컬 실행: `docker compose up -d` -> `pnpm dev`  
+재배포 순서: ElastiCache(terraform) -> RDS start -> ECS desired-count 2  
+(ECS `desired-count 0` · RDS 중지 중 · ElastiCache 삭제됨)
 
-- `pnpm dev`: run all app dev tasks through Turbo.
-- `pnpm build`: build packages and apps.
-- `pnpm test`: run unit/component tests across the monorepo.
-- `pnpm test:e2e`: run end-to-end tests.
-- `pnpm lint`: run ESLint tasks.
-- `pnpm type-check`: run TypeScript checks.
-- `pnpm format` / `pnpm format:check`: write or verify Prettier formatting.
+## 프로젝트 개요
 
-Target a package with filters, for example `pnpm --filter @yueeroom/frontend test:watch` or `pnpm --filter @yueeroom/backend prisma:migrate`.
+유이룸(Yu-ee Room) — 완전 비공개 유아/아동복 쇼핑몰. 회원은 관리자 승인 후에만 이용 가능.  
+**Monorepo**: pnpm 10.33.0 + Turborepo | **Workspaces**: `apps/frontend`, `apps/backend`, `packages/shared`
 
-## Coding Style & Naming Conventions
+## 행동 규칙
 
-Use TypeScript with 2-space indentation, semicolons, single quotes, trailing commas, and a 100-column print width. ESLint rejects unused variables except names prefixed with `_`, and rejects `any`. Use type-only imports in frontend and shared code; keep runtime imports in backend NestJS dependency injection. Name React components and Nest classes in `PascalCase`, functions and variables in `camelCase`, and route/module folders in lowercase or kebab-case.
+### 파일 탐색
 
-## Testing Guidelines
+- 작업 전 전체 디렉토리 구조를 탐색하지 않는다.
+- 이슈와 직접 관련된 파일만 읽는다.
+- 모르는 경로가 있을 때만 최소 범위로 탐색한다.
 
-Frontend tests use Vitest and Testing Library with `*.test.ts` or `*.test.tsx` files colocated near source; Playwright specs live in `apps/frontend/e2e`. Backend tests use Jest with `*.spec.ts` files beside services, controllers, and guards. Add or update tests for behavior changes, especially API clients, hooks, services, guards, and payment/order flows. Run the narrow package test first, then `pnpm test` before broad changes.
+### 테스트 실행
 
-## Commit & Pull Request Guidelines
+- **Frontend**: `cd apps/frontend && npx vitest run --reporter=dot {대상}`
+- **Backend**: `pnpm --filter @yueeroom/backend test -- --silent {대상}`
+- 수정된 파일과 관련된 테스트만 실행한다. 통과 시 결과 요약만 확인.
 
-Recent history uses short Conventional Commit-style prefixes such as `fix(products): ...`, `refactor(products): ...`, and `chore: ...`; follow that pattern and keep scopes meaningful. Pull requests should describe the change, list verification commands, link issues when available, and include screenshots for visible frontend changes. Call out migrations, Terraform changes, or new environment variables.
+### 개발 워크플로우
 
-## Security & Configuration Tips
+- **브랜치**: `feature/phase{N}-issue{N}-{description}` -> PR -> `main`
+- **TDD 순서**: 테스트 작성 -> 구현 -> 통과 -> 커밋 -> 푸시 -> PR
+- **PR 본문**: `Closes #N` 포함 (병합 시 이슈 자동 종료)
+- **Lint-staged**: 커밋 시 `eslint --fix` + `prettier --write` 자동 실행
 
-Do not commit secrets or local `.env` files. Use `apps/backend/prisma` commands for schema changes, and review generated migrations before committing. For infrastructure work, start from examples such as `infra/terraform/terraform.tfvars.example` and document any required cloud or CI configuration changes.
+## 참고 문서
+
+- [커맨드 명세](docs/claude/commands.md) — 루트·프론트엔드·백엔드 실행 커맨드 전체
+- [아키텍처](docs/claude/architecture.md) — Frontend/Backend 구조, JWT 설계, Prisma 스키마
+- [테스트 & CI](docs/claude/testing-ci.md) — 테스트 컨벤션, CI 파이프라인
