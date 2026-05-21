@@ -41,3 +41,4 @@
 - [커맨드 명세](docs/claude/commands.md) — 루트·프론트엔드·백엔드 실행 커맨드 전체
 - [아키텍처](docs/claude/architecture.md) — Frontend/Backend 구조, JWT 설계, Prisma 스키마
 - [테스트 & CI](docs/claude/testing-ci.md) — 테스트 컨벤션, CI 파이프라인
+- [토큰 절약 규칙](docs/claude/token-efficiency.md) — 출력 형식, 파일 읽기, 탐색 및 실행 규칙 **[반드시 준수]**
