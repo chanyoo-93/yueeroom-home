@@ -1,8 +1,13 @@
+import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserStatus } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import type { Response } from 'express';
+import { AdminGuard } from '../common/guards/admin.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import type { JwtPayload } from './interfaces/jwt-payload.interface';
+
+const GUARDS_METADATA_KEY = '__guards__';
 
 const mockAuthService = {
   register: jest.fn(),
@@ -22,6 +27,18 @@ function makeResponse(overrides: Partial<Response> = {}): Response {
     redirect: jest.fn(),
     ...overrides,
   } as unknown as Response;
+}
+
+function makeContext(user: JwtPayload): ExecutionContext {
+  return {
+    switchToHttp: () => ({
+      getRequest: () => ({ user }),
+    }),
+  } as unknown as ExecutionContext;
+}
+
+function getMethodGuards(methodName: 'setupMfa' | 'verifyMfa'): unknown[] {
+  return Reflect.getMetadata(GUARDS_METADATA_KEY, AuthController.prototype[methodName]) ?? [];
 }
 
 describe('AuthController', () => {
@@ -140,6 +157,68 @@ describe('AuthController', () => {
         expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/' }),
       );
       expect(result).toEqual({ message: '로그아웃 되었습니다.' });
+    });
+  });
+
+  describe('setupMfa', () => {
+    it('ADMIN 사용자는 authService.setupMfa를 호출하고 기존 응답을 반환한다', async () => {
+      const user: JwtPayload = {
+        sub: 'admin-1',
+        email: 'admin@test.com',
+        role: UserRole.ADMIN,
+        status: UserStatus.APPROVED,
+      };
+      mockAuthService.setupMfa.mockResolvedValue({
+        secret: 'totp-secret',
+        qrCodeUrl: 'otpauth://totp/yueeroom',
+      });
+
+      const result = await controller.setupMfa(user);
+
+      expect(mockAuthService.setupMfa).toHaveBeenCalledWith('admin-1');
+      expect(result).toEqual({
+        secret: 'totp-secret',
+        qrCodeUrl: 'otpauth://totp/yueeroom',
+      });
+    });
+
+    it('AdminGuard가 적용되어 있다', () => {
+      expect(getMethodGuards('setupMfa')).toContain(AdminGuard);
+    });
+  });
+
+  describe('verifyMfa', () => {
+    it('ADMIN 사용자는 authService.verifyMfa를 호출하고 기존 응답을 반환한다', async () => {
+      const user: JwtPayload = {
+        sub: 'admin-1',
+        email: 'admin@test.com',
+        role: UserRole.ADMIN,
+        status: UserStatus.APPROVED,
+      };
+      mockAuthService.verifyMfa.mockResolvedValue({ message: 'MFA 인증이 완료되었습니다.' });
+
+      const result = await controller.verifyMfa(user, { code: '123456' });
+
+      expect(mockAuthService.verifyMfa).toHaveBeenCalledWith('admin-1', '123456');
+      expect(result).toEqual({ message: 'MFA 인증이 완료되었습니다.' });
+    });
+
+    it('AdminGuard가 적용되어 있다', () => {
+      expect(getMethodGuards('verifyMfa')).toContain(AdminGuard);
+    });
+  });
+
+  describe('AdminGuard authorization for admin MFA', () => {
+    it('CUSTOMER payload를 ForbiddenException으로 거부한다', () => {
+      const guard = new AdminGuard();
+      const customer: JwtPayload = {
+        sub: 'customer-1',
+        email: 'customer@test.com',
+        role: UserRole.CUSTOMER,
+        status: UserStatus.APPROVED,
+      };
+
+      expect(() => guard.canActivate(makeContext(customer))).toThrow(ForbiddenException);
     });
   });
 
