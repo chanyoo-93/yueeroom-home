@@ -4,6 +4,7 @@ import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 
+// Keep this list in sync with validateMagicNumber.
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -36,6 +37,8 @@ export class FilesService {
       throw new PayloadTooLargeException('파일 크기는 5MB를 초과할 수 없습니다.');
     }
 
+    this.validateMagicNumber(file.buffer, file.mimetype);
+
     const ext = extname(file.originalname).toLowerCase() || `.${file.mimetype.split('/')[1]}`;
     const key = `${folder}/${randomUUID()}${ext}`;
 
@@ -54,6 +57,28 @@ export class FilesService {
     }
 
     return { url: `${this.cdnUrl}/${key}`, key };
+  }
+
+  private validateMagicNumber(buffer: Buffer, mimetype: string): void {
+    let isValid = false;
+
+    if (mimetype === 'image/jpeg') {
+      isValid =
+        buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    } else if (mimetype === 'image/png') {
+      isValid =
+        buffer.length >= 8 &&
+        buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    } else if (mimetype === 'image/webp') {
+      isValid =
+        buffer.length >= 12 &&
+        buffer.subarray(0, 4).equals(Buffer.from([0x52, 0x49, 0x46, 0x46])) &&
+        buffer.subarray(8, 12).equals(Buffer.from([0x57, 0x45, 0x42, 0x50]));
+    }
+
+    if (!isValid) {
+      throw new BadRequestException('파일 내용이 선언된 이미지 형식과 일치하지 않습니다.');
+    }
   }
 
   async deleteFile(key: string): Promise<void> {

@@ -29,12 +29,24 @@ const mockConfigService = {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const makeFile = (mimetype: string, size: number, originalname = 'test.jpg'): Express.Multer.File =>
+const JPEG_BUFFER = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+const PNG_BUFFER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const WEBP_BUFFER = Buffer.from([
+  0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+]);
+const GIF_BUFFER = Buffer.from([0x47, 0x49, 0x46, 0x38]);
+
+const makeFile = (
+  mimetype: string,
+  size: number,
+  originalname = 'test.jpg',
+  buffer = JPEG_BUFFER,
+): Express.Multer.File =>
   ({
     originalname,
     mimetype,
     size,
-    buffer: Buffer.from('fake-image-data'),
+    buffer,
   }) as Express.Multer.File;
 
 const VALID_FILE = makeFile('image/jpeg', 1024 * 1024); // 1MB
@@ -84,20 +96,86 @@ describe('FilesService', () => {
 
     it('png 파일을 업로드할 수 있다', async () => {
       mockSend.mockResolvedValue({});
-      const pngFile = makeFile('image/png', 2 * 1024 * 1024, 'photo.png');
+      const pngFile = makeFile('image/png', 2 * 1024 * 1024, 'photo.png', PNG_BUFFER);
 
       const result = await service.uploadImage(pngFile, 'products');
 
       expect(result.url).toContain('https://cdn.yueeroom.com/products/');
+      expect(mockSend).toHaveBeenCalledTimes(1);
     });
 
     it('webp 파일을 업로드할 수 있다', async () => {
       mockSend.mockResolvedValue({});
-      const webpFile = makeFile('image/webp', 500 * 1024, 'photo.webp');
+      const webpFile = makeFile('image/webp', 500 * 1024, 'photo.webp', WEBP_BUFFER);
 
       const result = await service.uploadImage(webpFile, 'products');
 
       expect(result.url).toContain('https://cdn.yueeroom.com/products/');
+      expect(mockSend).toHaveBeenCalledTimes(1);
+    });
+
+    it('jpeg MIME으로 위장한 gif 내용 업로드 시 BadRequestException을 던진다', async () => {
+      const spoofedFile = makeFile('image/jpeg', 1024, 'photo.jpg', GIF_BUFFER);
+
+      await expect(service.uploadImage(spoofedFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('png MIME으로 위장한 jpeg 내용 업로드 시 BadRequestException을 던진다', async () => {
+      const spoofedFile = makeFile('image/png', 1024, 'photo.png', JPEG_BUFFER);
+
+      await expect(service.uploadImage(spoofedFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('webp MIME으로 위장한 png 내용 업로드 시 BadRequestException을 던진다', async () => {
+      const spoofedFile = makeFile('image/webp', 1024, 'photo.webp', PNG_BUFFER);
+
+      await expect(service.uploadImage(spoofedFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('webp 검증에 필요한 길이보다 짧은 buffer면 BadRequestException을 던진다', async () => {
+      const shortWebpFile = makeFile(
+        'image/webp',
+        4,
+        'photo.webp',
+        Buffer.from([0x52, 0x49, 0x46, 0x46]),
+      );
+
+      await expect(service.uploadImage(shortWebpFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('jpeg 검증에 필요한 길이보다 짧은 buffer면 BadRequestException을 던진다', async () => {
+      const shortJpegFile = makeFile('image/jpeg', 2, 'photo.jpg', Buffer.from([0xff, 0xd8]));
+
+      await expect(service.uploadImage(shortJpegFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('png 검증에 필요한 길이보다 짧은 buffer면 BadRequestException을 던진다', async () => {
+      const shortPngFile = makeFile(
+        'image/png',
+        7,
+        'photo.png',
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a]),
+      );
+
+      await expect(service.uploadImage(shortPngFile, 'products')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockSend).not.toHaveBeenCalled();
     });
   });
 
