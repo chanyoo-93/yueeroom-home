@@ -252,6 +252,30 @@ describe('NaverPayService', () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
+    it('payment 레코드 없음 → BadRequestException', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        ...mockOrder,
+        payment: null,
+      });
+
+      await expect(service.approvePayment('user-1', 'np_payment_123', 'order-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('paymentKey 불일치 → BadRequestException', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        ...mockOrder,
+        payment: { ...mockPayment, paymentKey: 'np_payment_123' },
+      });
+
+      await expect(
+        service.approvePayment('user-1', 'DIFFERENT_PAYMENT_ID', 'order-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
     it('Naver Pay API code != Success → BadRequestException + Payment FAILED 업데이트', async () => {
       mockPrisma.order.findUnique.mockResolvedValue({
         ...mockOrder,
@@ -263,7 +287,7 @@ describe('NaverPayService', () => {
       });
       mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'FAILED' });
 
-      await expect(service.approvePayment('user-1', 'np_id', 'order-1')).rejects.toThrow(
+      await expect(service.approvePayment('user-1', 'np_payment_123', 'order-1')).rejects.toThrow(
         BadRequestException,
       );
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
@@ -279,7 +303,7 @@ describe('NaverPayService', () => {
       });
       (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
 
-      await expect(service.approvePayment('user-1', 'np_id', 'order-1')).rejects.toThrow(
+      await expect(service.approvePayment('user-1', 'np_payment_123', 'order-1')).rejects.toThrow(
         InternalServerErrorException,
       );
     });

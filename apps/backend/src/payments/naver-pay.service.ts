@@ -136,6 +136,9 @@ export class NaverPayService {
     if (order.payment?.status === 'COMPLETED') {
       throw new BadRequestException('이미 결제된 주문입니다.');
     }
+    if (!order.payment?.paymentKey || order.payment.paymentKey !== paymentId) {
+      throw new BadRequestException('유효하지 않은 결제 정보입니다.');
+    }
 
     const chainId = this.config.get<string>('NAVER_PAY_CHAIN_ID');
     const clientId = this.config.get<string>('NAVER_CLIENT_ID');
