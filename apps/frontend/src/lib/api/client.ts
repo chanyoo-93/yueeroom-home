@@ -1,5 +1,6 @@
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import axios from 'axios';
+import { redirectToLogin } from '@/lib/auth/redirect';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 const TIMEOUT_MS = 10_000;
@@ -57,9 +58,7 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
-        if (typeof window !== 'undefined') {
-          window.location.replace('/login');
-        }
+        redirectToLogin();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

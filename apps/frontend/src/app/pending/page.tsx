@@ -2,9 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api/client';
-
-type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+import { logout, refreshAuth, type UserStatus } from '@/lib/api/auth';
 
 const POLL_INTERVAL_MS = 5_000;
 
@@ -19,8 +17,8 @@ export default function PendingPage() {
         // /auth/refresh는 @Public() 엔드포인트이며, DB에서 현재 status를 조회해 새 쿠키를 발급한다.
         // PENDING 사용자가 /users/me를 호출하면 UserStatusGuard에 의해 403이 반환되므로
         // refresh를 통해 최신 status를 확인한다.
-        const refreshRes = await apiClient.post<{ status: UserStatus }>('/auth/refresh');
-        const status = refreshRes.data.status;
+        const refreshRes = await refreshAuth();
+        const status: UserStatus = refreshRes.data.status;
 
         if (status === 'APPROVED') {
           router.replace('/');
@@ -45,7 +43,7 @@ export default function PendingPage() {
 
   const handleLogout = async () => {
     try {
-      await apiClient.post('/auth/logout');
+      await logout();
     } finally {
       router.push('/login');
     }
