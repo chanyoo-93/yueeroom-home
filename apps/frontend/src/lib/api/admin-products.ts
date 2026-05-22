@@ -35,7 +35,7 @@ export interface AdminProductListResponse {
 }
 
 export async function adminGetProducts(page = 1): Promise<AdminProductListResponse> {
-  const res = await apiClient.get<AdminProductListResponse>('/products', {
+  const res = await apiClient.get<AdminProductListResponse>('/admin/products', {
     params: { page, limit: 20 },
   });
   return res.data;

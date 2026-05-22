@@ -12,6 +12,10 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { ProductQueryDto, SortOrder } from './dto/product-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
+interface FindAllQuery extends ProductQueryDto {
+  isActive?: boolean;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -25,7 +29,7 @@ export class ProductsService {
     images: { orderBy: { order: 'asc' as const }, take: 1, select: { url: true } },
   };
 
-  async findAll(query: ProductQueryDto) {
+  async findAll(query: FindAllQuery, forceActive = true) {
     if (
       query.minPrice !== undefined &&
       query.maxPrice !== undefined &&
@@ -37,8 +41,15 @@ export class ProductsService {
     const limit = query.limit ?? 20;
     const orderBy = this.resolveOrderBy(query.sort);
 
+    const activeFilter: Prisma.ProductWhereInput = {};
+    if (forceActive) {
+      activeFilter.isActive = true;
+    } else if (query.isActive !== undefined) {
+      activeFilter.isActive = query.isActive;
+    }
+
     const where: Prisma.ProductWhereInput = {
-      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...activeFilter,
       ...(query.categoryId && { categoryId: query.categoryId }),
       ...(query.minPrice !== undefined || query.maxPrice !== undefined
         ? {

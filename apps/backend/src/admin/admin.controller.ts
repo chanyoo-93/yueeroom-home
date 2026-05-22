@@ -7,15 +7,20 @@ import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { AdminService, OrderStatsResponse, SalesStatsResponse } from './admin.service';
 import { SafeUser } from '../users/users.service';
 import { AdminOrderResponseDto } from './dto/admin-order-response.dto';
+import { AdminProductQueryDto } from './dto/admin-product-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackingDto } from './dto/update-order-tracking.dto';
 import { GetAdminOrdersQueryDto } from './dto/get-admin-orders-query.dto';
+import { ProductsService } from '../products/products.service';
 
 @ApiTags('admin')
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly productsService: ProductsService,
+  ) {}
 
   @Get('stats/sales')
   @ApiOperation({ summary: '일별/월별 매출 통계 및 인기 상품 Top 5' })
@@ -52,6 +57,12 @@ export class AdminController {
   @ApiOperation({ summary: '전체 주문 목록 조회 (페이지네이션)' })
   listOrders(@Query() query: GetAdminOrdersQueryDto) {
     return this.adminService.listOrders(query.page, query.limit);
+  }
+
+  @Get('products')
+  @ApiOperation({ summary: '관리자 상품 목록 조회 (활성 상태 필터 가능)' })
+  getProducts(@Query() query: AdminProductQueryDto) {
+    return this.productsService.findAll(query, false);
   }
 
   @Patch('orders/:id/status')

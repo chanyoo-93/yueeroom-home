@@ -1,5 +1,5 @@
-import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export type SortOrder = 'latest' | 'price_asc' | 'price_desc';
 
@@ -15,11 +15,6 @@ export class ProductQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number;
-
-  @IsBoolean()
-  @IsOptional()
-  @Transform(({ value }: { value: unknown }) => value === 'true' || value === true)
-  isActive?: boolean;
 
   @IsString()
   @IsOptional()
