@@ -104,27 +104,25 @@ describe('ProductsService', () => {
       );
     });
 
-    it('isActive 필터를 쿼리에 반영한다', async () => {
-      mockPrisma.product.findMany.mockResolvedValue([]);
-      mockPrisma.product.count.mockResolvedValue(0);
-
-      await service.findAll({ isActive: false });
-
-      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { isActive: false } }),
-      );
-    });
-
-    it('isActive 미지정 시 isActive 필터 없이 전체 상품 조회한다', async () => {
+    it('기본 호출 시 활성 상품만 조회한다', async () => {
       mockPrisma.product.findMany.mockResolvedValue([]);
       mockPrisma.product.count.mockResolvedValue(0);
 
       await service.findAll({});
 
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.not.objectContaining({ isActive: expect.anything() }),
-        }),
+        expect.objectContaining({ where: expect.objectContaining({ isActive: true }) }),
+      );
+    });
+
+    it('관리자 호출 시 isActive=false 필터를 쿼리에 반영한다', async () => {
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      mockPrisma.product.count.mockResolvedValue(0);
+
+      await service.findAll({ isActive: false }, false);
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ isActive: false }) }),
       );
     });
 
