@@ -9,18 +9,20 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
 
-vi.mock('@/lib/api/client', () => ({
-  apiClient: { post: vi.fn(), get: vi.fn() },
+vi.mock('@/lib/api/auth', () => ({
+  refreshAuth: vi.fn(),
+  logout: vi.fn(),
 }));
 
 import PendingPage from './page';
-import { apiClient } from '@/lib/api/client';
+import { logout, refreshAuth } from '@/lib/api/auth';
 
 describe('PendingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // 기본값: PENDING — refresh가 PENDING status를 반환해 리다이렉트 없이 타이머만 예약
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { status: 'PENDING' } });
+    vi.mocked(refreshAuth).mockResolvedValue({ data: { status: 'PENDING' } });
+    vi.mocked(logout).mockResolvedValue({});
   });
 
   it('승인 대기 안내 메시지와 로그아웃 버튼이 렌더링된다', () => {
@@ -36,26 +38,24 @@ describe('PendingPage', () => {
 
   it('로그아웃 버튼 클릭 시 로그아웃 API를 호출하고 /login으로 리다이렉트한다', async () => {
     const user = userEvent.setup();
-    // 첫 번째 post 호출(폴링 /auth/refresh)은 기본 mock, 두 번째(/auth/logout)는 빈 응답
-    vi.mocked(apiClient.post)
-      .mockResolvedValueOnce({ data: { status: 'PENDING' } })
-      .mockResolvedValueOnce({});
+    vi.mocked(refreshAuth).mockResolvedValueOnce({ data: { status: 'PENDING' } });
+    vi.mocked(logout).mockResolvedValueOnce({});
     render(<PendingPage />);
 
     await user.click(screen.getByRole('button', { name: '로그아웃' }));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
+      expect(logout).toHaveBeenCalled();
       expect(mockPush).toHaveBeenCalledWith('/login');
     });
   });
 
   it('마운트 직후 APPROVED 상태이면 홈으로 리다이렉트한다', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { status: 'APPROVED' } });
+    vi.mocked(refreshAuth).mockResolvedValue({ data: { status: 'APPROVED' } });
     render(<PendingPage />);
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/refresh');
+      expect(refreshAuth).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/');
     });
   });
@@ -64,14 +64,14 @@ describe('PendingPage', () => {
     render(<PendingPage />);
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/auth/refresh');
+      expect(refreshAuth).toHaveBeenCalled();
     });
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('REJECTED 상태이면 /login으로 리다이렉트한다', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { status: 'REJECTED' } });
+    vi.mocked(refreshAuth).mockResolvedValue({ data: { status: 'REJECTED' } });
     render(<PendingPage />);
 
     await waitFor(() => {
@@ -80,7 +80,7 @@ describe('PendingPage', () => {
   });
 
   it('SUSPENDED 상태이면 /login으로 리다이렉트한다', async () => {
-    vi.mocked(apiClient.post).mockResolvedValue({ data: { status: 'SUSPENDED' } });
+    vi.mocked(refreshAuth).mockResolvedValue({ data: { status: 'SUSPENDED' } });
     render(<PendingPage />);
 
     await waitFor(() => {

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const mockRequestUse = vi.fn();
 const mockResponseUse = vi.fn();
 const mockPost = vi.fn();
+const mockRedirectToLogin = vi.fn();
 
 // apiClient를 함수로도 동작하게 해야 retry(apiClient(originalRequest)) 호출이 가능
 const mockApiClientInstance = Object.assign(vi.fn().mockResolvedValue({ data: [] }), {
@@ -20,11 +21,16 @@ vi.mock('axios', () => ({
   },
 }));
 
+vi.mock('@/lib/auth/redirect', () => ({
+  redirectToLogin: mockRedirectToLogin,
+}));
+
 describe('API Client', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockRequestUse.mockClear();
     mockResponseUse.mockClear();
+    mockRedirectToLogin.mockClear();
   });
 
   afterEach(() => {
@@ -72,6 +78,7 @@ describe('401 인터셉터 — refresh 후 원 요청 재시도', () => {
     mockResponseUse.mockClear();
     mockPost.mockClear();
     mockApiClientInstance.mockClear();
+    mockRedirectToLogin.mockClear();
 
     await import('./client');
 
@@ -99,14 +106,8 @@ describe('401 인터셉터 — refresh 후 원 요청 재시도', () => {
     expect(mockApiClientInstance).toHaveBeenCalledWith(mockError.config);
   });
 
-  it('refresh 실패 시 /login으로 이동한다', async () => {
+  it('refresh 실패 시 로그인 리다이렉트 헬퍼를 호출한다', async () => {
     mockPost.mockRejectedValueOnce(new Error('refresh failed'));
-
-    const replaceFn = vi.fn();
-    Object.defineProperty(window, 'location', {
-      value: { replace: replaceFn },
-      writable: true,
-    });
 
     const mockError = {
       response: { status: 401 },
@@ -120,6 +121,6 @@ describe('401 인터셉터 — refresh 후 원 요청 재시도', () => {
       // 예상된 reject
     }
 
-    expect(replaceFn).toHaveBeenCalledWith('/login');
+    expect(mockRedirectToLogin).toHaveBeenCalled();
   });
 });
