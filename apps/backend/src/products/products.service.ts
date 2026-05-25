@@ -124,17 +124,17 @@ export class ProductsService {
         },
       },
     });
-    if (!product) throw new NotFoundException(`상품을 찾을 수 없습니다: ${id}`);
+    if (!product) throw new NotFoundException('상품을 찾을 수 없습니다.');
     return product;
   }
 
   async create(dto: CreateProductDto) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
-    if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
+    if (!category) throw new NotFoundException('카테고리를 찾을 수 없습니다.');
 
     if (dto.brandId) {
       const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
-      if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
+      if (!brand) throw new NotFoundException('브랜드를 찾을 수 없습니다.');
     }
 
     const productCode = await this.generateProductCode();
@@ -200,12 +200,12 @@ export class ProductsService {
 
     if (dto.categoryId) {
       const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
-      if (!category) throw new NotFoundException(`카테고리를 찾을 수 없습니다: ${dto.categoryId}`);
+      if (!category) throw new NotFoundException('카테고리를 찾을 수 없습니다.');
     }
 
     if (dto.brandId) {
       const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
-      if (!brand) throw new NotFoundException(`브랜드를 찾을 수 없습니다: ${dto.brandId}`);
+      if (!brand) throw new NotFoundException('브랜드를 찾을 수 없습니다.');
     }
 
     const data: UpdateProductDto = {
@@ -282,7 +282,7 @@ export class ProductsService {
 
   private async findOneOrFail(id: string): Promise<Product> {
     const product = await this.prisma.product.findUnique({ where: { id } });
-    if (!product) throw new NotFoundException(`상품을 찾을 수 없습니다: ${id}`);
+    if (!product) throw new NotFoundException('상품을 찾을 수 없습니다.');
     return product;
   }
 }

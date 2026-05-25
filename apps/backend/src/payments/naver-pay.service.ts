@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -43,6 +44,8 @@ const NAVER_PAY_API_BASE = 'https://dev.apis.naver.com/naverpay-partner/naverpay
 
 @Injectable()
 export class NaverPayService {
+  private readonly logger = new Logger(NaverPayService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -101,7 +104,8 @@ export class NaverPayService {
 
     const result = (await response.json()) as NaverPayReserveResponse;
     if (result.code !== 'Success') {
-      throw new InternalServerErrorException(`네이버페이 오류: ${result.message}`);
+      this.logger.warn(`Naver Pay reserve failed: ${result.message}`);
+      throw new InternalServerErrorException('결제 준비에 실패했습니다.');
     }
 
     await this.prisma.payment.upsert({
@@ -171,7 +175,8 @@ export class NaverPayService {
         where: { orderId: merchantPayKey },
         data: { status: 'FAILED' },
       });
-      throw new BadRequestException(`네이버페이 결제 승인 실패: ${result.message}`);
+      this.logger.warn(`Naver Pay apply failed: ${result.message}`);
+      throw new BadRequestException('결제 승인에 실패했습니다.');
     }
 
     await this.prisma.$transaction([
@@ -222,7 +227,8 @@ export class NaverPayService {
 
     const result = (await response.json()) as { code: string; message: string };
     if (result.code !== 'Success') {
-      throw new BadRequestException(`네이버페이 환불 실패: ${result.message}`);
+      this.logger.warn(`Naver Pay cancel failed: ${result.message}`);
+      throw new BadRequestException('환불 처리에 실패했습니다.');
     }
   }
 
