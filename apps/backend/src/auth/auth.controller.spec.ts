@@ -2,6 +2,7 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserRole, UserStatus } from '@prisma/client';
 import type { Response } from 'express';
+import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -39,6 +40,12 @@ function makeContext(user: JwtPayload): ExecutionContext {
 
 function getMethodGuards(methodName: 'setupMfa' | 'verifyMfa'): unknown[] {
   return Reflect.getMetadata(GUARDS_METADATA_KEY, AuthController.prototype[methodName]) ?? [];
+}
+
+function getPublicMetadata(methodName: keyof AuthController): boolean | undefined {
+  return Reflect.getMetadata(IS_PUBLIC_KEY, AuthController.prototype[methodName] as object) as
+    | boolean
+    | undefined;
 }
 
 describe('AuthController', () => {
@@ -220,6 +227,29 @@ describe('AuthController', () => {
 
       expect(() => guard.canActivate(makeContext(customer))).toThrow(ForbiddenException);
     });
+  });
+
+  describe('공개 API @Public() 메타데이터 검증', () => {
+    it.each([
+      ['register'],
+      ['login'],
+      ['refresh'],
+      ['forgotPassword'],
+      ['resetPassword'],
+      ['naverLogin'],
+      ['naverCallback'],
+      ['kakaoLogin'],
+      ['kakaoCallback'],
+    ] as const)('%s는 @Public()이 적용되어 있다', (methodName) => {
+      expect(getPublicMetadata(methodName)).toBe(true);
+    });
+
+    it.each([['logout'], ['setupMfa'], ['verifyMfa']] as const)(
+      '%s는 @Public()이 적용되어 있지 않다',
+      (methodName) => {
+        expect(getPublicMetadata(methodName)).toBeUndefined();
+      },
+    );
   });
 
   describe('naverCallback', () => {
