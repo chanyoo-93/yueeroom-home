@@ -1,0 +1,35 @@
+# Current high advisories are tracked as explicit exceptions for Issue #161.
+# Remove an entry when the upstream package path is patched.
+
+# multer via apps__backend>@nestjs/platform-express>multer - waiting for upstream dependency upgrade path.
+GHSA-xf7r-hgr6-v32p
+GHSA-v52c-386h-88mc
+GHSA-5528-5vmv-3xc2
+
+# next via apps__frontend>next - requires Next.js compatibility review before upgrade.
+GHSA-8h8q-6873-q5fj
+GHSA-26hh-7cqf-hhc6
+GHSA-mg66-mrh9-m8jx
+GHSA-c4j6-fc7j-m34r
+GHSA-492v-c6pp-mqqv
+GHSA-267c-6grr-h53f
+GHSA-36qx-fr4f-26g5
+
+# axios via apps__frontend>axios - tracked until frontend dependency upgrade is planned.
+GHSA-pmwg-cvhr-8vh7
+GHSA-pf86-5x62-jrwf
+GHSA-6chq-wfr3-2hj9
+GHSA-q8qp-cvcw-x6jj
+
+# fast-uri via apps__frontend>@sentry/nextjs transitive webpack toolchain path.
+GHSA-q3j6-qgpj-74h6
+GHSA-v39h-62p7-jpjc
+
+# rollup via apps__frontend>@sentry/nextjs>rollup - tracked until Sentry/rollup upgrade path is reviewed.
+GHSA-mw96-cpmx-2vgc
+
+# fast-xml-builder via apps__backend>@aws-sdk/client-s3 transitive XML builder path.
+GHSA-5wm8-gmm8-39j9
+
+# lodash via apps__backend>@nestjs/config>lodash - tracked until NestJS/config dependency path is patched.
+GHSA-r5fr-rjxr-66jc
