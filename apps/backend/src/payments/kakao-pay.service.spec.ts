@@ -71,8 +71,13 @@ const mockPrisma = {
   payment: {
     upsert: jest.fn(),
     update: jest.fn(),
+    findUnique: jest.fn(),
   },
-  $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
+  paymentEvent: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const mockConfigService = {
@@ -102,6 +107,14 @@ describe('KakaoPayService', () => {
 
     service = module.get<KakaoPayService>(KakaoPayService);
     jest.clearAllMocks();
+    mockPrisma.payment.findUnique.mockResolvedValue(mockPayment);
+    mockPrisma.paymentEvent.findUnique.mockResolvedValue(null);
+    mockPrisma.$transaction.mockImplementation((arg: unknown) => {
+      if (typeof arg === 'function') {
+        return arg(mockPrisma);
+      }
+      return Promise.all(arg as Promise<unknown>[]);
+    });
     global.fetch = jest.fn();
   });
 
@@ -239,6 +252,29 @@ describe('KakaoPayService', () => {
       expect(result).toEqual({ orderId: 'order-1', status: 'COMPLETED' });
     });
 
+    it('트랜잭션 시점에 이미 COMPLETED면 paidAt을 덮어쓰지 않는다', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({ ...mockOrder, payment: mockPayment });
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        ...mockPayment,
+        status: 'COMPLETED',
+        paidAt: new Date('2024-01-01T00:00:00'),
+      });
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockApproveApiResponse),
+      });
+      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
+
+      const result = await service.approvePayment('user-1', 'order-1', 'pg_token_123');
+
+      expect(result).toEqual({ orderId: 'order-1', status: 'COMPLETED' });
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        data: { status: 'PAID' },
+      });
+    });
+
     it('존재하지 않는 주문 → NotFoundException', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(null);
 
@@ -319,6 +355,163 @@ describe('KakaoPayService', () => {
           KAKAO_PAY_CID: 'TC0ONETIME',
         };
         return configs[key] ?? defaultVal;
+      });
+    });
+  });
+
+  // ── handleWebhook ───────────────────────────────────────────────────────────
+
+  describe('handleWebhook', () => {
+    const authorization = 'SECRET_KEY test_secret_key';
+
+    it('SUCCESS_PAYMENT → Payment COMPLETED, Order PAID, PaymentEvent 생성', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'SUCCESS_PAYMENT',
+        approved_at: '2024-01-01T00:00:01',
+      };
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'COMPLETED' });
+      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
+
+      await service.handleWebhook(payload, authorization);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        data: { status: 'COMPLETED', paidAt: new Date('2024-01-01T00:00:01') },
+      });
+      expect(mockPrisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        data: { status: 'PAID' },
+      });
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
+        data: {
+          externalEventId: 'T469b847306d7b2dc234',
+          gateway: 'kakaopay',
+          eventType: 'SUCCESS_PAYMENT',
+          paymentId: 'payment-1',
+        },
+      });
+    });
+
+    it('Authorization 헤더가 일치하지 않으면 웹훅 처리를 중단한다', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'SUCCESS_PAYMENT',
+      };
+
+      await expect(service.handleWebhook(payload, 'SECRET_KEY wrong_secret')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrisma.paymentEvent.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('Authorization 헤더가 일치하면 웹훅 처리를 진행한다', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'SUCCESS_PAYMENT',
+      };
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'COMPLETED' });
+      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
+
+      await service.handleWebhook(payload, authorization);
+
+      expect(mockPrisma.paymentEvent.findUnique).toHaveBeenCalledWith({
+        where: { externalEventId: 'T469b847306d7b2dc234' },
+      });
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalled();
+    });
+
+    it('이미 COMPLETED인 Payment는 SUCCESS_PAYMENT 웹훅으로 paidAt을 덮어쓰지 않는다', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'SUCCESS_PAYMENT',
+        approved_at: '2024-01-01T00:00:01',
+      };
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        ...mockPayment,
+        status: 'COMPLETED',
+        paidAt: new Date('2024-01-01T00:00:00'),
+      });
+      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
+
+      await service.handleWebhook(payload, authorization);
+
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        data: { status: 'PAID' },
+      });
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
+        data: {
+          externalEventId: 'T469b847306d7b2dc234',
+          gateway: 'kakaopay',
+          eventType: 'SUCCESS_PAYMENT',
+          paymentId: 'payment-1',
+        },
+      });
+    });
+
+    it('동일 tid가 이미 처리된 경우 DB update 없이 early return 한다', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'SUCCESS_PAYMENT',
+      };
+      mockPrisma.paymentEvent.findUnique.mockResolvedValue({ id: 'payment-event-1' });
+
+      await service.handleWebhook(payload, authorization);
+
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('CANCEL_PAYMENT → Payment FAILED, PaymentEvent 생성', async () => {
+      const payload = {
+        cid: 'TC0ONETIME',
+        tid: 'T469b847306d7b2dc234',
+        partner_order_id: 'order-1',
+        partner_user_id: 'user-1',
+        payment_method_type: 'CARD',
+        payment_status: 'CANCEL_PAYMENT',
+      };
+      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'FAILED' });
+
+      await service.handleWebhook(payload, authorization);
+
+      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
+        where: { orderId: 'order-1' },
+        data: { status: 'FAILED' },
+      });
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
+        data: {
+          externalEventId: 'T469b847306d7b2dc234',
+          gateway: 'kakaopay',
+          eventType: 'CANCEL_PAYMENT',
+          paymentId: 'payment-1',
+        },
       });
     });
   });

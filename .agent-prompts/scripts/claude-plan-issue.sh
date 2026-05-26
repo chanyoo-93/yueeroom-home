@@ -9,7 +9,7 @@ fi
 ISSUE_NUMBER="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROMPTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TEMPLATE_FILE="$PROMPTS_DIR/templates/claude-plan-issue-implementation.md"
+TEMPLATE_FILE="$PROMPTS_DIR/templates/01-claude-plan-issue.md"
 
 if [ ! -f "$TEMPLATE_FILE" ]; then
   echo "Template not found: $TEMPLATE_FILE" >&2

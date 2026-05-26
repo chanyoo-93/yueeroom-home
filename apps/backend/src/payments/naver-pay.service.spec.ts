@@ -73,7 +73,11 @@ const mockPrisma = {
     upsert: jest.fn(),
     update: jest.fn(),
   },
-  $transaction: jest.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
+  paymentEvent: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const mockConfigService = {
@@ -106,6 +110,13 @@ describe('NaverPayService', () => {
 
     service = module.get<NaverPayService>(NaverPayService);
     jest.clearAllMocks();
+    mockPrisma.paymentEvent.findUnique.mockResolvedValue(null);
+    mockPrisma.$transaction.mockImplementation((arg: unknown) => {
+      if (typeof arg === 'function') {
+        return arg(mockPrisma);
+      }
+      return Promise.all(arg as Promise<unknown>[]);
+    });
     global.fetch = jest.fn();
   });
 
@@ -363,6 +374,30 @@ describe('NaverPayService', () => {
         where: { id: 'order-1' },
         data: { status: 'PAID' },
       });
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
+        data: {
+          externalEventId: 'np_payment_123',
+          gateway: 'naverpay',
+          eventType: 'SUCCESS',
+          paymentId: 'payment-1',
+        },
+      });
+    });
+
+    it('동일 paymentId가 이미 처리된 경우 DB update 없이 early return 한다', async () => {
+      const body = JSON.stringify({
+        paymentId: 'np_payment_123',
+        merchantPayKey: 'order-1',
+        totalPayAmount: 50000,
+        paymentStatus: 'SUCCESS',
+      });
+      mockPrisma.paymentEvent.findUnique.mockResolvedValue({ id: 'payment-event-1' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
     });
 
     it('결제 취소(paymentStatus=CANCEL) → Payment FAILED, 주문 상태 미변경', async () => {
@@ -414,6 +449,16 @@ describe('NaverPayService', () => {
 
       await service.handleWebhook(body, buildSignature(body));
 
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('paymentId 없는 페이로드 → PaymentEvent 기준이 없어 아무것도 하지 않는다', async () => {
+      const body = JSON.stringify({ merchantPayKey: 'order-1', paymentStatus: 'SUCCESS' });
+
+      await service.handleWebhook(body, buildSignature(body));
+
+      expect(mockPrisma.paymentEvent.findUnique).not.toHaveBeenCalled();
       expect(mockPrisma.payment.update).not.toHaveBeenCalled();
       expect(mockPrisma.order.update).not.toHaveBeenCalled();
     });

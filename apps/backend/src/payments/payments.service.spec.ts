@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
@@ -40,6 +40,15 @@ const mockPrisma = {
     findMany: jest.fn(),
     count: jest.fn(),
   },
+  refund: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  paymentEvent: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const mockConfigService = {
@@ -58,6 +67,9 @@ const mockStripe = {
   paymentIntents: {
     create: jest.fn(),
     retrieve: jest.fn(),
+  },
+  refunds: {
+    create: jest.fn(),
   },
   webhooks: {
     constructEvent: jest.fn(),
@@ -81,6 +93,14 @@ describe('PaymentsService', () => {
 
     service = module.get<PaymentsService>(PaymentsService);
     jest.clearAllMocks();
+    mockPrisma.paymentEvent.findUnique.mockResolvedValue(null);
+    mockPrisma.refund.findFirst.mockResolvedValue(null);
+    mockPrisma.$transaction.mockImplementation((arg: unknown) => {
+      if (typeof arg === 'function') {
+        return arg(mockPrisma);
+      }
+      return Promise.all(arg as Promise<unknown>[]);
+    });
   });
 
   // ── getUserPayments ─────────────────────────────────────────────────────────
@@ -291,11 +311,48 @@ describe('PaymentsService', () => {
     });
   });
 
+  // ── requestRefund ───────────────────────────────────────────────────────────
+
+  describe('requestRefund', () => {
+    const completedPayment = {
+      ...mockPayment,
+      status: 'COMPLETED',
+      order: { id: 'order-1', userId: 'user-1' },
+    };
+
+    it('REQUESTED 상태 Refund가 있으면 ConflictException을 던진다', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(completedPayment);
+      mockPrisma.refund.findFirst.mockResolvedValue({ id: 'refund-1', status: 'REQUESTED' });
+
+      await expect(service.requestRefund('user-1', 'payment-1', '단순 변심')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.refund.findFirst).toHaveBeenCalledWith({
+        where: {
+          paymentId: 'payment-1',
+          status: { in: ['REQUESTED', 'COMPLETED'] },
+        },
+      });
+      expect(mockPrisma.refund.create).not.toHaveBeenCalled();
+    });
+
+    it('COMPLETED 상태 Refund가 있으면 ConflictException을 던진다', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(completedPayment);
+      mockPrisma.refund.findFirst.mockResolvedValue({ id: 'refund-1', status: 'COMPLETED' });
+
+      await expect(service.requestRefund('user-1', 'payment-1', '단순 변심')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockPrisma.refund.create).not.toHaveBeenCalled();
+    });
+  });
+
   // ── handleWebhookEvent ────────────────────────────────────────────────────────
 
   describe('handleWebhookEvent', () => {
     it('payment_intent.succeeded → Payment COMPLETED, Order PAID로 업데이트', async () => {
       const event = {
+        id: 'evt_test_123',
         type: 'payment_intent.succeeded',
         data: {
           object: {
@@ -308,8 +365,10 @@ describe('PaymentsService', () => {
       mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'COMPLETED' });
       mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
 
-      await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
+      const result = await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
 
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.payment.update).toHaveBeenCalledWith({
         where: { orderId: 'order-1' },
         data: { status: 'COMPLETED', paidAt: expect.any(Date) },
@@ -318,10 +377,41 @@ describe('PaymentsService', () => {
         where: { id: 'order-1' },
         data: { status: 'PAID' },
       });
+      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
+        data: {
+          externalEventId: 'evt_test_123',
+          gateway: 'stripe',
+          eventType: 'payment_intent.succeeded',
+          paymentId: 'payment-1',
+        },
+      });
+    });
+
+    it('동일 event.id가 이미 처리된 경우 DB update 없이 { received: true }를 반환한다', async () => {
+      const event = {
+        id: 'evt_test_123',
+        type: 'payment_intent.succeeded',
+        data: {
+          object: {
+            id: 'pi_test_123',
+            metadata: { orderId: 'order-1' },
+          },
+        },
+      };
+      mockStripe.webhooks.constructEvent.mockReturnValue(event);
+      mockPrisma.paymentEvent.findUnique.mockResolvedValue({ id: 'payment-event-1' });
+
+      const result = await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
+
+      expect(result).toEqual({ received: true });
+      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+      expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
     });
 
     it('결제 실패(payment_intent.payment_failed) → Payment FAILED, 주문 상태 미변경', async () => {
       const event = {
+        id: 'evt_failed_123',
         type: 'payment_intent.payment_failed',
         data: {
           object: {
@@ -347,6 +437,7 @@ describe('PaymentsService', () => {
 
     it('처리하지 않는 이벤트 타입 → 아무것도 하지 않는다', async () => {
       const event = {
+        id: 'evt_customer_123',
         type: 'customer.created',
         data: { object: {} },
       };
