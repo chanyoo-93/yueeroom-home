@@ -22,7 +22,7 @@ import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
 import { NaverPayPrepareDto } from './dto/naver-pay-prepare.dto';
 import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
-import { KakaoPayService } from './kakao-pay.service';
+import { KakaoPayService, type KakaoPayWebhookPayload } from './kakao-pay.service';
 import { NaverPayService } from './naver-pay.service';
 import { PaymentsService } from './payments.service';
 
@@ -101,5 +101,15 @@ export class PaymentsController {
   @ApiOperation({ summary: '카카오페이 결제 승인' })
   kakaoPayApprove(@CurrentUser() user: JwtPayload, @Body() dto: KakaoPayApproveDto) {
     return this.kakaoPayService.approvePayment(user.sub, dto.orderId, dto.pgToken);
+  }
+
+  @Post('kakao/webhook')
+  @Public()
+  @ApiOperation({ summary: '카카오페이 웹훅 처리' })
+  handleKakaoWebhook(
+    @Body() body: KakaoPayWebhookPayload,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.kakaoPayService.handleWebhook(body, authorization);
   }
 }

@@ -260,8 +260,22 @@ model Payment {
 
   order   Order    @relation(fields: [orderId], references: [id])
   refunds Refund[]
+  events  PaymentEvent[]
 
   @@map("payments")
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  externalEventId String   @unique
+  gateway         String
+  eventType       String
+  paymentId       String?
+  processedAt     DateTime @default(now())
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@map("payment_events")
 }
 
 model Refund {

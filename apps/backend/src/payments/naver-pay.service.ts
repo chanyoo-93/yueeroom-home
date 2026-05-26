@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 interface NaverPayWebhookPayload {
   paymentId?: string;
@@ -260,24 +261,52 @@ export class NaverPayService {
       throw new BadRequestException('웹훅 페이로드 파싱에 실패했습니다.');
     }
     const orderId = payload.merchantPayKey;
-    if (!orderId) return;
+    if (!orderId || !payload.paymentId) return;
 
-    if (payload.paymentStatus === 'SUCCESS') {
-      await this.prisma.$transaction([
-        this.prisma.payment.update({
-          where: { orderId },
-          data: { status: 'COMPLETED', paidAt: new Date() },
-        }),
-        this.prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'PAID' },
-        }),
-      ]);
-    } else if (payload.paymentStatus === 'CANCEL' || payload.paymentStatus === 'FAIL') {
-      await this.prisma.payment.update({
-        where: { orderId },
-        data: { status: 'FAILED' },
-      });
+    const existingEvent = await this.prisma.paymentEvent.findUnique({
+      where: { externalEventId: payload.paymentId },
+    });
+    if (existingEvent) return;
+
+    try {
+      if (payload.paymentStatus === 'SUCCESS') {
+        await this.prisma.$transaction(async (tx) => {
+          const payment = await tx.payment.update({
+            where: { orderId },
+            data: { status: 'COMPLETED', paidAt: new Date() },
+          });
+          await tx.order.update({
+            where: { id: orderId },
+            data: { status: 'PAID' },
+          });
+          await tx.paymentEvent.create({
+            data: {
+              externalEventId: payload.paymentId!,
+              gateway: 'naverpay',
+              eventType: payload.paymentStatus,
+              paymentId: payment.id,
+            },
+          });
+        });
+      } else if (payload.paymentStatus === 'CANCEL' || payload.paymentStatus === 'FAIL') {
+        await this.prisma.$transaction(async (tx) => {
+          const payment = await tx.payment.update({
+            where: { orderId },
+            data: { status: 'FAILED' },
+          });
+          await tx.paymentEvent.create({
+            data: {
+              externalEventId: payload.paymentId!,
+              gateway: 'naverpay',
+              eventType: payload.paymentStatus,
+              paymentId: payment.id,
+            },
+          });
+        });
+      }
+    } catch (error) {
+      if (isUniqueConstraintError(error)) return;
+      throw error;
     }
   }
 }

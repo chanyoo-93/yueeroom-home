@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -9,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
+import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 @Injectable()
 export class PaymentsService {
@@ -181,6 +183,16 @@ export class PaymentsService {
     if (payment.status !== 'COMPLETED')
       throw new BadRequestException('환불 가능한 결제 상태가 아닙니다.');
 
+    const existingRefund = await this.prisma.refund.findFirst({
+      where: {
+        paymentId,
+        status: { in: ['REQUESTED', 'COMPLETED'] },
+      },
+    });
+    if (existingRefund) {
+      throw new ConflictException('이미 처리 중인 환불 요청이 있습니다');
+    }
+
     return this.prisma.refund.create({
       data: {
         orderId: payment.orderId,
@@ -206,29 +218,63 @@ export class PaymentsService {
 
     const intent = event.data.object as { id: string; metadata?: { orderId?: string } };
     const orderId = intent.metadata?.orderId;
-    if (!orderId) return;
+    if (!orderId) return { received: true };
 
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        await this.prisma.payment.update({
-          where: { orderId },
-          data: { status: 'COMPLETED', paidAt: new Date() },
-        });
-        await this.prisma.order.update({
-          where: { id: orderId },
-          data: { status: 'PAID' },
-        });
-        break;
+    const existingEvent = await this.prisma.paymentEvent.findUnique({
+      where: { externalEventId: event.id },
+    });
+    if (existingEvent) return { received: true };
 
-      case 'payment_intent.payment_failed':
-        await this.prisma.payment.update({
-          where: { orderId },
-          data: { status: 'FAILED' },
-        });
-        break;
+    try {
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await this.prisma.$transaction(async (tx) => {
+            const payment = await tx.payment.update({
+              where: { orderId },
+              data: { status: 'COMPLETED', paidAt: new Date() },
+            });
+            await tx.order.update({
+              where: { id: orderId },
+              data: { status: 'PAID' },
+            });
+            await tx.paymentEvent.create({
+              data: {
+                externalEventId: event.id,
+                gateway: 'stripe',
+                eventType: event.type,
+                paymentId: payment.id,
+              },
+            });
+          });
+          break;
 
-      default:
-        break;
+        case 'payment_intent.payment_failed':
+          await this.prisma.$transaction(async (tx) => {
+            const payment = await tx.payment.update({
+              where: { orderId },
+              data: { status: 'FAILED' },
+            });
+            await tx.paymentEvent.create({
+              data: {
+                externalEventId: event.id,
+                gateway: 'stripe',
+                eventType: event.type,
+                paymentId: payment.id,
+              },
+            });
+          });
+          break;
+
+        default:
+          break;
+      }
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        return { received: true };
+      }
+      throw error;
     }
+
+    return { received: true };
   }
 }

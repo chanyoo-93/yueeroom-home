@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 interface KakaoPayReadyResponse {
   tid: string;
@@ -27,6 +29,16 @@ interface KakaoPayApproveResponse {
   approved_at: string;
 }
 
+export interface KakaoPayWebhookPayload {
+  cid: string;
+  tid: string;
+  partner_order_id: string;
+  partner_user_id: string;
+  payment_method_type: string;
+  payment_status: string;
+  approved_at?: string;
+}
+
 const KAKAO_PAY_API_BASE = 'https://open-api.kakaopay.com/online/v1';
 
 @Injectable()
@@ -35,6 +47,19 @@ export class KakaoPayService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
+
+  private assertWebhookAuthorization(authorization?: string): void {
+    const secretKey = this.config.get<string>('KAKAO_PAY_SECRET_KEY');
+    if (!secretKey) {
+      throw new InternalServerErrorException('KAKAO_PAY_SECRET_KEY가 설정되지 않았습니다.');
+    }
+
+    const expected = Buffer.from(`SECRET_KEY ${secretKey}`);
+    const actual = Buffer.from(authorization ?? '');
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      throw new BadRequestException('웹훅 인증에 실패했습니다.');
+    }
+  }
 
   async readyPayment(userId: string, orderId: string) {
     const order = await this.prisma.order.findUnique({
@@ -157,16 +182,19 @@ export class KakaoPayService {
 
     const result = (await response.json()) as KakaoPayApproveResponse;
 
-    await this.prisma.$transaction([
-      this.prisma.payment.update({
-        where: { orderId },
-        data: { status: 'COMPLETED', paidAt: new Date(result.approved_at) },
-      }),
-      this.prisma.order.update({
+    await this.prisma.$transaction(async (tx) => {
+      const currentPayment = await tx.payment.findUnique({ where: { orderId } });
+      if (currentPayment?.status !== 'COMPLETED') {
+        await tx.payment.update({
+          where: { orderId },
+          data: { status: 'COMPLETED', paidAt: new Date(result.approved_at) },
+        });
+      }
+      await tx.order.update({
         where: { id: orderId },
         data: { status: 'PAID' },
-      }),
-    ]);
+      });
+    });
 
     return { orderId, status: 'COMPLETED' };
   }
@@ -195,6 +223,67 @@ export class KakaoPayService {
 
     if (!response.ok) {
       throw new InternalServerErrorException('카카오페이 환불 요청에 실패했습니다.');
+    }
+  }
+
+  async handleWebhook(body: KakaoPayWebhookPayload, authorization?: string): Promise<void> {
+    this.assertWebhookAuthorization(authorization);
+
+    if (!body.tid || !body.partner_order_id) return;
+
+    const existingEvent = await this.prisma.paymentEvent.findUnique({
+      where: { externalEventId: body.tid },
+    });
+    if (existingEvent) return;
+
+    try {
+      if (body.payment_status === 'SUCCESS_PAYMENT') {
+        await this.prisma.$transaction(async (tx) => {
+          const currentPayment = await tx.payment.findUnique({
+            where: { orderId: body.partner_order_id },
+          });
+          let payment = currentPayment;
+          if (currentPayment?.status !== 'COMPLETED') {
+            payment = await tx.payment.update({
+              where: { orderId: body.partner_order_id },
+              data: {
+                status: 'COMPLETED',
+                paidAt: body.approved_at ? new Date(body.approved_at) : new Date(),
+              },
+            });
+          }
+          await tx.order.update({
+            where: { id: body.partner_order_id },
+            data: { status: 'PAID' },
+          });
+          await tx.paymentEvent.create({
+            data: {
+              externalEventId: body.tid,
+              gateway: 'kakaopay',
+              eventType: body.payment_status,
+              paymentId: payment?.id,
+            },
+          });
+        });
+      } else if (body.payment_status === 'CANCEL_PAYMENT') {
+        await this.prisma.$transaction(async (tx) => {
+          const payment = await tx.payment.update({
+            where: { orderId: body.partner_order_id },
+            data: { status: 'FAILED' },
+          });
+          await tx.paymentEvent.create({
+            data: {
+              externalEventId: body.tid,
+              gateway: 'kakaopay',
+              eventType: body.payment_status,
+              paymentId: payment.id,
+            },
+          });
+        });
+      }
+    } catch (error) {
+      if (isUniqueConstraintError(error)) return;
+      throw error;
     }
   }
 }
