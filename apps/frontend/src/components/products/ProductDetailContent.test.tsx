@@ -351,4 +351,53 @@ describe('ProductDetailContent', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
+
+  describe('보안 회귀 - XSS 렌더링 방어', () => {
+    function renderProductDescription(description: string) {
+      mockUseProductDetail.mockReturnValue({
+        data: mockProductDetail({ description }),
+        isLoading: false,
+        isError: false,
+      } as ReturnType<typeof useProductDetail>);
+
+      return render(<ProductDetailContent />);
+    }
+
+    it('script 태그가 포함된 description은 렌더링 시 제거된다', () => {
+      const { container } = renderProductDescription(
+        '<p>안전한 설명</p><script>alert("xss")</script>',
+      );
+
+      expect(container.innerHTML).not.toContain('<script');
+    });
+
+    it('onclick 이벤트 핸들러 속성이 제거된다', () => {
+      const { container } = renderProductDescription('<p onclick="alert(1)">클릭 가능한 설명</p>');
+
+      expect(container.innerHTML).not.toContain('onclick');
+    });
+
+    it('onerror 이벤트 핸들러 속성이 제거된다', () => {
+      const { container } = renderProductDescription('<img src="x" onerror="alert(1)" />');
+
+      expect(container.innerHTML).not.toContain('onerror');
+    });
+
+    it('javascript: scheme href 링크가 제거된다', () => {
+      const { container } = renderProductDescription(
+        '<a href="javascript:alert(1)">위험한 링크</a>',
+      );
+
+      expect(container.innerHTML).not.toContain('javascript:');
+    });
+
+    it('허용된 태그(strong, em)는 보존된다', () => {
+      const { container } = renderProductDescription(
+        '<p><strong>굵게</strong> <em>기울임</em></p>',
+      );
+
+      expect(container.innerHTML).toContain('<strong>굵게</strong>');
+      expect(container.innerHTML).toContain('<em>기울임</em>');
+    });
+  });
 });
