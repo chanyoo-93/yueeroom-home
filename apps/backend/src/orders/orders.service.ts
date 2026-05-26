@@ -53,7 +53,7 @@ export class OrdersService {
       for (const [variantId, quantity] of itemMap) {
         const price = variantPriceMap.get(variantId);
         if (price === undefined) {
-          throw new NotFoundException(`상품 변형을 찾을 수 없습니다: ${variantId}`);
+          throw new NotFoundException('상품 옵션을 찾을 수 없습니다.');
         }
         totalAmount += price * quantity;
         itemsToCreate.push({ variantId, quantity, unitPrice: price });
@@ -67,7 +67,7 @@ export class OrdersService {
           data: { quantity: { decrement: quantity } },
         });
         if (count === 0) {
-          throw new BadRequestException(`재고가 부족합니다. 상품: ${variantId}, 요청: ${quantity}`);
+          throw new BadRequestException('일부 상품의 재고가 부족합니다.');
         }
       }
 
@@ -241,13 +241,11 @@ export class OrdersService {
     for (const refundItem of dto.items) {
       const orderItem = order.items.find((i) => i.id === refundItem.itemId);
       if (!orderItem) {
-        throw new NotFoundException(`주문 항목을 찾을 수 없습니다: ${refundItem.itemId}`);
+        throw new NotFoundException('주문 항목을 찾을 수 없습니다.');
       }
       const alreadyRefundedQty = orderItem.refundItems.reduce((sum, ri) => sum + ri.quantity, 0);
       if (alreadyRefundedQty + refundItem.quantity > orderItem.quantity) {
-        throw new BadRequestException(
-          `이미 환불된 수량을 포함하여 환불 가능 수량을 초과합니다: ${refundItem.itemId}`,
-        );
+        throw new BadRequestException('환불 가능 수량을 초과합니다.');
       }
       refundAmount += orderItem.unitPrice * refundItem.quantity;
       itemsToRefund.push({
@@ -312,7 +310,7 @@ export class OrdersService {
         await this.kakaoPayService.refundKakaoPayment(payment.paymentKey, amount);
         break;
       default:
-        throw new BadRequestException(`지원하지 않는 결제 수단입니다: ${payment.paymentMethod}`);
+        throw new BadRequestException('지원하지 않는 결제 수단입니다.');
     }
   }
 

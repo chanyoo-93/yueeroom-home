@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -91,8 +92,10 @@ const mockConfigService = {
 
 describe('NaverPayService', () => {
   let service: NaverPayService;
+  let loggerWarnSpy: jest.SpyInstance;
 
   beforeEach(async () => {
+    loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NaverPayService,
@@ -104,6 +107,10 @@ describe('NaverPayService', () => {
     service = module.get<NaverPayService>(NaverPayService);
     jest.clearAllMocks();
     global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    loggerWarnSpy.mockRestore();
   });
 
   // ── preparePayment ────────────────────────────────────────────────────────────
@@ -187,6 +194,7 @@ describe('NaverPayService', () => {
       await expect(service.preparePayment('user-1', 'order-1')).rejects.toThrow(
         InternalServerErrorException,
       );
+      expect(loggerWarnSpy).toHaveBeenCalledWith('Naver Pay reserve failed: 잘못된 파라미터');
     });
   });
 
@@ -294,6 +302,7 @@ describe('NaverPayService', () => {
         where: { orderId: 'order-1' },
         data: { status: 'FAILED' },
       });
+      expect(loggerWarnSpy).toHaveBeenCalledWith('Naver Pay apply failed: 결제 실패');
     });
 
     it('Naver Pay API 응답 실패(ok=false) → InternalServerErrorException', async () => {
@@ -306,6 +315,22 @@ describe('NaverPayService', () => {
       await expect(service.approvePayment('user-1', 'np_payment_123', 'order-1')).rejects.toThrow(
         InternalServerErrorException,
       );
+    });
+  });
+
+  // ── refundNaverPayment ───────────────────────────────────────────────────────
+
+  describe('refundNaverPayment', () => {
+    it('Naver Pay API code != Success → BadRequestException + 상세 메시지 warn 기록', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({ code: 'CancelFailed', message: '취소 불가 상태' }),
+      });
+
+      await expect(service.refundNaverPayment('np_payment_123', 50000)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledWith('Naver Pay cancel failed: 취소 불가 상태');
     });
   });
 
