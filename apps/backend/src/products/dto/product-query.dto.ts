@@ -1,19 +1,20 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export type SortOrder = 'latest' | 'price_asc' | 'price_desc';
 
 export class ProductQueryDto {
-  @IsInt()
-  @Min(1)
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
-  @IsInt()
-  @Min(1)
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number;
 
   @IsString()
