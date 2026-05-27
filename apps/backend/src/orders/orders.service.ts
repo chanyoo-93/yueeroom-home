@@ -5,9 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { KakaoPayService } from '../payments/kakao-pay.service';
-import { NaverPayService } from '../payments/naver-pay.service';
-import { PaymentsService } from '../payments/payments.service';
+import { PaymentGatewayService } from '../payments/payment-gateway.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderListResponseDto, OrderResponseDto } from './dto/order-response.dto';
 import { PartialRefundDto } from './dto/partial-refund.dto';
@@ -16,9 +14,7 @@ import { PartialRefundDto } from './dto/partial-refund.dto';
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly paymentsService: PaymentsService,
-    private readonly naverPayService: NaverPayService,
-    private readonly kakaoPayService: KakaoPayService,
+    private readonly paymentGatewayService: PaymentGatewayService,
   ) {}
 
   async createOrder(userId: string, dto: CreateOrderDto): Promise<OrderResponseDto> {
@@ -295,23 +291,7 @@ export class OrdersService {
     amount: number,
     reason?: string,
   ): Promise<void> {
-    if (!payment.paymentKey) {
-      throw new BadRequestException('결제 키가 없어 환불할 수 없습니다.');
-    }
-
-    switch (payment.paymentMethod) {
-      case 'stripe':
-        await this.paymentsService.refundStripePayment(payment.paymentKey, amount);
-        break;
-      case 'naverpay':
-        await this.naverPayService.refundNaverPayment(payment.paymentKey, amount, reason);
-        break;
-      case 'kakaopay':
-        await this.kakaoPayService.refundKakaoPayment(payment.paymentKey, amount);
-        break;
-      default:
-        throw new BadRequestException('지원하지 않는 결제 수단입니다.');
-    }
+    await this.paymentGatewayService.refund(payment, amount, reason);
   }
 
   private toOrderResponse(order: OrderResponseDto & { payment?: unknown }): OrderResponseDto {

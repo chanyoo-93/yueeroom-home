@@ -10,10 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
+import type { IPaymentProvider } from './interfaces/payment-provider.interface';
 import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 @Injectable()
-export class PaymentsService {
+export class PaymentsService implements IPaymentProvider {
   constructor(
     private readonly prisma: PrismaService,
     @Inject('STRIPE_CLIENT') private readonly stripe: Stripe,
@@ -205,6 +206,10 @@ export class PaymentsService {
 
   async refundStripePayment(paymentKey: string, amount: number): Promise<void> {
     await this.stripe.refunds.create({ payment_intent: paymentKey, amount });
+  }
+
+  async refund(paymentKey: string, amount: number): Promise<void> {
+    await this.refundStripePayment(paymentKey, amount);
   }
 
   async handleWebhookEvent(payload: Buffer, signature: string) {

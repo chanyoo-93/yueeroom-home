@@ -2,9 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaymentsService } from '../payments/payments.service';
-import { NaverPayService } from '../payments/naver-pay.service';
-import { KakaoPayService } from '../payments/kakao-pay.service';
+import { PaymentGatewayService } from '../payments/payment-gateway.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PartialRefundDto } from './dto/partial-refund.dto';
 
@@ -111,16 +109,8 @@ const mockPrisma = {
   $transaction: jest.fn(),
 };
 
-const mockPaymentsService = {
-  refundStripePayment: jest.fn(),
-};
-
-const mockNaverPayService = {
-  refundNaverPayment: jest.fn(),
-};
-
-const mockKakaoPayService = {
-  refundKakaoPayment: jest.fn(),
+const mockPaymentGatewayService = {
+  refund: jest.fn(),
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -133,9 +123,7 @@ describe('OrdersService', () => {
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: PaymentsService, useValue: mockPaymentsService },
-        { provide: NaverPayService, useValue: mockNaverPayService },
-        { provide: KakaoPayService, useValue: mockKakaoPayService },
+        { provide: PaymentGatewayService, useValue: mockPaymentGatewayService },
       ],
     }).compile();
 
@@ -349,10 +337,10 @@ describe('OrdersService', () => {
   // ── refundOrder ───────────────────────────────────────────────────────────────
 
   describe('refundOrder', () => {
-    it('전체 환불 성공 → Stripe 환불 호출, 재고 복구, 주문 상태 REFUNDED', async () => {
+    it('전체 환불 성공 → 결제 게이트웨이 환불 호출, 재고 복구, 주문 상태 REFUNDED', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(mockPaidOrder);
       mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
-      mockPaymentsService.refundStripePayment.mockResolvedValue(undefined);
+      mockPaymentGatewayService.refund.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
       mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
@@ -375,8 +363,12 @@ describe('OrdersService', () => {
         }),
       });
 
-      // Stripe 환불 API 호출 확인
-      expect(mockPaymentsService.refundStripePayment).toHaveBeenCalledWith('pi_test_123', 80000);
+      // 결제 게이트웨이 환불 호출 확인
+      expect(mockPaymentGatewayService.refund).toHaveBeenCalledWith(
+        mockPayment,
+        80000,
+        '고객 요청',
+      );
 
       // 재고 복구 확인 (2개 항목 각각 increment)
       expect(mockPrisma.inventory.update).toHaveBeenCalledTimes(2);
@@ -408,7 +400,7 @@ describe('OrdersService', () => {
       await expect(service.refundOrder('user-1', 'order-1', '재환불')).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+      expect(mockPaymentGatewayService.refund).not.toHaveBeenCalled();
     });
 
     it('존재하지 않는 주문 → NotFoundException', async () => {
@@ -433,17 +425,17 @@ describe('OrdersService', () => {
       await expect(service.refundOrder('user-1', 'order-1', '환불')).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+      expect(mockPaymentGatewayService.refund).not.toHaveBeenCalled();
     });
 
-    it('NaverPay 결제 주문 환불 → NaverPay 환불 API 호출 (reason 전달)', async () => {
+    it('NaverPay 결제 주문 환불 → 결제 게이트웨이 환불 호출 (reason 전달)', async () => {
       const naverOrder = {
         ...mockPaidOrder,
         payment: { ...mockPayment, paymentMethod: 'naverpay', paymentKey: 'naver-pay-id-123' },
       };
       mockPrisma.order.findUnique.mockResolvedValue(naverOrder);
       mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
-      mockNaverPayService.refundNaverPayment.mockResolvedValue(undefined);
+      mockPaymentGatewayService.refund.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
       mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
@@ -451,21 +443,21 @@ describe('OrdersService', () => {
 
       await service.refundOrder('user-1', 'order-1', '환불');
 
-      expect(mockNaverPayService.refundNaverPayment).toHaveBeenCalledWith(
-        'naver-pay-id-123',
+      expect(mockPaymentGatewayService.refund).toHaveBeenCalledWith(
+        naverOrder.payment,
         80000,
         '환불',
       );
     });
 
-    it('KakaoPay 결제 주문 환불 → KakaoPay 환불 API 호출', async () => {
+    it('KakaoPay 결제 주문 환불 → 결제 게이트웨이 환불 호출', async () => {
       const kakaoOrder = {
         ...mockPaidOrder,
         payment: { ...mockPayment, paymentMethod: 'kakaopay', paymentKey: 'T469b847306d7b2dc234' },
       };
       mockPrisma.order.findUnique.mockResolvedValue(kakaoOrder);
       mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
-      mockKakaoPayService.refundKakaoPayment.mockResolvedValue(undefined);
+      mockPaymentGatewayService.refund.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
       mockPrisma.refund.update.mockResolvedValue({});
       mockPrisma.payment.update.mockResolvedValue({});
@@ -473,9 +465,10 @@ describe('OrdersService', () => {
 
       await service.refundOrder('user-1', 'order-1', '환불');
 
-      expect(mockKakaoPayService.refundKakaoPayment).toHaveBeenCalledWith(
-        'T469b847306d7b2dc234',
+      expect(mockPaymentGatewayService.refund).toHaveBeenCalledWith(
+        kakaoOrder.payment,
         80000,
+        '환불',
       );
     });
   });
@@ -491,7 +484,7 @@ describe('OrdersService', () => {
     it('부분 환불 성공 → 해당 항목 재고 복구, Refund 레코드 생성', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(mockPaidOrder);
       mockPrisma.refund.create.mockResolvedValue({ id: 'refund-1' });
-      mockPaymentsService.refundStripePayment.mockResolvedValue(undefined);
+      mockPaymentGatewayService.refund.mockResolvedValue(undefined);
       mockPrisma.inventory.update.mockResolvedValue({});
       const completedRefund = {
         id: 'refund-1',
@@ -521,7 +514,11 @@ describe('OrdersService', () => {
       });
 
       // 25000원 부분 환불 (var-a 1개)
-      expect(mockPaymentsService.refundStripePayment).toHaveBeenCalledWith('pi_test_123', 25000);
+      expect(mockPaymentGatewayService.refund).toHaveBeenCalledWith(
+        mockPayment,
+        25000,
+        '단순 변심',
+      );
 
       // var-a 1개만 재고 복구
       expect(mockPrisma.inventory.update).toHaveBeenCalledTimes(1);
@@ -543,7 +540,7 @@ describe('OrdersService', () => {
       await expect(
         service.partialRefundOrder('user-1', 'order-1', partialRefundDto),
       ).rejects.toThrow(BadRequestException);
-      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+      expect(mockPaymentGatewayService.refund).not.toHaveBeenCalled();
     });
 
     it('존재하지 않는 주문 항목 → NotFoundException', async () => {
@@ -595,7 +592,7 @@ describe('OrdersService', () => {
       await expect(service.partialRefundOrder('user-1', 'order-1', dto)).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+      expect(mockPaymentGatewayService.refund).not.toHaveBeenCalled();
     });
 
     it('누적 환불 금액이 총 결제 금액 초과 → BadRequestException', async () => {
@@ -613,7 +610,7 @@ describe('OrdersService', () => {
       await expect(service.partialRefundOrder('user-1', 'order-1', dto)).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockPaymentsService.refundStripePayment).not.toHaveBeenCalled();
+      expect(mockPaymentGatewayService.refund).not.toHaveBeenCalled();
     });
 
     it('다른 사용자의 주문 → ForbiddenException', async () => {
