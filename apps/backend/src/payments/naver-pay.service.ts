@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import type { IPaymentProvider } from './interfaces/payment-provider.interface';
 import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 interface NaverPayWebhookPayload {
@@ -44,7 +45,7 @@ interface NaverPayApplyResponse {
 const NAVER_PAY_API_BASE = 'https://dev.apis.naver.com/naverpay-partner/naverpay';
 
 @Injectable()
-export class NaverPayService {
+export class NaverPayService implements IPaymentProvider {
   private readonly logger = new Logger(NaverPayService.name);
 
   constructor(
@@ -231,6 +232,10 @@ export class NaverPayService {
       this.logger.warn(`Naver Pay cancel failed: ${result.message}`);
       throw new BadRequestException('환불 처리에 실패했습니다.');
     }
+  }
+
+  async refund(paymentKey: string, amount: number, reason?: string): Promise<void> {
+    await this.refundNaverPayment(paymentKey, amount, reason);
   }
 
   async handleWebhook(rawBody: string, signature: string): Promise<void> {

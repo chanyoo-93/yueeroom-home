@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import type { IPaymentProvider } from './interfaces/payment-provider.interface';
 import { isUniqueConstraintError } from './utils/prisma-error.util';
 
 interface KakaoPayReadyResponse {
@@ -42,7 +43,7 @@ export interface KakaoPayWebhookPayload {
 const KAKAO_PAY_API_BASE = 'https://open-api.kakaopay.com/online/v1';
 
 @Injectable()
-export class KakaoPayService {
+export class KakaoPayService implements IPaymentProvider {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -224,6 +225,10 @@ export class KakaoPayService {
     if (!response.ok) {
       throw new InternalServerErrorException('카카오페이 환불 요청에 실패했습니다.');
     }
+  }
+
+  async refund(paymentKey: string, amount: number): Promise<void> {
+    await this.refundKakaoPayment(paymentKey, amount);
   }
 
   async handleWebhook(body: KakaoPayWebhookPayload, authorization?: string): Promise<void> {
