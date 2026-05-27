@@ -29,19 +29,24 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  const config = new DocumentBuilder()
-    .setTitle('유이룸 API')
-    .setDescription('Yu-ee Room 쇼핑몰 API 문서')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
   const port = process.env['PORT'] ?? 4000;
+
+  if (process.env['NODE_ENV'] !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('유이룸 API')
+      .setDescription('Yu-ee Room 쇼핑몰 API 문서')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
   await app.listen(port);
   console.log(`Server running on http://localhost:${port}`);
-  console.log(`API docs: http://localhost:${port}/api/docs`);
+  if (process.env['NODE_ENV'] !== 'production') {
+    console.log(`API docs: http://localhost:${port}/api/docs`);
+  }
 }
 
 bootstrap();

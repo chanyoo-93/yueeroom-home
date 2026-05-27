@@ -175,6 +175,7 @@ jobs:
           }
 
           check "/api/health"           "200"
+          check "/api/docs/"            "200"
           check "/api/auth/login"       "400"
           check "/api/products"         "401"
           check "/api/nonexistent"      "404"
