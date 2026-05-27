@@ -3,7 +3,7 @@
 - 현재 이슈는 GitHub 저장소의 issue #{{ISSUE_NUMBER}} 구현이다.
 - 관련 모듈, 파일, 데이터 흐름, 테스트 위치를 탐색한다.
 - 바로 코드를 수정하지 않고, 작업 계획만 제안한다.
-- 출력 결과를 docs/plans/issue-#{{ISSUE_NUMBER}}-plan.md로 저장한다.
+- 출력 결과를 docs/plans/issue-{{ISSUE_NUMBER}}-plan.md로 저장한다.
 
 참고:
 
