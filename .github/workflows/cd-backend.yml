@@ -18,15 +18,13 @@ env:
   CONTAINER_NAME: yueeroom-backend
 
 jobs:
-  deploy:
-    name: Build → Migrate → Deploy (${{ github.ref_name == 'main' && 'production' || 'staging' }})
+  build-and-push:
+    name: Build & Push (${{ github.ref_name == 'main' && 'production' || 'staging' }})
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
-    env:
-      ECS_CLUSTER: ${{ github.ref_name == 'main' && 'yueeroom-prod' || 'yueeroom-staging' }}
-      ECS_SERVICE: yueeroom-backend
-      TASK_DEFINITION: ${{ github.ref_name == 'main' && 'yueeroom-backend' || 'yueeroom-backend-staging' }}
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
 
     steps:
       - name: Checkout
@@ -60,6 +58,30 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$ENV_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+  deploy:
+    name: Migrate → Deploy (${{ github.ref_name == 'main' && 'production' || 'staging' }})
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: vars.DEPLOY_ENABLED == 'true'
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
+    env:
+      ECS_CLUSTER: ${{ github.ref_name == 'main' && 'yueeroom-prod' || 'yueeroom-staging' }}
+      ECS_SERVICE: yueeroom-backend
+      TASK_DEFINITION: ${{ github.ref_name == 'main' && 'yueeroom-backend' || 'yueeroom-backend-staging' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-Deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
       - name: Download current task definition
         run: |
           aws ecs describe-task-definition \
@@ -73,7 +95,7 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          image: ${{ needs.build-and-push.outputs.image }}
 
       - name: Register new task definition revision
         id: register-task-def
