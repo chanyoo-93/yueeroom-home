@@ -13,18 +13,32 @@ export async function requestRefund(paymentId: string, reason: string): Promise<
   return res.data;
 }
 
-export interface CreatePaymentIntentResponse {
-  clientSecret: string;
-  paymentId: string;
+export interface KcpCardPrepareResponse {
+  siteCode: string;
+  orderId: string;
+  amount: number;
+  productName: string;
+  timestamp: string;
+  signData: string;
 }
 
-export async function createPaymentIntent(
-  orderId: string,
-  installmentMonths?: number,
-): Promise<CreatePaymentIntentResponse> {
-  const { data } = await apiClient.post<CreatePaymentIntentResponse>('/payments/stripe/intent', {
+export async function kcpCardPrepare(orderId: string): Promise<KcpCardPrepareResponse> {
+  const { data } = await apiClient.post<KcpCardPrepareResponse>('/payments/kcp/card/prepare', {
     orderId,
-    ...(installmentMonths !== undefined && { installmentMonths }),
+  });
+  return data;
+}
+
+export interface KcpVbankPrepareResponse {
+  accountNumber: string;
+  bankName: string;
+  expiresAt: string;
+  amount: number;
+}
+
+export async function kcpVbankPrepare(orderId: string): Promise<KcpVbankPrepareResponse> {
+  const { data } = await apiClient.post<KcpVbankPrepareResponse>('/payments/kcp/vbank/prepare', {
+    orderId,
   });
   return data;
 }

@@ -1,41 +1,27 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
-
-// ── Fixtures ──────────────────────────────────────────────────────────────────
-
-const mockOrder = {
-  id: 'order-1',
-  userId: 'user-1',
-  status: 'PENDING',
-  totalAmount: 50000,
-  payment: null,
-};
+import { PaymentsService } from './payments.service';
 
 const mockPayment = {
   id: 'payment-1',
   orderId: 'order-1',
   status: 'PENDING',
   amount: 50000,
-  paymentMethod: 'stripe',
-  paymentKey: 'pi_test_123',
+  paymentMethod: 'kcpeasypay',
+  paymentKey: 'kcp-tno-001',
   paidAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
-
 const mockPrisma = {
-  order: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
-  },
   payment: {
-    upsert: jest.fn(),
-    update: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
     count: jest.fn(),
@@ -44,84 +30,41 @@ const mockPrisma = {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
-  paymentEvent: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-  },
-  $transaction: jest.fn(),
 };
-
-const mockConfigService = {
-  get: jest.fn().mockReturnValue(''),
-};
-
-const mockStripePaymentIntent = {
-  id: 'pi_test_123',
-  client_secret: 'pi_test_123_secret_abc',
-  amount: 50000,
-  currency: 'krw',
-  status: 'requires_payment_method',
-};
-
-const mockStripe = {
-  paymentIntents: {
-    create: jest.fn(),
-    retrieve: jest.fn(),
-  },
-  refunds: {
-    create: jest.fn(),
-  },
-  webhooks: {
-    constructEvent: jest.fn(),
-  },
-};
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PaymentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: 'STRIPE_CLIENT', useValue: mockStripe },
-        { provide: ConfigService, useValue: mockConfigService },
-      ],
+      providers: [PaymentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
     jest.clearAllMocks();
-    mockPrisma.paymentEvent.findUnique.mockResolvedValue(null);
     mockPrisma.refund.findFirst.mockResolvedValue(null);
-    mockPrisma.$transaction.mockImplementation((arg: unknown) => {
-      if (typeof arg === 'function') {
-        return arg(mockPrisma);
-      }
-      return Promise.all(arg as Promise<unknown>[]);
-    });
   });
 
-  // ── getUserPayments ─────────────────────────────────────────────────────────
-
   describe('getUserPayments', () => {
-    it('paymentKey 필드를 응답에서 제외한다', async () => {
+    it('paymentKey 필드를 응답에서 제외하고 가상계좌 필드를 포함한다', async () => {
       mockPrisma.payment.findMany.mockResolvedValue([
         {
           id: 'payment-1',
           orderId: 'order-1',
-          status: 'COMPLETED',
+          status: 'AWAITING_DEPOSIT',
           amount: 50000,
-          paymentMethod: 'stripe',
-          paidAt: new Date(),
+          paymentMethod: 'kcpeasypay',
+          paidAt: null,
+          virtualAccountNumber: '1234567890',
+          virtualBankName: '국민은행',
+          virtualAccountExpiry: new Date('2026-06-10T06:00:00.000Z'),
           createdAt: new Date(),
           updatedAt: new Date(),
           order: {
             id: 'order-1',
             userId: 'user-1',
             addressId: 'address-1',
-            status: 'DELIVERED',
+            status: 'PENDING',
             totalAmount: 50000,
             shippingFee: 0,
             carrier: null,
@@ -137,6 +80,7 @@ describe('PaymentsService', () => {
       const result = await service.getUserPayments('user-1', 1, 10);
 
       expect(result.items[0]).not.toHaveProperty('paymentKey');
+      expect(result.items[0]).toHaveProperty('virtualAccountNumber', '1234567890');
       expect(result.total).toBe(1);
       expect(result.totalPages).toBe(1);
     });
@@ -149,8 +93,14 @@ describe('PaymentsService', () => {
 
       const arg = mockPrisma.payment.findMany.mock.calls[0][0];
       expect(arg.include).toBeUndefined();
-      expect(arg.select).toBeDefined();
       expect(arg.select.paymentKey).toBeUndefined();
+      expect(arg.select).toEqual(
+        expect.objectContaining({
+          virtualAccountNumber: true,
+          virtualBankName: true,
+          virtualAccountExpiry: true,
+        }),
+      );
       const variantSelect = arg.select.order.select.items.select.variant.select;
       expect(variantSelect).toEqual(
         expect.objectContaining({
@@ -182,143 +132,67 @@ describe('PaymentsService', () => {
     });
   });
 
-  // ── createPaymentIntent ───────────────────────────────────────────────────────
-
-  describe('createPaymentIntent', () => {
-    it('PaymentIntent를 생성하고 clientSecret과 paymentId를 반환한다', async () => {
-      mockPrisma.order.findUnique.mockResolvedValue(mockOrder);
-      mockStripe.paymentIntents.create.mockResolvedValue(mockStripePaymentIntent);
-      mockPrisma.payment.upsert.mockResolvedValue(mockPayment);
-
-      const result = await service.createPaymentIntent('user-1', 'order-1');
-
-      // Stripe paymentIntents.create가 올바른 금액·통화로 호출되었는지 확인
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
-        amount: 50000,
-        currency: 'krw',
-        metadata: { orderId: 'order-1' },
-      });
-
-      // Payment 레코드가 upsert로 저장되었는지 확인
-      expect(mockPrisma.payment.upsert).toHaveBeenCalledWith({
-        where: { orderId: 'order-1' },
-        create: {
-          orderId: 'order-1',
-          amount: 50000,
-          paymentMethod: 'stripe',
-          paymentKey: 'pi_test_123',
-        },
-        update: {
-          paymentKey: 'pi_test_123',
-          status: 'PENDING',
-        },
-      });
-
-      expect(result).toEqual({
-        clientSecret: 'pi_test_123_secret_abc',
-        paymentId: 'payment-1',
-      });
-    });
-
-    it('존재하지 않는 주문 → NotFoundException', async () => {
-      mockPrisma.order.findUnique.mockResolvedValue(null);
-
-      await expect(service.createPaymentIntent('user-1', 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled();
-    });
-
-    it('다른 사용자의 주문 → ForbiddenException', async () => {
-      mockPrisma.order.findUnique.mockResolvedValue({ ...mockOrder, userId: 'other-user' });
-
-      await expect(service.createPaymentIntent('user-1', 'order-1')).rejects.toThrow(
-        ForbiddenException,
-      );
-      expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled();
-    });
-
-    it('5만원 이상 + installmentMonths → Stripe에 할부 파라미터 포함', async () => {
-      const orderAboveThreshold = { ...mockOrder, totalAmount: 50000 };
-      mockPrisma.order.findUnique.mockResolvedValue(orderAboveThreshold);
-      mockStripe.paymentIntents.create.mockResolvedValue(mockStripePaymentIntent);
-      mockPrisma.payment.upsert.mockResolvedValue(mockPayment);
-
-      await service.createPaymentIntent('user-1', 'order-1', 3);
-
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
-        amount: 50000,
-        currency: 'krw',
-        metadata: { orderId: 'order-1' },
-        payment_method_options: {
-          card: {
-            installments: {
-              enabled: true,
-              plan: { type: 'fixed_count', count: 3, interval: 'month' },
-            },
-          },
-        },
-      });
-    });
-
-    it('5만원 미만 + installmentMonths → Stripe에 할부 파라미터 미포함', async () => {
-      const orderBelowThreshold = { ...mockOrder, totalAmount: 49999 };
-      mockPrisma.order.findUnique.mockResolvedValue(orderBelowThreshold);
-      mockStripe.paymentIntents.create.mockResolvedValue({
-        ...mockStripePaymentIntent,
-        amount: 49999,
-      });
-      mockPrisma.payment.upsert.mockResolvedValue({ ...mockPayment, amount: 49999 });
-
-      await service.createPaymentIntent('user-1', 'order-1', 3);
-
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
-        amount: 49999,
-        currency: 'krw',
-        metadata: { orderId: 'order-1' },
-      });
-    });
-
-    it('5만원 이상 + installmentMonths 없음 → Stripe에 할부 파라미터 미포함', async () => {
-      const orderAboveThreshold = { ...mockOrder, totalAmount: 80000 };
-      mockPrisma.order.findUnique.mockResolvedValue(orderAboveThreshold);
-      mockStripe.paymentIntents.create.mockResolvedValue({
-        ...mockStripePaymentIntent,
-        amount: 80000,
-      });
-      mockPrisma.payment.upsert.mockResolvedValue({ ...mockPayment, amount: 80000 });
-
-      await service.createPaymentIntent('user-1', 'order-1');
-
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
-        amount: 80000,
-        currency: 'krw',
-        metadata: { orderId: 'order-1' },
-      });
-    });
-
-    it('이미 결제된 주문(payment 존재) → BadRequestException', async () => {
-      const { BadRequestException } = await import('@nestjs/common');
-      mockPrisma.order.findUnique.mockResolvedValue({
-        ...mockOrder,
-        payment: { ...mockPayment, status: 'COMPLETED' },
-      });
-
-      await expect(service.createPaymentIntent('user-1', 'order-1')).rejects.toThrow(
-        BadRequestException,
-      );
-      expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled();
-    });
-  });
-
-  // ── requestRefund ───────────────────────────────────────────────────────────
-
   describe('requestRefund', () => {
     const completedPayment = {
       ...mockPayment,
       status: 'COMPLETED',
       order: { id: 'order-1', userId: 'user-1' },
     };
+
+    it('결제가 없으면 NotFoundException을 던진다', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue(null);
+
+      await expect(service.requestRefund('user-1', 'payment-x', '단순 변심')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('타인 결제면 ForbiddenException을 던진다', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        ...completedPayment,
+        order: { id: 'order-1', userId: 'other-user' },
+      });
+
+      await expect(service.requestRefund('user-1', 'payment-1', '단순 변심')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('COMPLETED 상태가 아니면 BadRequestException을 던진다', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        ...completedPayment,
+        status: 'PENDING',
+      });
+
+      await expect(service.requestRefund('user-1', 'payment-1', '단순 변심')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('환불 요청을 생성한다', async () => {
+      const refund = {
+        id: 'refund-1',
+        orderId: 'order-1',
+        paymentId: 'payment-1',
+        amount: 50000,
+        reason: '단순 변심',
+        status: 'REQUESTED',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      mockPrisma.payment.findUnique.mockResolvedValue(completedPayment);
+      mockPrisma.refund.create.mockResolvedValue(refund);
+
+      await expect(service.requestRefund('user-1', 'payment-1', '단순 변심')).resolves.toBe(refund);
+      expect(mockPrisma.refund.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 'order-1',
+          paymentId: 'payment-1',
+          amount: 50000,
+          reason: '단순 변심',
+        },
+      });
+    });
 
     it('REQUESTED 상태 Refund가 있으면 ConflictException을 던진다', async () => {
       mockPrisma.payment.findUnique.mockResolvedValue(completedPayment);
@@ -344,109 +218,6 @@ describe('PaymentsService', () => {
         ConflictException,
       );
       expect(mockPrisma.refund.create).not.toHaveBeenCalled();
-    });
-  });
-
-  // ── handleWebhookEvent ────────────────────────────────────────────────────────
-
-  describe('handleWebhookEvent', () => {
-    it('payment_intent.succeeded → Payment COMPLETED, Order PAID로 업데이트', async () => {
-      const event = {
-        id: 'evt_test_123',
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_test_123',
-            metadata: { orderId: 'order-1' },
-          },
-        },
-      };
-      mockStripe.webhooks.constructEvent.mockReturnValue(event);
-      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'COMPLETED' });
-      mockPrisma.order.update.mockResolvedValue({ ...mockOrder, status: 'PAID' });
-
-      const result = await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
-
-      expect(result).toEqual({ received: true });
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { orderId: 'order-1' },
-        data: { status: 'COMPLETED', paidAt: expect.any(Date) },
-      });
-      expect(mockPrisma.order.update).toHaveBeenCalledWith({
-        where: { id: 'order-1' },
-        data: { status: 'PAID' },
-      });
-      expect(mockPrisma.paymentEvent.create).toHaveBeenCalledWith({
-        data: {
-          externalEventId: 'evt_test_123',
-          gateway: 'stripe',
-          eventType: 'payment_intent.succeeded',
-          paymentId: 'payment-1',
-        },
-      });
-    });
-
-    it('동일 event.id가 이미 처리된 경우 DB update 없이 { received: true }를 반환한다', async () => {
-      const event = {
-        id: 'evt_test_123',
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_test_123',
-            metadata: { orderId: 'order-1' },
-          },
-        },
-      };
-      mockStripe.webhooks.constructEvent.mockReturnValue(event);
-      mockPrisma.paymentEvent.findUnique.mockResolvedValue({ id: 'payment-event-1' });
-
-      const result = await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
-
-      expect(result).toEqual({ received: true });
-      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
-      expect(mockPrisma.order.update).not.toHaveBeenCalled();
-      expect(mockPrisma.paymentEvent.create).not.toHaveBeenCalled();
-    });
-
-    it('결제 실패(payment_intent.payment_failed) → Payment FAILED, 주문 상태 미변경', async () => {
-      const event = {
-        id: 'evt_failed_123',
-        type: 'payment_intent.payment_failed',
-        data: {
-          object: {
-            id: 'pi_test_123',
-            metadata: { orderId: 'order-1' },
-          },
-        },
-      };
-      mockStripe.webhooks.constructEvent.mockReturnValue(event);
-      mockPrisma.payment.update.mockResolvedValue({ ...mockPayment, status: 'FAILED' });
-
-      await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
-
-      // Payment는 FAILED로 업데이트
-      expect(mockPrisma.payment.update).toHaveBeenCalledWith({
-        where: { orderId: 'order-1' },
-        data: { status: 'FAILED' },
-      });
-
-      // 주문 상태는 변경되지 않아야 함
-      expect(mockPrisma.order.update).not.toHaveBeenCalled();
-    });
-
-    it('처리하지 않는 이벤트 타입 → 아무것도 하지 않는다', async () => {
-      const event = {
-        id: 'evt_customer_123',
-        type: 'customer.created',
-        data: { object: {} },
-      };
-      mockStripe.webhooks.constructEvent.mockReturnValue(event);
-
-      await service.handleWebhookEvent(Buffer.from('payload'), 'sig_test');
-
-      expect(mockPrisma.payment.update).not.toHaveBeenCalled();
-      expect(mockPrisma.order.update).not.toHaveBeenCalled();
     });
   });
 });

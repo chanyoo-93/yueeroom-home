@@ -1,5 +1,11 @@
 import { validateEnv } from './env.validation';
 
+const kcpConfig = {
+  KCP_SITE_CODE: 'T0000',
+  KCP_SITE_KEY: 'kcp-site-key',
+  KCP_SANDBOX: 'true',
+};
+
 const productionConfig = {
   NODE_ENV: 'production',
   JWT_SECRET: 'jwt-secret',
@@ -7,7 +13,7 @@ const productionConfig = {
   FRONTEND_URL: 'http://localhost:3000',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
   REDIS_URL: 'redis://localhost:6379',
-  STRIPE_SECRET_KEY: 'sk_test_secret',
+  ...kcpConfig,
   KAKAO_PAY_SECRET_KEY: 'kakao-pay-secret',
   KAKAO_PAY_CID: 'TC0ONETIME',
   KAKAO_CLIENT_ID: 'kakao-client-id',
@@ -29,6 +35,7 @@ describe('validateEnv', () => {
   it('NODE_ENV가 undefined이면 throw 된다', () => {
     expect(() =>
       validateEnv({
+        ...kcpConfig,
         JWT_SECRET: 'jwt-secret',
         JWT_REFRESH_SECRET: 'jwt-refresh-secret',
       }),
@@ -38,6 +45,7 @@ describe('validateEnv', () => {
   it('development에서 JWT_SECRET 누락 시 throw 된다', () => {
     expect(() =>
       validateEnv({
+        ...kcpConfig,
         NODE_ENV: 'development',
         JWT_REFRESH_SECRET: 'jwt-refresh-secret',
       }),
@@ -47,6 +55,7 @@ describe('validateEnv', () => {
   it('development에서 JWT_REFRESH_SECRET 누락 시 throw 된다', () => {
     expect(() =>
       validateEnv({
+        ...kcpConfig,
         NODE_ENV: 'development',
         JWT_SECRET: 'jwt-secret',
       }),
@@ -62,7 +71,7 @@ describe('validateEnv', () => {
   it('production에서 복수 누락 변수를 모두 에러 메시지에 포함한다', () => {
     const config = {
       ...productionConfig,
-      STRIPE_SECRET_KEY: '',
+      KCP_SITE_KEY: '',
       KAKAO_PAY_SECRET_KEY: '',
       SENTRY_DSN: '',
     };
@@ -72,7 +81,7 @@ describe('validateEnv', () => {
       fail('validateEnv should throw');
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain('STRIPE_SECRET_KEY');
+      expect((error as Error).message).toContain('KCP_SITE_KEY');
       expect((error as Error).message).toContain('KAKAO_PAY_SECRET_KEY');
       expect((error as Error).message).toContain('SENTRY_DSN');
     }
@@ -83,9 +92,22 @@ describe('validateEnv', () => {
       NODE_ENV: 'development',
       JWT_SECRET: 'jwt-secret',
       JWT_REFRESH_SECRET: 'jwt-refresh-secret',
+      ...kcpConfig,
     };
 
     expect(validateEnv(config)).toBe(config);
+  });
+
+  it('development에서도 KCP_SANDBOX 누락 시 throw 된다', () => {
+    expect(() =>
+      validateEnv({
+        NODE_ENV: 'development',
+        JWT_SECRET: 'jwt-secret',
+        JWT_REFRESH_SECRET: 'jwt-refresh-secret',
+        KCP_SITE_CODE: 'T0000',
+        KCP_SITE_KEY: 'kcp-site-key',
+      }),
+    ).toThrow(/KCP_SANDBOX/);
   });
 
   it('production 필수 변수가 모두 있으면 입력 config 객체를 반환한다', () => {

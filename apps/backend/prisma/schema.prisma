@@ -253,7 +253,7 @@ model Payment {
   orderId       String        @unique
   status        PaymentStatus @default(PENDING)
   amount        Int
-  paymentMethod String // stripe | naverpay | kakaopay
+  paymentMethod String // kcpeasypay | naverpay | kakaopay
   paymentKey    String? // gateway token — NOT card info (PCI DSS)
   paidAt        DateTime?
   // 가상계좌 전용 (신용카드 결제 시 null)

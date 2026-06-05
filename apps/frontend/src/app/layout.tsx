@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,9 +29,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const kcpSdkUrl = process.env.NEXT_PUBLIC_KCP_SDK_URL;
+
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        {kcpSdkUrl && <Script src={kcpSdkUrl} strategy="beforeInteractive" />}
+        {children}
+      </body>
     </html>
   );
 }

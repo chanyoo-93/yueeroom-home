@@ -49,6 +49,30 @@ vi.mock('@/lib/hooks/useOrders', () => ({
   })),
 }));
 
+vi.mock('@/components/payments/KcpPaymentButton', () => ({
+  default: ({ onSuccess }: { onSuccess: () => void }) => (
+    <button onClick={onSuccess}>신용카드 결제</button>
+  ),
+}));
+
+vi.mock('@/components/payments/VirtualAccountInfo', () => ({
+  default: ({ onBack }: { onBack: () => void }) => (
+    <div>
+      <p>1234567890</p>
+      <button onClick={onBack}>뒤로</button>
+    </div>
+  ),
+}));
+
+vi.mock('@/components/payments/NaverPayButton', () => ({
+  default: ({ onBack }: { onBack: () => void }) => (
+    <div>
+      <p>네이버페이 결제</p>
+      <button onClick={onBack}>다른 결제 방법으로 변경</button>
+    </div>
+  ),
+}));
+
 import CheckoutContent from './CheckoutContent';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
@@ -234,12 +258,13 @@ describe('CheckoutContent', () => {
   // ── 결제 방법 ────────────────────────────────────────────────────────────────
 
   describe('결제 방법 선택', () => {
-    it('세 가지 결제 수단을 렌더링한다', () => {
+    it('네 가지 결제 수단을 렌더링한다', () => {
       setMockItems([mockCartItem()]);
       render(<CheckoutContent />);
       expect(screen.getByText('카카오페이')).toBeInTheDocument();
       expect(screen.getByText('네이버페이')).toBeInTheDocument();
       expect(screen.getByText('신용카드')).toBeInTheDocument();
+      expect(screen.getByText('가상계좌')).toBeInTheDocument();
     });
 
     it('기본으로 카카오페이가 선택된다', () => {
@@ -365,6 +390,44 @@ describe('CheckoutContent', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(
         '주문 처리 중 오류가 발생했습니다. 다시 시도해주세요.',
       );
+    });
+
+    it('신용카드 선택 후 결제하기 -> KcpPaymentButton 노출', async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({ id: 'order-card-1' });
+      (useCreateOrder as ReturnType<typeof vi.fn>).mockReturnValue({
+        mutateAsync,
+        isPending: false,
+      });
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [mockAddress({ id: 'addr-1', isDefault: true })],
+        isLoading: false,
+      });
+
+      render(<CheckoutContent />);
+      await userEvent.click(screen.getByRole('radio', { name: '신용카드' }));
+      await userEvent.click(screen.getByRole('button', { name: '결제하기' }));
+
+      expect(await screen.findByRole('button', { name: '신용카드 결제' })).toBeInTheDocument();
+    });
+
+    it('가상계좌 선택 후 결제하기 -> VirtualAccountInfo 노출', async () => {
+      const mutateAsync = vi.fn().mockResolvedValue({ id: 'order-vbank-1' });
+      (useCreateOrder as ReturnType<typeof vi.fn>).mockReturnValue({
+        mutateAsync,
+        isPending: false,
+      });
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [mockAddress({ id: 'addr-1', isDefault: true })],
+        isLoading: false,
+      });
+
+      render(<CheckoutContent />);
+      await userEvent.click(screen.getByRole('radio', { name: '가상계좌' }));
+      await userEvent.click(screen.getByRole('button', { name: '결제하기' }));
+
+      expect(await screen.findByText('1234567890')).toBeInTheDocument();
     });
   });
 });
