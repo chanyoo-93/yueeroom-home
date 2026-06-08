@@ -41,6 +41,7 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
+  AWAITING_DEPOSIT
   COMPLETED
   FAILED
   REFUNDED
@@ -252,9 +253,13 @@ model Payment {
   orderId       String        @unique
   status        PaymentStatus @default(PENDING)
   amount        Int
-  paymentMethod String // stripe | naverpay | kakaopay
+  paymentMethod String // kcpeasypay | naverpay | kakaopay
   paymentKey    String? // gateway token — NOT card info (PCI DSS)
   paidAt        DateTime?
+  // 가상계좌 전용 (신용카드 결제 시 null)
+  virtualAccountNumber String?
+  virtualBankName      String?
+  virtualAccountExpiry DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

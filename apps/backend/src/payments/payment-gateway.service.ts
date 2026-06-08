@@ -1,20 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { IPaymentProvider } from './interfaces/payment-provider.interface';
 import { KakaoPayService } from './kakao-pay.service';
+import { KcpEasyPayService } from './kcp-easypay.service';
 import { NaverPayService } from './naver-pay.service';
-import { PaymentsService } from './payments.service';
 
 @Injectable()
 export class PaymentGatewayService {
   private readonly providers: Map<string, IPaymentProvider>;
 
   constructor(
-    paymentsService: PaymentsService,
+    kcpEasyPayService: KcpEasyPayService,
     naverPayService: NaverPayService,
     kakaoPayService: KakaoPayService,
   ) {
     this.providers = new Map<string, IPaymentProvider>([
-      ['stripe', paymentsService],
+      ['kcpeasypay', kcpEasyPayService],
       ['naverpay', naverPayService],
       ['kakaopay', kakaoPayService],
     ]);

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import KcpPaymentButton from '@/components/payments/KcpPaymentButton';
 import NaverPayButton from '@/components/payments/NaverPayButton';
-import StripePaymentForm from '@/components/payments/StripePaymentForm';
+import VirtualAccountInfo from '@/components/payments/VirtualAccountInfo';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
@@ -14,7 +15,8 @@ import type { Order, PaymentMethod } from '@/lib/types/order';
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'kakaopay', label: '카카오페이' },
   { value: 'naverpay', label: '네이버페이' },
-  { value: 'stripe', label: '신용카드' },
+  { value: 'kcpeasypay', label: '신용카드' },
+  { value: 'kcpeasypay-vbank', label: '가상계좌' },
 ];
 
 export default function CheckoutContent() {
@@ -35,10 +37,8 @@ export default function CheckoutContent() {
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [pendingNaverPayOrderId, setPendingNaverPayOrderId] = useState<string | null>(null);
-  const [pendingStripeOrder, setPendingStripeOrder] = useState<{
-    id: string;
-    amount: number;
-  } | null>(null);
+  const [pendingKcpCardOrder, setPendingKcpCardOrder] = useState<{ id: string } | null>(null);
+  const [pendingVbankOrderId, setPendingVbankOrderId] = useState<string | null>(null);
 
   const resolvedAddressId = selectedAddressId ?? defaultAddress?.id;
 
@@ -124,8 +124,13 @@ export default function CheckoutContent() {
         return;
       }
 
-      if (selectedPayment === 'stripe') {
-        setPendingStripeOrder({ id: orderId, amount: totalPrice });
+      if (selectedPayment === 'kcpeasypay') {
+        setPendingKcpCardOrder({ id: orderId });
+        return;
+      }
+
+      if (selectedPayment === 'kcpeasypay-vbank') {
+        setPendingVbankOrderId(orderId);
         return;
       }
 
@@ -245,7 +250,7 @@ export default function CheckoutContent() {
         {/* 결제 방법 */}
         <section>
           <h2 className="mb-3 text-base font-semibold text-gray-800">결제 방법</h2>
-          <ul className="grid grid-cols-3 gap-2">
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {PAYMENT_METHODS.map(({ value, label }) => (
               <li key={value}>
                 <label
@@ -305,15 +310,28 @@ export default function CheckoutContent() {
               onBack={() => setPendingNaverPayOrderId(null)}
             />
           </div>
-        ) : pendingStripeOrder ? (
+        ) : pendingKcpCardOrder ? (
           <div className="mt-5">
-            <StripePaymentForm
-              orderId={pendingStripeOrder.id}
-              amount={pendingStripeOrder.amount}
+            <KcpPaymentButton
+              orderId={pendingKcpCardOrder.id}
               onSuccess={() => {
                 clearOrderState();
-                setCompletedOrderId(pendingStripeOrder.id);
+                setCompletedOrderId(pendingKcpCardOrder.id);
               }}
+              onError={(message) => setErrorMessage(message)}
+            />
+            <button
+              onClick={() => setPendingKcpCardOrder(null)}
+              className="mt-2 block w-full text-center text-xs text-gray-400 hover:text-indigo-500"
+            >
+              돌아가기
+            </button>
+          </div>
+        ) : pendingVbankOrderId ? (
+          <div className="mt-5">
+            <VirtualAccountInfo
+              orderId={pendingVbankOrderId}
+              onBack={() => setPendingVbankOrderId(null)}
             />
           </div>
         ) : (

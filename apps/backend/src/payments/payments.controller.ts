@@ -14,15 +14,17 @@ import type { Request } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
-import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { GetPaymentsQueryDto } from './dto/get-payments-query.dto';
 import { KakaoPayApproveDto } from './dto/kakao-pay-approve.dto';
 import { KakaoPayReadyDto } from './dto/kakao-pay-ready.dto';
+import { KcpCardPrepareDto } from './dto/kcp-card-prepare.dto';
+import { KcpVbankPrepareDto } from './dto/kcp-vbank-prepare.dto';
 import { NaverPayApproveDto } from './dto/naver-pay-approve.dto';
 import { NaverPayPrepareDto } from './dto/naver-pay-prepare.dto';
 import { PaymentListResponseDto, RefundResponseDto } from './dto/payment-response.dto';
 import { KakaoPayService, type KakaoPayWebhookPayload } from './kakao-pay.service';
+import { KcpEasyPayService, type KcpWebhookBody } from './kcp-easypay.service';
 import { NaverPayService } from './naver-pay.service';
 import { PaymentsService } from './payments.service';
 
@@ -31,6 +33,7 @@ import { PaymentsService } from './payments.service';
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
+    private readonly kcpEasyPayService: KcpEasyPayService,
     private readonly naverPayService: NaverPayService,
     private readonly kakaoPayService: KakaoPayService,
   ) {}
@@ -53,20 +56,23 @@ export class PaymentsController {
     return this.paymentsService.requestRefund(user.sub, paymentId, dto.reason);
   }
 
-  @Post('stripe/intent')
-  @ApiOperation({ summary: 'Stripe PaymentIntent 생성' })
-  createPaymentIntent(@CurrentUser() user: JwtPayload, @Body() dto: CreatePaymentIntentDto) {
-    return this.paymentsService.createPaymentIntent(user.sub, dto.orderId, dto.installmentMonths);
+  @Post('kcp/card/prepare')
+  @ApiOperation({ summary: 'KCP 신용카드 결제 파라미터 생성' })
+  kcpCardPrepare(@CurrentUser() user: JwtPayload, @Body() dto: KcpCardPrepareDto) {
+    return this.kcpEasyPayService.prepareCardPayment(user.sub, dto.orderId);
   }
 
-  @Post('stripe/webhook')
+  @Post('kcp/vbank/prepare')
+  @ApiOperation({ summary: 'KCP 가상계좌 발급' })
+  kcpVbankPrepare(@CurrentUser() user: JwtPayload, @Body() dto: KcpVbankPrepareDto) {
+    return this.kcpEasyPayService.prepareVbank(user.sub, dto.orderId);
+  }
+
+  @Post('kcp/webhook')
   @Public()
-  @ApiOperation({ summary: 'Stripe 웹훅 처리' })
-  handleWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature: string,
-  ) {
-    return this.paymentsService.handleWebhookEvent(req.rawBody!, signature);
+  @ApiOperation({ summary: 'KCP webhook 처리' })
+  handleKcpWebhook(@Body() body: KcpWebhookBody, @Headers('kcp-signature') signature: string) {
+    return this.kcpEasyPayService.handleWebhook(body, signature);
   }
 
   @Post('naver/webhook')

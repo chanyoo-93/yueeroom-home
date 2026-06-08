@@ -16,6 +16,6 @@ if [ ! -f "$TEMPLATE_FILE" ]; then
   exit 1
 fi
 
-claude --permission-mode plan "$(
+claude "$(
   LC_ALL=ko_KR.UTF-8 ISSUE_NUMBER="$ISSUE_NUMBER" perl -pe 's/\{\{ISSUE_NUMBER\}\}/$ENV{ISSUE_NUMBER}/g' "$TEMPLATE_FILE"
 )"

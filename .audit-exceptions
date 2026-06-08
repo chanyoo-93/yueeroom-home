@@ -15,12 +15,6 @@ GHSA-492v-c6pp-mqqv
 GHSA-267c-6grr-h53f
 GHSA-36qx-fr4f-26g5
 
-# axios via apps__frontend>axios - tracked until frontend dependency upgrade is planned.
-GHSA-pmwg-cvhr-8vh7
-GHSA-pf86-5x62-jrwf
-GHSA-6chq-wfr3-2hj9
-GHSA-q8qp-cvcw-x6jj
-
 # fast-uri via apps__frontend>@sentry/nextjs transitive webpack toolchain path.
 GHSA-q3j6-qgpj-74h6
 GHSA-v39h-62p7-jpjc

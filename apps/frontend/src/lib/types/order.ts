@@ -31,6 +31,7 @@ export interface PaginatedPaymentsResponse {
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: '결제 대기',
+  AWAITING_DEPOSIT: '입금 대기',
   COMPLETED: '결제 완료',
   FAILED: '결제 실패',
   REFUNDED: '환불됨',
@@ -38,20 +39,22 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
 
 export const PAYMENT_STATUS_COLOR: Record<PaymentStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
+  AWAITING_DEPOSIT: 'bg-blue-100 text-blue-700',
   COMPLETED: 'bg-green-100 text-green-700',
   FAILED: 'bg-red-100 text-red-600',
   REFUNDED: 'bg-gray-100 text-gray-600',
 };
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  stripe: '신용카드',
+  kcpeasypay: '신용카드',
+  'kcpeasypay-vbank': '가상계좌',
   kakaopay: '카카오페이',
   naverpay: '네이버페이',
 };
 
 export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
-export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
-export type PaymentMethod = 'kakaopay' | 'naverpay' | 'stripe';
+export type PaymentStatus = 'PENDING' | 'AWAITING_DEPOSIT' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+export type PaymentMethod = 'kakaopay' | 'naverpay' | 'kcpeasypay' | 'kcpeasypay-vbank';
 
 export interface Payment {
   id: string;
@@ -61,6 +64,9 @@ export interface Payment {
   paymentMethod: string;
   paymentKey: string | null;
   paidAt: string | null;
+  virtualAccountNumber: string | null;
+  virtualBankName: string | null;
+  virtualAccountExpiry: string | null;
   createdAt: string;
   updatedAt: string;
 }

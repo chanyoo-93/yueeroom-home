@@ -5,21 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useOrderDetail } from '@/lib/hooks/useOrders';
 import { formatPrice } from '@/lib/utils/format';
-import { type PaymentStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR } from '@/lib/types/order';
+import {
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_COLOR,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_STATUS_LABEL,
+} from '@/lib/types/order';
 import OrderStatusStepper from './OrderStatusStepper';
-
-const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
-  PENDING: '결제 대기',
-  COMPLETED: '결제 완료',
-  FAILED: '결제 실패',
-  REFUNDED: '환불됨',
-};
-
-const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  kakaopay: '카카오페이',
-  naverpay: '네이버페이',
-  card: '신용/체크카드',
-};
 
 export default function OrderDetail() {
   const pathname = usePathname();
