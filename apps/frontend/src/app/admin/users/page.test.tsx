@@ -154,10 +154,7 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '승인' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockApproveMutate).toHaveBeenCalledWith(
-      'u1',
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
+    expect(mockApproveMutate).toHaveBeenCalledWith('u1');
   });
 
   it('거절 버튼 클릭 시 확인 다이얼로그가 표시된다', async () => {
@@ -188,10 +185,7 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '거절' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockRejectMutate).toHaveBeenCalledWith(
-      'u1',
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
+    expect(mockRejectMutate).toHaveBeenCalledWith('u1');
   });
 
   it('다이얼로그에서 취소를 누르면 API가 호출되지 않는다', async () => {
@@ -282,10 +276,7 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '정지' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockSuspendMutate).toHaveBeenCalledWith(
-      'u1',
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
+    expect(mockSuspendMutate).toHaveBeenCalledWith('u1');
   });
 
   it('복구 버튼 클릭 시 확인 다이얼로그가 표시된다', async () => {
@@ -316,9 +307,6 @@ describe('AdminUsersPage', () => {
     await user.click(screen.getByRole('button', { name: '복구' }));
     await user.click(screen.getByRole('button', { name: '확인' }));
 
-    expect(mockRestoreMutate).toHaveBeenCalledWith(
-      'u1',
-      expect.objectContaining({ onSuccess: expect.any(Function) }),
-    );
+    expect(mockRestoreMutate).toHaveBeenCalledWith('u1');
   });
 });

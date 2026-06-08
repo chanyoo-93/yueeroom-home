@@ -60,8 +60,10 @@ export default function AdminUsersPage() {
 
   function handleConfirm() {
     if (!dialog.user || !dialog.action) return;
+    const { user, action } = dialog;
+    closeDialog();
     const mutateFnMap = { approve, reject, suspend, restore };
-    mutateFnMap[dialog.action](dialog.user.id, { onSuccess: closeDialog });
+    mutateFnMap[action](user.id);
   }
 
   const isMutating = isApproving || isRejecting || isSuspending || isRestoring;
