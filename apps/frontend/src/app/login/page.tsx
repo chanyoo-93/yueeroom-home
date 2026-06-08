@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -114,6 +115,13 @@ export default function LoginPage() {
             로그인
           </button>
         </form>
+
+        <p className="text-center text-sm text-gray-500">
+          계정이 없으신가요?{' '}
+          <Link href="/register" className="text-blue-600 hover:underline">
+            회원가입
+          </Link>
+        </p>
 
         <div className="space-y-2">
           <button
