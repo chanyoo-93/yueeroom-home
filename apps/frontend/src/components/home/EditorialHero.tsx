@@ -39,7 +39,7 @@ export default function EditorialHero() {
           <p className="mb-1 text-[10px] font-medium uppercase tracking-widest opacity-85">
             New Collection
           </p>
-          <h1 className="mb-3 text-2xl font-bold">유이룸</h1>
+          <p className="mb-3 text-2xl font-bold">유이룸</p>
           <Link
             href="/products"
             className="inline-block rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
