@@ -4,10 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useNewArrivals } from '@/lib/hooks/useNewArrivals';
-
-function formatPrice(price: number): string {
-  return new Intl.NumberFormat('ko-KR').format(price) + '원';
-}
+import { formatPrice } from '@/lib/utils/format';
 
 function SkeletonCard() {
   return (
