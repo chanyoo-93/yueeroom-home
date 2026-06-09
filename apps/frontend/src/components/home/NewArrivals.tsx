@@ -89,6 +89,7 @@ export default function NewArrivals() {
           {hasMore && (
             <div className="mt-6 text-center">
               <button
+                type="button"
                 onClick={() => setVisibleCount((c) => c + 30)}
                 className="rounded border border-gray-300 px-10 py-2.5 text-sm font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900"
               >

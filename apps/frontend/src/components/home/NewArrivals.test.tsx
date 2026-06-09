@@ -33,7 +33,7 @@ function mockProduct(id: string, name: string, basePrice: number, brandName?: st
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     category: { id: 'cat1', name: '상의', slug: 'top' },
-    brand: brandName ? { id: 'b1', name: brandName, slug: 'brand' } : undefined,
+    brand: brandName ? { id: 'b1', name: brandName } : undefined,
     images: [],
   };
 }
