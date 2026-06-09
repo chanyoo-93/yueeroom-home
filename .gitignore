@@ -154,3 +154,5 @@ tfplan
 .stylelintcache
 *.tgz
 *.tar.gz
+.superpowers/
+/references
