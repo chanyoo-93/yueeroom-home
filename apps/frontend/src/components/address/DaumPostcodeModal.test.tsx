@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DaumPostcodeModal from './DaumPostcodeModal';
+
+let testData = { zonecode: '06236', roadAddress: '서울 강남구 테헤란로 152', jibunAddress: '' };
 
 vi.mock('react-daum-postcode', () => ({
   default: ({
@@ -9,16 +11,15 @@ vi.mock('react-daum-postcode', () => ({
   }: {
     onComplete: (data: { zonecode: string; roadAddress: string; jibunAddress: string }) => void;
   }) => (
-    <button
-      data-testid="daum-widget"
-      onClick={() =>
-        onComplete({ zonecode: '06236', roadAddress: '서울 강남구 테헤란로 152', jibunAddress: '' })
-      }
-    >
+    <button data-testid="daum-widget" onClick={() => onComplete(testData)}>
       주소 선택
     </button>
   ),
 }));
+
+beforeEach(() => {
+  testData = { zonecode: '06236', roadAddress: '서울 강남구 테헤란로 152', jibunAddress: '' };
+});
 
 describe('DaumPostcodeModal', () => {
   it('isOpen=false 이면 렌더되지 않는다', () => {
@@ -57,5 +58,13 @@ describe('DaumPostcodeModal', () => {
     render(<DaumPostcodeModal isOpen={true} onComplete={vi.fn()} onClose={onClose} />);
     await userEvent.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('roadAddress가 없으면 jibunAddress를 address1로 전달한다', async () => {
+    testData = { zonecode: '12345', roadAddress: '', jibunAddress: '서울 강남구 테헤란동 1' };
+    const onComplete = vi.fn();
+    render(<DaumPostcodeModal isOpen={true} onComplete={onComplete} onClose={vi.fn()} />);
+    await userEvent.click(screen.getByTestId('daum-widget'));
+    expect(onComplete).toHaveBeenCalledWith('12345', '서울 강남구 테헤란동 1');
   });
 });
