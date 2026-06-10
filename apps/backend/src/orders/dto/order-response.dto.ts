@@ -116,8 +116,8 @@ export class OrderResponseDto {
   @ApiProperty()
   userId!: string;
 
-  @ApiProperty()
-  addressId!: string;
+  @ApiPropertyOptional({ nullable: true })
+  addressId!: string | null;
 
   @ApiProperty({ enum: OrderStatus })
   status!: OrderStatus;

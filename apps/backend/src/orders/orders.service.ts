@@ -26,7 +26,7 @@ export class OrdersService {
       throw new NotFoundException('배송지를 찾을 수 없습니다.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       // dto.items에서 동일 variantId 합산 — 중복 항목 선처리
       const itemMap = new Map<string, number>();
       for (const item of dto.items) {
@@ -84,6 +84,7 @@ export class OrdersService {
         },
       });
     });
+    return this.toOrderResponse(order);
   }
 
   async getOrder(userId: string, orderId: string): Promise<OrderResponseDto> {
@@ -294,9 +295,14 @@ export class OrdersService {
     await this.paymentGatewayService.refund(payment, amount, reason);
   }
 
-  private toOrderResponse(order: OrderResponseDto & { payment?: unknown }): OrderResponseDto {
-    const { payment, ...response } = order;
+  private toOrderResponse(
+    order: Omit<OrderResponseDto, 'address'> & {
+      address?: OrderResponseDto['address'] | null;
+      payment?: unknown;
+    },
+  ): OrderResponseDto {
+    const { payment, address, ...rest } = order;
     void payment;
-    return response;
+    return { ...rest, address: address ?? undefined };
   }
 }

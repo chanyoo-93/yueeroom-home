@@ -215,7 +215,7 @@ model Inventory {
 model Order {
   id             String      @id @default(cuid())
   userId         String
-  addressId      String
+  addressId      String?
   status         OrderStatus @default(PENDING)
   totalAmount    Int
   shippingFee    Int         @default(0)
@@ -225,7 +225,7 @@ model Order {
   updatedAt      DateTime    @updatedAt
 
   user    User        @relation(fields: [userId], references: [id])
-  address Address     @relation(fields: [addressId], references: [id])
+  address Address?    @relation(fields: [addressId], references: [id], onDelete: SetNull)
   items   OrderItem[]
   payment Payment?
   refunds Refund[]
