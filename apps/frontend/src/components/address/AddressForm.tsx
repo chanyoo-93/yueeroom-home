@@ -39,6 +39,13 @@ export default function AddressForm({ onSubmit, onCancel }: Props) {
     address2Ref.current?.focus();
   };
 
+  const handleCancel = () => {
+    onCancel();
+    reset();
+    setZipCode('');
+    setAddress1('');
+  };
+
   const handleFormSubmit = async (data: FormValues) => {
     if (!zipCode) {
       setAddressError('주소 검색을 먼저 진행해주세요.');
@@ -184,12 +191,7 @@ export default function AddressForm({ onSubmit, onCancel }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => {
-              onCancel();
-              reset();
-              setZipCode('');
-              setAddress1('');
-            }}
+            onClick={handleCancel}
             className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600"
           >
             취소

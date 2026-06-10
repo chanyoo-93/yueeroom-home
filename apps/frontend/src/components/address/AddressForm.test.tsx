@@ -74,4 +74,25 @@ describe('AddressForm', () => {
     await userEvent.click(screen.getByRole('button', { name: '취소' }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
+
+  it('상세주소 없이 제출해도 onSubmit 호출됨 (address2 선택사항)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<AddressForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: '주소 검색' }));
+    await userEvent.click(screen.getByTestId('postcode-complete'));
+    await userEvent.type(screen.getByLabelText('배송지명'), '집');
+    await userEvent.type(screen.getByLabelText('수령인'), '홍길동');
+    await userEvent.type(screen.getByLabelText('연락처'), '010-1234-5678');
+    await userEvent.click(screen.getByRole('button', { name: '추가' }));
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: '집',
+        recipient: '홍길동',
+        phone: '010-1234-5678',
+        zipCode: '06236',
+        address1: '서울 강남구 테헤란로 152',
+        address2: undefined,
+      });
+    });
+  });
 });
