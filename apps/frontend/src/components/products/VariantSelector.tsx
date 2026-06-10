@@ -59,16 +59,18 @@ export default function VariantSelector({
               return (
                 <button
                   key={color}
-                  onClick={() => exists && onColorChange(color)}
-                  disabled={!exists}
+                  onClick={() => onColorChange(color)}
+                  disabled={!exists || !inStock}
                   aria-label={color}
                   aria-pressed={selected}
                   className={`relative rounded-lg border px-4 py-2 text-sm transition-colors ${
                     selected
                       ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
-                      : exists
-                        ? 'border-gray-200 text-gray-700 hover:border-indigo-400'
-                        : 'cursor-not-allowed border-gray-100 text-gray-300'
+                      : !exists
+                        ? 'cursor-not-allowed border-gray-100 text-gray-300'
+                        : !inStock
+                          ? 'cursor-not-allowed border-gray-200 text-gray-400'
+                          : 'border-gray-200 text-gray-700 hover:border-indigo-400'
                   }`}
                 >
                   {color}
@@ -95,16 +97,18 @@ export default function VariantSelector({
               return (
                 <button
                   key={size}
-                  onClick={() => exists && onSizeChange(size)}
-                  disabled={!exists}
+                  onClick={() => onSizeChange(size)}
+                  disabled={!exists || !inStock}
                   aria-label={`사이즈 ${size}`}
                   aria-pressed={selected}
                   className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
                     selected
                       ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-700'
-                      : exists
-                        ? 'border-gray-200 text-gray-700 hover:border-indigo-400'
-                        : 'cursor-not-allowed border-gray-100 text-gray-300'
+                      : !exists
+                        ? 'cursor-not-allowed border-gray-100 text-gray-300'
+                        : !inStock
+                          ? 'cursor-not-allowed border-gray-200 text-gray-400'
+                          : 'border-gray-200 text-gray-700 hover:border-indigo-400'
                   }`}
                 >
                   {size}

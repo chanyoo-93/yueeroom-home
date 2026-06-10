@@ -208,7 +208,6 @@ export default function ProductDetailContent() {
                   +
                 </button>
               </div>
-              <p className="text-xs text-gray-400">재고 {selectedVariantStock}개</p>
             </div>
           )}
 
