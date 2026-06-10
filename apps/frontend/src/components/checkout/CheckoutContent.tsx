@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import KcpPaymentButton from '@/components/payments/KcpPaymentButton';
 import NaverPayButton from '@/components/payments/NaverPayButton';
 import VirtualAccountInfo from '@/components/payments/VirtualAccountInfo';
+import AddressForm from '@/components/address/AddressForm';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
+import { addAddress } from '@/lib/api/users';
+import { queryKeys } from '@/lib/api/query-keys';
 import { formatPrice } from '@/lib/utils/format';
 import type { Order, PaymentMethod } from '@/lib/types/order';
+import type { CreateAddressDto } from '@/lib/types/user';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'kakaopay', label: '카카오페이' },
@@ -27,12 +32,14 @@ export default function CheckoutContent() {
 
   const effectiveItems = buyNow ? [buyNow] : items;
 
+  const queryClient = useQueryClient();
   const { data: addresses, isLoading: isAddressLoading } = useAddresses();
   const createOrderMutation = useCreateOrder();
 
   const defaultAddress = addresses?.find((a) => a.isDefault) ?? addresses?.[0];
   const [selectedAddressId, setSelectedAddressId] = useState<string | undefined>(undefined);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('kakaopay');
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [completedOrderId, setCompletedOrderId] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
@@ -96,6 +103,13 @@ export default function CheckoutContent() {
       </div>
     );
   }
+
+  const handleAddAddress = async (dto: CreateAddressDto) => {
+    const newAddress = await addAddress(dto);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.users.addresses });
+    setSelectedAddressId(newAddress.id);
+    setIsAddingAddress(false);
+  };
 
   const handleSubmit = async () => {
     if (!resolvedAddressId) {
@@ -192,58 +206,81 @@ export default function CheckoutContent() {
                 <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100" />
               ))}
             </div>
-          ) : !addresses || addresses.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
-              등록된 배송지가 없습니다.{' '}
-              <Link href="/my-page" className="text-indigo-600 hover:underline">
-                마이페이지에서 추가
-              </Link>
-              하세요.
-            </div>
           ) : (
-            <ul className="space-y-2">
-              {addresses.map((address) => {
-                const isSelected = resolvedAddressId === address.id;
-                return (
-                  <li key={address.id}>
-                    <label
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
-                        isSelected
-                          ? 'border-indigo-400 bg-indigo-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="address"
-                        value={address.id}
-                        checked={isSelected}
-                        onChange={() => setSelectedAddressId(address.id)}
-                        className="mt-0.5"
-                        aria-label={`${address.name} 선택`}
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">{address.name}</span>
-                          {address.isDefault && (
-                            <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
-                              기본
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs text-gray-600">
-                          {address.recipient} · {address.phone}
-                        </p>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {address.zipCode} {address.address1}
-                          {address.address2 ? ` ${address.address2}` : ''}
-                        </p>
-                      </div>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              {!addresses || addresses.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
+                  등록된 배송지가 없습니다.{' '}
+                  <Link href="/my-page" className="text-indigo-600 hover:underline">
+                    마이페이지에서 추가
+                  </Link>
+                  하세요.
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {addresses.map((address) => {
+                    const isSelected = resolvedAddressId === address.id;
+                    return (
+                      <li key={address.id}>
+                        <label
+                          className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
+                            isSelected
+                              ? 'border-indigo-400 bg-indigo-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="address"
+                            value={address.id}
+                            checked={isSelected}
+                            onChange={() => setSelectedAddressId(address.id)}
+                            className="mt-0.5"
+                            aria-label={`${address.name} 선택`}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {address.name}
+                              </span>
+                              {address.isDefault && (
+                                <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
+                                  기본
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {address.recipient} · {address.phone}
+                            </p>
+                            <p className="mt-0.5 text-xs text-gray-400">
+                              {address.zipCode} {address.address1}
+                              {address.address2 ? ` ${address.address2}` : ''}
+                            </p>
+                          </div>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {isAddingAddress ? (
+                <div className="mt-3">
+                  <AddressForm
+                    onSubmit={handleAddAddress}
+                    onCancel={() => setIsAddingAddress(false)}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingAddress(true)}
+                  className="mt-3 flex items-center gap-1 text-sm text-indigo-600 hover:underline"
+                >
+                  새 배송지 추가
+                </button>
+              )}
+            </>
           )}
         </section>
 

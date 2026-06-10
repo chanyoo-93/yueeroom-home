@@ -73,10 +73,52 @@ vi.mock('@/components/payments/NaverPayButton', () => ({
   ),
 }));
 
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  type ReactQuery = typeof import('@tanstack/react-query');
+  const actual = await importOriginal<ReactQuery>();
+  return {
+    ...actual,
+    useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  };
+});
+
+vi.mock('@/lib/api/users', () => ({
+  addAddress: vi.fn(),
+}));
+
+vi.mock('@/components/address/AddressForm', () => ({
+  default: ({
+    onSubmit,
+    onCancel,
+  }: {
+    onSubmit: (dto: unknown) => Promise<void>;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="address-form">
+      <button
+        onClick={() =>
+          onSubmit({
+            name: '새집',
+            recipient: '홍길동',
+            phone: '010-0000-0000',
+            zipCode: '06236',
+            address1: '서울 강남구 테헤란로 152',
+          })
+        }
+      >
+        새 주소 제출
+      </button>
+      <button onClick={onCancel}>새 주소 취소</button>
+    </div>
+  ),
+}));
+
 import CheckoutContent from './CheckoutContent';
 import { useCartStore } from '@/lib/stores/cart';
 import { useAddresses } from '@/lib/hooks/useAddresses';
 import { useCreateOrder } from '@/lib/hooks/useOrders';
+import { addAddress } from '@/lib/api/users';
 import type { LocalCartItem } from '@/lib/stores/cart';
 import type { Address } from '@/lib/types/user';
 
@@ -252,6 +294,65 @@ describe('CheckoutContent', () => {
       const companyRadio = screen.getByRole('radio', { name: '회사 선택' });
       await userEvent.click(companyRadio);
       expect(companyRadio).toBeChecked();
+    });
+
+    it('"새 배송지 추가" 버튼이 배송지 목록이 있을 때 노출된다', () => {
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [mockAddress()],
+        isLoading: false,
+      });
+      render(<CheckoutContent />);
+      expect(screen.getByRole('button', { name: '새 배송지 추가' })).toBeInTheDocument();
+    });
+
+    it('"새 배송지 추가" 버튼이 배송지가 없을 때도 노출된다', () => {
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [],
+        isLoading: false,
+      });
+      render(<CheckoutContent />);
+      expect(screen.getByRole('button', { name: '새 배송지 추가' })).toBeInTheDocument();
+    });
+
+    it('"새 배송지 추가" 클릭 시 AddressForm이 노출된다', async () => {
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [],
+        isLoading: false,
+      });
+      render(<CheckoutContent />);
+      await userEvent.click(screen.getByRole('button', { name: '새 배송지 추가' }));
+      expect(screen.getByTestId('address-form')).toBeInTheDocument();
+    });
+
+    it('새 배송지 추가 완료 시 addAddress API 호출 후 폼 닫힘', async () => {
+      const newAddress: Address = {
+        id: 'addr-new',
+        name: '새집',
+        recipient: '홍길동',
+        phone: '010-0000-0000',
+        zipCode: '06236',
+        address1: '서울 강남구 테헤란로 152',
+        address2: null,
+        isDefault: false,
+        userId: 'user-1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const addAddressMock = vi.fn().mockResolvedValue(newAddress);
+      (addAddress as ReturnType<typeof vi.fn>).mockImplementation(addAddressMock);
+      setMockItems([mockCartItem()]);
+      (useAddresses as ReturnType<typeof vi.fn>).mockReturnValue({
+        data: [],
+        isLoading: false,
+      });
+      render(<CheckoutContent />);
+      await userEvent.click(screen.getByRole('button', { name: '새 배송지 추가' }));
+      await userEvent.click(screen.getByRole('button', { name: '새 주소 제출' }));
+      expect(addAddressMock).toHaveBeenCalledOnce();
+      expect(screen.queryByTestId('address-form')).not.toBeInTheDocument();
     });
   });
 
