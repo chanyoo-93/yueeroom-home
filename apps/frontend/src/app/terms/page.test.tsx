@@ -12,7 +12,7 @@ describe('TermsPage', () => {
     render(<TermsPage />);
     expect(screen.getByRole('heading', { name: /제1조.*목적/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /제2조.*정의/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /제4조.*구매/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /제9조.*구매/ })).toBeInTheDocument();
   });
 
   it('개인정보 처리방침 링크가 포함된다', () => {
