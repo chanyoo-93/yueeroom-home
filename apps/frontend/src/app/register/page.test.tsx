@@ -20,14 +20,27 @@ describe('RegisterPage', () => {
     vi.clearAllMocks();
   });
 
-  it('이름/이메일/비밀번호/비밀번호 확인 필드와 개인정보 동의 체크박스, 제출 버튼이 렌더링된다', () => {
+  it('이름/이메일/비밀번호/비밀번호 확인 필드와 두 개의 동의 체크박스, 제출 버튼이 렌더링된다', () => {
     render(<RegisterPage />);
     expect(screen.getByLabelText('이름')).toBeInTheDocument();
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호 확인')).toBeInTheDocument();
-    expect(screen.getByLabelText(/개인정보 수집·이용/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/이용약관에 동의합니다/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/개인정보 처리방침에 동의합니다/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '가입 신청' })).toBeInTheDocument();
+  });
+
+  it('이용약관 보기 링크가 /terms를 가리킨다', () => {
+    render(<RegisterPage />);
+    const link = screen.getByRole('link', { name: '이용약관 보기' });
+    expect(link).toHaveAttribute('href', '/terms');
+  });
+
+  it('처리방침 보기 링크가 /privacy를 가리킨다', () => {
+    render(<RegisterPage />);
+    const link = screen.getByRole('link', { name: '처리방침 보기' });
+    expect(link).toHaveAttribute('href', '/privacy');
   });
 
   it('빈 폼 제출 시 필수 입력 오류 메시지를 표시한다', async () => {
@@ -40,10 +53,11 @@ describe('RegisterPage', () => {
     expect(screen.getByText('이메일을 입력해주세요.')).toBeInTheDocument();
     expect(screen.getByText('비밀번호를 입력해주세요.')).toBeInTheDocument();
     expect(screen.getByText('비밀번호 확인을 입력해주세요.')).toBeInTheDocument();
-    expect(screen.getByText('개인정보 수집·이용에 동의해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('이용약관에 동의해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('개인정보 처리방침에 동의해주세요.')).toBeInTheDocument();
   });
 
-  it('개인정보 동의 없이 제출하면 오류 메시지를 표시한다', async () => {
+  it('이용약관 미동의 시 오류 메시지를 표시한다', async () => {
     const user = userEvent.setup();
     render(<RegisterPage />);
 
@@ -51,9 +65,24 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByLabelText(/개인정보 처리방침에 동의합니다/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
-    expect(await screen.findByText('개인정보 수집·이용에 동의해주세요.')).toBeInTheDocument();
+    expect(await screen.findByText('이용약관에 동의해주세요.')).toBeInTheDocument();
+  });
+
+  it('개인정보 처리방침 미동의 시 오류 메시지를 표시한다', async () => {
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText('이름'), '홍길동');
+    await user.type(screen.getByLabelText('이메일'), 'test@example.com');
+    await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
+    await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
+    await user.click(screen.getByLabelText(/이용약관에 동의합니다/));
+    await user.click(screen.getByRole('button', { name: '가입 신청' }));
+
+    expect(await screen.findByText('개인정보 처리방침에 동의해주세요.')).toBeInTheDocument();
   });
 
   it('이름이 2자 미만이면 오류 메시지를 표시한다', async () => {
@@ -97,7 +126,7 @@ describe('RegisterPage', () => {
     expect(await screen.findByText('비밀번호가 일치하지 않습니다.')).toBeInTheDocument();
   });
 
-  it('유효한 입력 제출 시 가입 신청 API를 호출한다', async () => {
+  it('유효한 입력 제출 시 termsAgreed: true로 가입 신청 API를 호출한다', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.post).mockResolvedValueOnce({
       data: { message: '가입 신청이 완료되었습니다.' },
@@ -108,7 +137,8 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
-    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
+    await user.click(screen.getByLabelText(/이용약관에 동의합니다/));
+    await user.click(screen.getByLabelText(/개인정보 처리방침에 동의합니다/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
@@ -132,7 +162,8 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'test@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
-    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
+    await user.click(screen.getByLabelText(/이용약관에 동의합니다/));
+    await user.click(screen.getByLabelText(/개인정보 처리방침에 동의합니다/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     await waitFor(() => {
@@ -140,7 +171,7 @@ describe('RegisterPage', () => {
     });
   });
 
-  it('중복 이메일(409) 시 서버 오류 메시지를 표시한다', async () => {
+  it('중복 이메일(409) 시 이메일 오류 메시지를 표시한다', async () => {
     const user = userEvent.setup();
     vi.mocked(apiClient.post).mockRejectedValueOnce({
       response: { status: 409 },
@@ -152,7 +183,8 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('이메일'), 'duplicate@example.com');
     await user.type(screen.getByLabelText('비밀번호'), 'Password1!');
     await user.type(screen.getByLabelText('비밀번호 확인'), 'Password1!');
-    await user.click(screen.getByLabelText(/개인정보 수집·이용/));
+    await user.click(screen.getByLabelText(/이용약관에 동의합니다/));
+    await user.click(screen.getByLabelText(/개인정보 처리방침에 동의합니다/));
     await user.click(screen.getByRole('button', { name: '가입 신청' }));
 
     expect(await screen.findByText('이미 사용 중인 이메일입니다.')).toBeInTheDocument();
