@@ -24,6 +24,7 @@ import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { MfaVerifyDto } from './dto/mfa.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SocialKakaoAuthGuard, SocialNaverAuthGuard } from './guards/social-auth.guard';
 
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15분
 const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일
@@ -131,7 +132,7 @@ export class AuthController {
 
   @Public()
   @Get('naver/callback')
-  @UseGuards(AuthGuard('naver'))
+  @UseGuards(SocialNaverAuthGuard)
   @ApiOperation({ summary: '네이버 OAuth 콜백' })
   async naverCallback(@Req() req: Request & { user: User }, @Res() res: Response): Promise<void> {
     await this.setSocialLoginCookiesAndRedirect(req.user, res);
@@ -147,7 +148,7 @@ export class AuthController {
 
   @Public()
   @Get('kakao/callback')
-  @UseGuards(AuthGuard('kakao'))
+  @UseGuards(SocialKakaoAuthGuard)
   @ApiOperation({ summary: '카카오 OAuth 콜백' })
   async kakaoCallback(@Req() req: Request & { user: User }, @Res() res: Response): Promise<void> {
     await this.setSocialLoginCookiesAndRedirect(req.user, res);

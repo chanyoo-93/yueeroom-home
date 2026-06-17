@@ -6,6 +6,7 @@ import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SocialKakaoAuthGuard, SocialNaverAuthGuard } from './guards/social-auth.guard';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
 const GUARDS_METADATA_KEY = '__guards__';
@@ -39,7 +40,9 @@ function makeContext(user: JwtPayload): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-function getMethodGuards(methodName: 'setupMfa' | 'verifyMfa'): unknown[] {
+function getMethodGuards(
+  methodName: 'setupMfa' | 'verifyMfa' | 'naverCallback' | 'kakaoCallback',
+): unknown[] {
   return Reflect.getMetadata(GUARDS_METADATA_KEY, AuthController.prototype[methodName]) ?? [];
 }
 
@@ -251,6 +254,16 @@ describe('AuthController', () => {
         expect(getPublicMetadata(methodName)).toBeUndefined();
       },
     );
+  });
+
+  describe('소셜 OAuth Guard 설정', () => {
+    it('네이버 콜백은 소셜 실패 리다이렉트 Guard를 사용한다', () => {
+      expect(getMethodGuards('naverCallback')).toContain(SocialNaverAuthGuard);
+    });
+
+    it('카카오 콜백은 소셜 실패 리다이렉트 Guard를 사용한다', () => {
+      expect(getMethodGuards('kakaoCallback')).toContain(SocialKakaoAuthGuard);
+    });
   });
 
   describe('naverCallback', () => {
