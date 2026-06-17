@@ -3,9 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockPush = vi.fn();
+const mockSearchParams = vi.hoisted(() => new URLSearchParams());
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock('@/lib/api/client', () => ({
@@ -32,6 +34,7 @@ import { mergeCart } from '@/lib/api/cart';
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.forEach((_, key) => mockSearchParams.delete(key));
     // 기본값: 로컬 장바구니 비어 있음
     mockGetState.mockReturnValue({ items: [], clearCart: mockClearCart });
   });
@@ -47,6 +50,19 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     expect(screen.getByRole('button', { name: /네이버/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /카카오/ })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['social', '소셜 로그인 중 오류가 발생했습니다. 다시 시도해주세요.'],
+    ['rejected', '가입이 거절된 계정입니다.'],
+    ['suspended', '정지된 계정입니다.'],
+    ['email_conflict', '이미 다른 방식으로 가입된 이메일입니다. 이메일 로그인으로 접속해주세요.'],
+  ] as const)('error=%s 쿼리가 있으면 안내 메시지를 표시한다', (errorCode, message) => {
+    mockSearchParams.set('error', errorCode);
+
+    render(<LoginPage />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
   });
 
   it('잘못된 이메일 형식 입력 시 형식 오류 메시지를 표시한다', async () => {

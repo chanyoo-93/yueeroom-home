@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { apiClient } from '@/lib/api/client';
 import { mergeCart } from '@/lib/api/cart';
@@ -17,6 +17,18 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const socialError = searchParams.get('error');
+  const socialErrorMessage =
+    socialError === 'social'
+      ? '소셜 로그인 중 오류가 발생했습니다. 다시 시도해주세요.'
+      : socialError === 'rejected'
+        ? '가입이 거절된 계정입니다.'
+        : socialError === 'suspended'
+          ? '정지된 계정입니다.'
+          : socialError === 'email_conflict'
+            ? '이미 다른 방식으로 가입된 이메일입니다. 이메일 로그인으로 접속해주세요.'
+            : null;
   const {
     register,
     handleSubmit,
@@ -61,6 +73,12 @@ export default function LoginPage() {
         <h1 className="text-center text-2xl font-bold">로그인</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          {socialErrorMessage && (
+            <p role="alert" className="text-sm text-red-600">
+              {socialErrorMessage}
+            </p>
+          )}
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium">
               이메일
