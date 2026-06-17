@@ -294,6 +294,26 @@ describe('AuthService', () => {
       expect(mockPrisma.user.create).not.toHaveBeenCalled();
       expect(result).toEqual(mockApprovedUser);
     });
+
+    it('같은 이메일의 다른 provider 계정이 있으면 ConflictException을 던진다', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        ...mockApprovedUser,
+        provider: AuthProvider.LOCAL,
+        providerId: null,
+        email: 'same@test.com',
+      });
+
+      await expect(
+        service.findOrCreateSocialUser({
+          provider: 'KAKAO',
+          providerId: 'kakao-999',
+          email: 'same@test.com',
+          name: '카카오유저',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('issuePendingSession', () => {

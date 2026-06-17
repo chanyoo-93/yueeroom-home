@@ -200,6 +200,11 @@ export class AuthService {
     });
     if (existing) return existing;
 
+    const emailOwner = await this.prisma.user.findUnique({ where: { email: data.email } });
+    if (emailOwner) {
+      throw new ConflictException('이미 다른 방식으로 가입된 이메일입니다.');
+    }
+
     return this.prisma.user.create({
       data: {
         email: data.email,
