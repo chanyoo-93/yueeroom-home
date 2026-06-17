@@ -154,9 +154,28 @@ export class AuthController {
   }
 
   private async setSocialLoginCookiesAndRedirect(user: User, res: Response): Promise<void> {
-    const { accessToken, refreshToken } = await this.authService.login(user);
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
 
+    if (user.status === UserStatus.PENDING) {
+      const { accessToken, refreshToken } = await this.authService.issuePendingSession(user);
+      res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
+      res.cookie('refresh_token', refreshToken, makeCookieOptions(REFRESH_TOKEN_MAX_AGE));
+      this.logger.log(`소셜 가입 승인 대기: userId=${user.id}`);
+      res.redirect(`${frontendUrl}/pending`);
+      return;
+    }
+
+    if (user.status === UserStatus.REJECTED) {
+      res.redirect(`${frontendUrl}/login?error=rejected`);
+      return;
+    }
+
+    if (user.status === UserStatus.SUSPENDED) {
+      res.redirect(`${frontendUrl}/login?error=suspended`);
+      return;
+    }
+
+    const { accessToken, refreshToken } = await this.authService.login(user);
     res.cookie('access_token', accessToken, makeCookieOptions(ACCESS_TOKEN_MAX_AGE));
     res.cookie('refresh_token', refreshToken, makeCookieOptions(REFRESH_TOKEN_MAX_AGE));
 

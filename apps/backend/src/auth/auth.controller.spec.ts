@@ -17,6 +17,7 @@ const mockAuthService = {
   logout: jest.fn(),
   forgotPassword: jest.fn(),
   resetPassword: jest.fn(),
+  issuePendingSession: jest.fn(),
   setupMfa: jest.fn(),
   verifyMfa: jest.fn(),
 };
@@ -278,6 +279,35 @@ describe('AuthController', () => {
       const redirectArg = (res.redirect as jest.Mock).mock.calls[0][0] as string;
       expect(redirectArg).not.toContain('token=');
     });
+
+    it('PENDING 소셜 사용자는 pending 쿠키를 설정하고 /pending으로 리다이렉트한다', async () => {
+      const fakeUser = {
+        id: 'pending-1',
+        email: 'pending@test.com',
+        status: UserStatus.PENDING,
+      } as never;
+      mockAuthService.issuePendingSession.mockResolvedValue({
+        accessToken: 'pending.acc',
+        refreshToken: 'pending.ref',
+      });
+      const res = makeResponse();
+
+      await controller.naverCallback({ user: fakeUser } as never, res);
+
+      expect(mockAuthService.login).not.toHaveBeenCalled();
+      expect(mockAuthService.issuePendingSession).toHaveBeenCalledWith(fakeUser);
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        'pending.acc',
+        expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/' }),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        'refresh_token',
+        'pending.ref',
+        expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/' }),
+      );
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/pending');
+    });
   });
 
   describe('kakaoCallback', () => {
@@ -303,6 +333,24 @@ describe('AuthController', () => {
       );
       const redirectArg = (res.redirect as jest.Mock).mock.calls[0][0] as string;
       expect(redirectArg).not.toContain('token=');
+    });
+
+    it.each([
+      [UserStatus.REJECTED, 'rejected'],
+      [UserStatus.SUSPENDED, 'suspended'],
+    ] as const)('%s 소셜 사용자는 로그인 오류로 리다이렉트한다', async (status, errorCode) => {
+      const fakeUser = {
+        id: 'blocked-1',
+        email: 'blocked@test.com',
+        status,
+      } as never;
+      const res = makeResponse();
+
+      await controller.kakaoCallback({ user: fakeUser } as never, res);
+
+      expect(mockAuthService.login).not.toHaveBeenCalled();
+      expect(mockAuthService.issuePendingSession).not.toHaveBeenCalled();
+      expect(res.redirect).toHaveBeenCalledWith(`http://localhost:3000/login?error=${errorCode}`);
     });
   });
 });
