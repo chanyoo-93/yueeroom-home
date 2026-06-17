@@ -295,4 +295,49 @@ describe('AuthService', () => {
       expect(result).toEqual(mockApprovedUser);
     });
   });
+
+  describe('issuePendingSession', () => {
+    it('PENDING 사용자에게 pending 상태 토큰을 발급하고 Redis에 refresh token을 저장한다', async () => {
+      const pendingUser = {
+        ...mockPendingUser,
+        id: 'pending-social-1',
+        email: 'social@test.com',
+        status: UserStatus.PENDING,
+      };
+
+      mockJwtService.sign
+        .mockReturnValueOnce('pending-access-token')
+        .mockReturnValueOnce('pending-refresh-token');
+
+      const result = await service.issuePendingSession(pendingUser);
+
+      expect(mockJwtService.sign).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          sub: 'pending-social-1',
+          email: 'social@test.com',
+          status: UserStatus.PENDING,
+        }),
+        { expiresIn: '15m' },
+      );
+      expect(mockJwtService.sign).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          sub: 'pending-social-1',
+          email: 'social@test.com',
+          status: UserStatus.PENDING,
+        }),
+        { secret: 'test-secret', expiresIn: '7d' },
+      );
+      expect(mockRedisService.set).toHaveBeenCalledWith(
+        'refresh:pending-social-1',
+        'pending-refresh-token',
+        604800,
+      );
+      expect(result).toEqual({
+        accessToken: 'pending-access-token',
+        refreshToken: 'pending-refresh-token',
+      });
+    });
+  });
 });

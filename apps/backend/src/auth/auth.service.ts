@@ -165,6 +165,27 @@ export class AuthService {
     return { message: '로그아웃 되었습니다.' };
   }
 
+  async issuePendingSession(user: User): Promise<{ accessToken: string; refreshToken: string }> {
+    if (user.status !== UserStatus.PENDING) {
+      throw new BadRequestException('승인 대기 사용자가 아닙니다.');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: '7d',
+    });
+    await this.redisService.set(`refresh:${user.id}`, refreshToken, REFRESH_TOKEN_TTL_SECONDS);
+
+    return { accessToken, refreshToken };
+  }
+
   // ── Social Login ─────────────────────────────────────────────────────────────
 
   async findOrCreateSocialUser(data: {
